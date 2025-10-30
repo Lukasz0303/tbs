@@ -1,0 +1,69 @@
+---
+alwaysApply: true
+---
+# AI Rules for {{project-name}}
+
+World at War: Turn‑Based Strategy is a web application for competitive, turn‑based gameplay. Players face an AI bot with three difficulty levels or other players in real time via WebSocket, earning points and climbing a global ranking. The platform targets a high‑quality, responsive UI and stable production‑grade architecture using Angular 17 on the frontend and Spring Boot 3.x with PostgreSQL and Redis on the backend.
+
+## Frontend
+
+- Angular 17
+- TypeScript 5
+- SCSS
+- ESLint + Prettier
+- Angular Animations, PrimeNG
+- Jest + Angular Testing Library
+- Cypress
+
+### Backend
+
+- Java 21 + Spring Boot 3.x (monolith)
+- WebSocket (Spring WebSocket) for real‑time features
+- Security: Spring Security (JWT, OAuth2)
+- Database: PostgreSQL 15
+- DB migrations: Flyway
+- Cache/queues/sessions: Redis 7.x
+- Static analysis: SonarCloud
+- Monitoring/health/metrics: Spring Actuator (+ Prometheus metrics) + Grafana
+- Unit tests: JUnit 5 + Mockito
+- API documentation: Swagger/OpenAPI
+- Formatting: Checkstyle
+
+## Project Structure
+
+When introducing changes to the project, always follow the directory structure below:
+
+### Frontend project (this repository)
+
+- Location: `./frontend` (Angular project)
+- `./frontend/src` - source code
+- `./frontend/src/app` - main application module and features
+- `./frontend/src/app/components` - shared/presentational components
+- `./frontend/src/app/features` - feature modules and domain areas
+- `./frontend/src/app/services` - services and business logic
+- `./frontend/src/assets` - static assets
+- `./frontend/src/environments` - environment configurations
+- `./frontend/src/styles` - global styles (SCSS)
+
+### Backend project ( this repository)
+
+- Location: `./backend` (Gradle project)
+- `./backend/src/main/java` - application source code (Java)
+- `./backend/src/main/resources` - configuration, `application.properties`, migrations, etc.
+- `./backend/src/test/java` - unit/integration tests (JUnit 5, Mockito)
+
+When modifying the directory structure, always update this section.
+
+## Coding practices
+
+### Guidelines for clean code
+
+- Prioritize error handling and edge cases
+- Handle errors and edge cases at the beginning of functions.
+- Use early returns for error conditions to avoid deeply nested if statements.
+- Place the happy path last in the function for improved readability.
+- Avoid unnecessary else statements; use if-return pattern instead.
+- Use guard clauses to handle preconditions and invalid states early.
+- Implement proper error logging and user-friendly error messages.
+- Consider using custom error types or error factories for consistent error handling.
+
