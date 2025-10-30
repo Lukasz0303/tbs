@@ -5,7 +5,7 @@
   - Nowoczesny framework SPA, zapewniający szybkie i zgodne z obecnymi standardami tworzenie rozbudowanych interfejsów użytkownika.
 - **Styling:** SCSS, CSS Transitions
   - SCSS pozwala na organizację i skalowanie stylów, transitions zapewniają płynne animacje.
-- **UI/UX:** Angular Animations, Angular Material
+- **UI/UX:** Angular Animations, PrimeNG
   - Gotowe komponenty + narzędzia do tworzenia wysokiej jakości interfejsów i animacji.
 - **Linter:** ESLint + Prettier
   - Automatyczna kontrola jakości kodu i jednolity format na FE.

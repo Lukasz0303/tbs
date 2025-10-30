@@ -13,7 +13,7 @@ Platforma została zaprojektowana z myślą o wysokiej jakości wizualnej i resp
 Projekt wykorzystuje poniższy, sprawdzony stack technologiczny:
 
 ### Frontend
-- **Angular 17** — nowoczesny framework SPA; Angular Animations i Material zapewniają wysokiej jakości UI z płynnymi animacjami.
+- **Angular 17** — nowoczesny framework SPA; Angular Animations i PrimeNG zapewniają wysokiej jakości UI z płynnymi animacjami.
 - **SCSS + CSS Transitions** — rozbudowane stylowanie i przejścia animacji.
 - **Lintery:** ESLint + Prettier — standaryzacja, jednolity format kodu.
 - **Testowanie:** Jest, Angular Testing Library, E2E przez Cypress.
