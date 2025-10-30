@@ -1,115 +1,116 @@
-# 🌍 World at War: Turn-Based Strategy
+## World at War: Turn‑Based Strategy
 
-## 🎯 Cel projektu
-Aplikacja **World at War** ma dostarczyć użytkownikom angażującej rozrywki w trybie **jednoosobowym** oraz **wieloosobowym**.  
-Celem MVP jest stworzenie prostej, ale satysfakcjonującej gry turowej, w której gracze mogą rywalizować między sobą lub z botem w klasyczną grę **kółko i krzyżyk (Tic-Tac-Toe)**.
+![Build](https://img.shields.io/badge/build-passing-brightgreen)
+![Status](https://img.shields.io/badge/status-active-blue)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
----
+### Table of Contents
+- [Project name](#world-at-war-turn-based-strategy)
+- [Project description](#project-description)
+- [Tech stack](#tech-stack)
+- [Getting started locally](#getting-started-locally)
+- [Available scripts](#available-scripts)
+- [Project scope](#project-scope)
+- [Project status](#project-status)
+- [License](#license)
 
-## 🧩 Najmniejszy Zestaw Funkcjonalności (MVP)
+## Project description
+World at War is a modern, production‑grade web application for competitive, turn‑based gameplay. Players can battle an AI bot at three difficulty levels or face other players in real time over WebSocket, earning points and climbing a global ranking. The UI emphasizes high visual quality and responsiveness, with smooth animations. The architecture targets stability and scalability for roughly 100–500 concurrent users.
 
-1. **Rozgrywka na planszy gry**  
-   - Podstawowa gra w kółko i krzyżyk (Tic-Tac-Toe).  
+Key gameplay features for MVP focus on Tic‑Tac‑Toe boards (3x3, 4x4, 5x5), automated win/draw detection, validated moves, and a persistent global ranking with a clear scoring system.
 
-2. **Warianty planszy**  
-   - Rozmiary: `3x3`, `4x4`, `5x5`.
+For full product requirements, see the PRD: `.ai/prd.md`. For detailed technology choices and rationale, see the Tech Stack: `.ai/tech-stack.md`.
 
-3. **Tryb gościa**  
-   - Możliwość natychmiastowego dołączenia do gry bez rejestracji.
+## Tech stack
+- **Frontend**: Angular 17, TypeScript 5, SCSS, Angular Animations, PrimeNG; ESLint + Prettier; Jest + Angular Testing Library; Cypress
+- **Backend**: Java 21 + Spring Boot 3.x (monolith), Spring Security (JWT/OAuth2), Spring WebSocket
+- **Data/Infra**: PostgreSQL 15, Redis 7.x, Flyway
+- **Quality/Observability**: SonarCloud, Spring Actuator (+ Prometheus metrics) + Grafana, Swagger/OpenAPI
+- **DevOps**: Docker + docker‑compose, GitHub Actions CI/CD
 
-4. **Rejestracja i logowanie**  
-   - Tworzenie konta (nazwa użytkownika, e-mail, hasło).  
-   - Logowanie się do istniejącego konta.
+References:
+- PRD: `.ai/prd.md`
+- Tech stack: `.ai/tech-stack.md`
 
-5. **Zapisywanie stanu gry**  
-   - Automatyczny zapis postępu w grach jednoosobowych, umożliwiający ich kontynuację po ponownym uruchomieniu aplikacji.  
-   - W rozgrywkach wieloosobowych gracz, który opuści grę, **przegrywa po 20 sekundach** nieaktywności.  
-   - Identyfikacja gracza odbywa się:
-     - po **adresie e-mail** (dla zarejestrowanych użytkowników),
-     - po **adresie IP** (dla gości).
+## Getting started locally
 
-6. **System punktacji po wygranej partii**
-   - 🧠 Z botem (łatwy poziom) → **+100 pkt**
-   - ⚔️ Z botem (średni poziom) → **+500 pkt**
-   - 👑 Z botem (trudny poziom) → **+1000 pkt**
-   - 🧍‍♂️ Z innym graczem (PvP) → **+1000 pkt**
+### Prerequisites
+- Node.js 18+ and npm
+- Java 21 (JDK)
+- PostgreSQL 15
+- Redis 7.x
+- Angular CLI (recommended): `npm i -g @angular/cli`
+- Optional: Docker and docker‑compose
 
-7. **Ranking graczy**adowa
-   - Globalna tabela z wynikami, pozwalająca na porównanie osiągnięć.
+### Backend (Spring Boot 3.x)
+1. Configure local services (PostgreSQL, Redis):
+   - PostgreSQL: ensure a database is available (create db/user as needed)
+   - Redis: run a local instance
+   - Example with Docker:
+     ```bash
+     docker run --name waw-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=waw -p 5432:5432 -d postgres:15
+     docker run --name waw-redis -p 6379:6379 -d redis:7
+     ```
+2. Start the backend:
+   - Windows (PowerShell):
+     ```bash
+     cd backend
+     .\gradlew.bat bootRun
+     ```
+   - macOS/Linux:
+     ```bash
+     cd backend
+     ./gradlew bootRun
+     ```
 
-8. **Pojedynki z innymi graczami**
-   - Możliwość znalezienia przeciwnika online i dołączenia do rozgrywki w czasie rzeczywistym.
+### Frontend (Angular 17)
+1. Install dependencies and run the dev server:
+   ```bash
+   cd frontend
+   npm install
+   npm start
+   ```
+2. Open the app at `http://localhost:4200/`. The app reloads on source changes.
 
-9. **Profil gracza**
-   - Nazwa użytkownika  
-   - Aktualne miejsce w rankingu  
-   - Liczba punktów i rozegranych gier  
-   - Estetyczne wyróżnienie pozycji gracza
+## Available scripts
 
-10. **Funkcjonalności PvP**
-    - Możliwość **poddania pojedynku**.  
-    - Podgląd **czasu pozostałego na ruch przeciwnika**.  
-    - Informacja o **liczbie tur** i **aktualnej turze**.
+### Frontend package scripts
+From `frontend/package.json`:
+- `npm start`: start the Angular dev server (`ng serve`)
+- `npm run build`: production build (`ng build`)
+- `npm run watch`: watch mode build (`ng build --watch --configuration development`)
+- `npm test`: run unit tests (`ng test`)
+- `npm run ng <cmd>`: access Angular CLI
 
----
+### Backend (Gradle)
+- `gradlew bootRun` / `./gradlew bootRun`: run the Spring Boot application
+- Additional Gradle references are listed in `backend/HELP.md`
 
-## 🚫 Poza Zakresem MVP
-- Rozszerzenie gry o bardziej zaawansowane mechaniki strategiczne (inne niż kółko i krzyżyk).  
+## Project scope
 
----
+### In scope (MVP)
+- Tic‑Tac‑Toe gameplay on 3x3, 4x4, 5x5 boards
+- Auto detection of win/loss/draw and move validation
+- Guest mode (identified by IP) and user registration/login
+- AI bot with 3 difficulty levels (easy/medium/hard)
+- Real‑time PvP over WebSocket with 10‑second move timer and ability to surrender
+- Auto‑save for single‑player games; PvP ends after 20 seconds of inactivity
+- Scoring system and persistent global ranking; profile view with basic stats
 
-## ✅ Kryteria Sukcesu
+### Out of scope (for MVP)
+- Advanced strategy mechanics beyond Tic‑Tac‑Toe
+- Email notifications, friends/invites, in‑game chat, profile personalization
+- Advanced security/analytics beyond essentials
 
-### 🧾 Scenariusz I – Gracz vs Gracz (tryb gościa)
-1. Gracz loguje się jako **gość**.  
-2. Dołącza do rozgrywki **gracz vs gracz** (jeśli potrzeba – oczekuje na przeciwnika).  
-3. Rozgrywa partię w kółko i krzyżyk.  
-4. Po zakończeniu meczu otrzymuje **punkty** i trafia do **rankingu**.  
+## Project status
+- Status: Active development; MVP in progress
+- Target scale: 100–500 concurrent users
+- CI/CD: Planned via GitHub Actions (lint, tests, build, deploy)
+- Monitoring: Spring Actuator + Prometheus + Grafana (planned/ongoing)
+- API docs: Swagger/OpenAPI (planned/ongoing)
 
----
+For broader product goals and success metrics, see `.ai/prd.md`.
 
-### 🧾 Scenariusz II – Rejestracja nowego użytkownika
-1. Gracz wybiera opcję **utworzenia konta**.  
-2. Wprowadza: **nazwę użytkownika**, **adres e-mail**, **hasło**.  
-3. Loguje się jako **nowo utworzony użytkownik**.  
+## License
+MIT © 2025 Łukasz Zieliński
 
----
-
-### 🧾 Scenariusz III – Gracz vs Bot
-1. Gracz loguje się jako **gość**.  
-2. Wybiera tryb **gracz vs bot** oraz poziom trudności (`łatwy`, `średni`, `trudny`).  
-3. Rozgrywa partię w kółko i krzyżyk.  
-4. Po zakończeniu gry otrzymuje punkty zgodnie z poziomem trudności i trafia do **rankingu**.  
-
----
-
-### 🧾 Scenariusz IV – Rozgrywka z poziomu rankingu
-1. Gracz loguje się jako **gość**.  
-2. Przegląda **ranking graczy** i wybiera przeciwnika dostępnego online.  
-3. Rozgrywa partię z wybranym graczem.  
-4. Po zakończeniu meczu otrzymuje punkty, a jego **pozycja w rankingu** zostaje zaktualizowana.  
-
----
-
-## 📊 Metryki Sukcesu
-
-- ✅ Jeśli scenariusze **I–IV** zostaną w pełni zrealizowane – **zakres funkcjonalny MVP** został osiągnięty.  
-- 🌐 Jeśli gra zostanie udostępniona publicznie pod **adresem URL** – **druga metryka sukcesu** została osiągnięta.  
-- 🧪 Jeśli scenariusze **I–IV** zostaną przetestowane (częściowo lub całościowo) przy pomocy **testów e2e** – **czwarta metryka sukcesu** została osiągnięta.  
-
----
-
-## 🧱 Dalszy Rozwój (Po MVP)
-- Dodanie bardziej zaawansowanych typów gier strategicznych.  
-- System znajomych i zaproszeń.  
-- Chat podczas rozgrywki PvP.  
-- Personalizacja profilu gracza.  
-- Udoskonalenie SI bota.  
-
----
-
-## ⚙️ Technologie (propozycje)
-- **Frontend:** Angular + PrimeNG
-- **Backend:** JAVA  
-- **Baza danych:** PostgreSQL / Supabase  
-- **Autoryzacja:** JWT / OAuth2  

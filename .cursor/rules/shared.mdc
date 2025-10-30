@@ -33,16 +33,19 @@ World at War: Turnâ€‘Based Strategy is a web application for competitive, turnâ€
 
 When introducing changes to the project, always follow the directory structure below:
 
-- `./src` - source code
-- `./src/app` - main application module and features
-- `./src/app/components` - shared/presentational components
-- `./src/app/features` - feature modules and domain areas
-- `./src/app/services` - services and business logic
-- `./src/assets` - static assets
-- `./src/environments` - environment configurations
-- `./src/styles` - global styles (SCSS)
+### Frontend project (this repository)
 
-### Backend project (example in this repository)
+- Location: `./frontend` (Angular project)
+- `./frontend/src` - source code
+- `./frontend/src/app` - main application module and features
+- `./frontend/src/app/components` - shared/presentational components
+- `./frontend/src/app/features` - feature modules and domain areas
+- `./frontend/src/app/services` - services and business logic
+- `./frontend/src/assets` - static assets
+- `./frontend/src/environments` - environment configurations
+- `./frontend/src/styles` - global styles (SCSS)
+
+### Backend project ( this repository)
 
 - Location: `./backend` (Gradle project)
 - `./backend/src/main/java` - application source code (Java)
