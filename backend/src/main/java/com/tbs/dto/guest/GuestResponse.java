@@ -1,0 +1,17 @@
+package com.tbs.dto.guest;
+
+import java.time.Instant;
+
+public record GuestResponse(
+        long userId,
+        boolean isGuest,
+        long totalPoints,
+        int gamesPlayed,
+        int gamesWon,
+        Instant createdAt
+) {
+    public GuestResponse {
+        isGuest = true;
+    }
+}
+
