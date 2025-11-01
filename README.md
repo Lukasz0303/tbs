@@ -8,6 +8,7 @@
 - [Project name](#world-at-war-turn-based-strategy)
 - [Project description](#project-description)
 - [Tech stack](#tech-stack)
+- [Database schema](#database-schema)
 - [Getting started locally](#getting-started-locally)
 - [Available scripts](#available-scripts)
 - [Project scope](#project-scope)
@@ -24,34 +25,66 @@ For full product requirements, see the PRD: `.ai/prd.md`. For detailed technolog
 ## Tech stack
 - **Frontend**: Angular 17, TypeScript 5, SCSS, Angular Animations, PrimeNG; ESLint + Prettier; Jest + Angular Testing Library; Cypress
 - **Backend**: Java 21 + Spring Boot 3.x (monolith), Spring Security (JWT/OAuth2), Spring WebSocket
-- **Data/Infra**: PostgreSQL 15, Redis 7.x, Flyway
+- **Data/Infra**: **Supabase** (PostgreSQL 17), Redis 7.x
 - **Quality/Observability**: SonarCloud, Spring Actuator (+ Prometheus metrics) + Grafana, Swagger/OpenAPI
 - **DevOps**: Docker + docker‑compose, GitHub Actions CI/CD
 
 References:
 - PRD: `.ai/prd.md`
 - Tech stack: `.ai/tech-stack.md`
+- Database schema: [DATABASE_DIAGRAM.md](DATABASE_DIAGRAM.md)
+
+## Database schema
+
+**Szybki podgląd schematu bazy danych:** [DATABASE_DIAGRAM.md](DATABASE_DIAGRAM.md)
+
+Projekt używa **Supabase** (PostgreSQL 17) z automatycznymi migracjami. Schemat obejmuje:
+- Tabele: `users`, `games`, `moves`
+- Relacje: USERS 1:N GAMES, USERS 1:N MOVES, GAMES 1:N MOVES
+- Automatyzacje: triggery dla statystyk, timeout pvp, materialized views dla rankingu
+- Row Level Security (RLS) z integracją Supabase Auth
+- Szczegółowa dokumentacja: [supabase/migrations/README.md](supabase/migrations/README.md)
+
+### Dostępne usługi Supabase (lokalnie)
+
+Po uruchomieniu `npx supabase start`:
+
+- **API URL**: http://127.0.0.1:54321
+- **Database URL**: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+- **Studio URL**: http://127.0.0.1:54323
+- **GraphQL URL**: http://127.0.0.1:54321/graphql/v1
+- **Storage URL**: http://127.0.0.1:54321/storage/v1/s3
+- **Mailpit URL**: http://127.0.0.1:54324
+
+Sprawdź status: `npx supabase status`
 
 ## Getting started locally
 
 ### Prerequisites
 - Node.js 18+ and npm
 - Java 21 (JDK)
-- PostgreSQL 15
+- Supabase CLI: `npx supabase` (global install not supported)
 - Redis 7.x
 - Angular CLI (recommended): `npm i -g @angular/cli`
 - Optional: Docker and docker‑compose
 
+### Database (Supabase PostgreSQL)
+1. Uruchom lokalną instancję Supabase:
+   ```bash
+   npx supabase start
+   ```
+2. To automatycznie uruchomi PostgreSQL, API, Auth, Storage i inne usługi
+3. Sprawdź status: `npx supabase status`
+4. Dane dostępowe: zobacz sekcję "Dostępne usługi Supabase" powyżej
+
+### Redis
+Uruchom lokalną instancję Redis (np. przez Docker):
+```bash
+docker run --name waw-redis -p 6379:6379 -d redis:7
+```
+
 ### Backend (Spring Boot 3.x)
-1. Configure local services (PostgreSQL, Redis):
-   - PostgreSQL: ensure a database is available (create db/user as needed)
-   - Redis: run a local instance
-   - Example with Docker:
-     ```bash
-     docker run --name waw-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=waw -p 5432:5432 -d postgres:15
-     docker run --name waw-redis -p 6379:6379 -d redis:7
-     ```
-2. Start the backend:
+1. Uruchom backend:
    - Windows (PowerShell):
      ```bash
      cd backend
@@ -62,6 +95,7 @@ References:
      cd backend
      ./gradlew bootRun
      ```
+2. Aplikacja automatycznie łączy się z Supabase (port 54322) i Redis
 
 ### Frontend (Angular 17)
 1. Install dependencies and run the dev server:
