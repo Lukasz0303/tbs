@@ -1,0 +1,13 @@
+# Cursor AI Rules
+
+## Overarching Rule: Comments in Application Code
+
+**DO NOT add comments to application code.**
+
+Application code should be self-documenting. Comments are only allowed in:
+- Documentation files (README, CHANGELOG, etc.)
+- Configuration files that require explanation (e.g., build scripts, CI/CD configurations)
+- Exceptional cases where code requires business or technical explanation that cannot be expressed in the code name itself
+
+All other comments in application code (TypeScript, JavaScript, Java, etc.) should be removed or not added.
+
