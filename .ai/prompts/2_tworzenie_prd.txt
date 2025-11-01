@@ -1,0 +1,153 @@
+<conversation_summary>
+<decisions>
+1. Grupa docelowa: użytkownicy w wieku 18-35 lat
+2. Platforma: Web dla PC z wysoką jakością wizualną, responsywność na najwyższym poziomie
+3. Animacje: Angular Animations + CSS transitions
+4. Opóźnienia: nie krytyczne dla gry turowej, limit 10 sekund na ruch
+5. Powiadomienia: po MVP (email)
+6. Skalowalność: 100-500 jednoczesnych użytkowników
+7. Ranking: permanentny, obliczany zgodnie z systemem punktowym z README
+8. Mobilne urządzenia: po MVP
+9. Bezpieczeństwo i analityka: po MVP
+10. Testowanie: unit testy (BE + FE) + E2E testy (Cypress)
+11. Architektura: aplikacja monolityczna
+12. Bot AI: deterministyczny z różnymi poziomami trudności, modularna architektura
+13. Matchmaking: losowy, szybki, dynamiczny
+14. System ról: jedna rola USER na początku
+15. Logowanie/audyt: po MVP
+16. Deployment: GitHub Actions + Docker + bezpośrednio na prod
+17. Dokumentacja: Swagger + README + Docker setup
+</decisions>
+
+<matched_recommendations>
+1. Określenie szczegółowego profilu użytkownika docelowego (18-35 lat) - ✅ ZREALIZOWANE
+2. Definicja wymagań wydajnościowych dla gier wieloosobowych - ✅ ZREALIZOWANE (10s limit)
+3. Implementacja systemu powiadomień - ✅ ZDEFINIOWANE (po MVP)
+4. Określenie skalowalności (100-500 użytkowników) - ✅ ZREALIZOWANE
+5. Definicja algorytmu rankingowego - ✅ ZREALIZOWANE (permanentny, zgodnie z README)
+6. Wsparcie dla różnych urządzeń - ✅ ZDEFINIOWANE (PC na MVP, mobile po MVP)
+7. Wymagania bezpieczeństwa - ✅ ZDEFINIOWANE (po MVP)
+8. System analityki - ✅ ZDEFINIOWANE (po MVP)
+9. Strategia testowania - ✅ ZREALIZOWANE (unit + E2E)
+10. Architektura skalowalna - ✅ ZREALIZOWANE (monolityczna z przygotowaniem na przyszłość)
+</matched_recommendations>
+
+<prd_planning_summary>
+**Główne wymagania funkcjonalne produktu:**
+- Gra kółko i krzyżyk (Tic-Tac-Toe) w rozmiarach 3x3, 4x4, 5x5
+- Tryb gościa (natychmiastowe dołączenie bez rejestracji)
+- Rejestracja i logowanie użytkowników
+- System zapisywania stanu gry z automatycznym zapisem
+- Bot AI z trzema poziomami trudności (łatwy +100pkt, średni +500pkt, trudny +1000pkt)
+- PvP z systemem punktowym (+1000pkt za wygraną)
+- Globalny ranking graczy (permanentny)
+- System matchmakingu (losowy, szybki)
+- Profil gracza z podstawowymi informacjami
+- Funkcjonalności PvP (poddanie, timer, informacje o turach)
+
+**Kluczowe historie użytkownika i ścieżki korzystania:**
+1. **Scenariusz I:** Gracz gość → dołączenie do PvP → rozgrywka → punkty i ranking
+2. **Scenariusz II:** Rejestracja nowego użytkownika → logowanie
+3. **Scenariusz III:** Gracz gość → wybór trybu vs bot → rozgrywka → punkty i ranking
+4. **Scenariusz IV:** Gracz gość → przegląd rankingu → wybór przeciwnika → rozgrywka → aktualizacja rankingu
+
+**Ważne kryteria sukcesu i sposoby ich mierzenia:**
+- ✅ Realizacja wszystkich 4 scenariuszy użytkownika
+- 🌐 Udostępnienie gry publicznie pod adresem URL
+- 🧪 Przetestowanie scenariuszy przy pomocy testów E2E
+- Wydajność: obsługa 100-500 jednoczesnych użytkowników
+- Jakość: wysokiej jakości UI z animacjami i responsywnością
+- Stabilność: system WebSocket z mechanizmami reconnect
+
+**Architektura techniczna:**
+- Frontend: Angular z Angular Animations + CSS transitions
+- Backend: Java Spring Boot (aplikacja monolityczna)
+- Baza danych: PostgreSQL/Supabase z skalowalnym schematem
+- Cache: Redis dla danych rankingowych i sesji
+- Komunikacja: WebSocket z obsługą rozłączeń
+- Deployment: GitHub Actions + Docker + bezpośrednio na prod
+- Testowanie: Unit testy (BE + FE) + E2E (Cypress)
+- Dokumentacja: Swagger API + README + Docker setup
+</prd_planning_summary>
+
+<unresolved_issues>
+1. **Szczegóły implementacji bota AI:** Konkretne algorytmy dla każdego poziomu trudności (łatwy: losowe ruchy, średni: podstawowa strategia, trudny: optymalna strategia)
+2. **Struktura bazy danych:** Konkretny schemat tabel (gry, użytkownicy, rankingi) z indeksami
+3. **System konfiguracji:** Konkretne parametry w application.properties/yml (limity czasowe, punkty za wygrane)
+4. **Endpointy monitorowania:** Szczegóły implementacji /health i /ready
+5. **Mechanizmy WebSocket:** Konkretne protokoły komunikacji i obsługa błędów
+6. **Strategie cache'owania:** Konkretne dane do cache'owania w Redis
+7. **Pipeline CI/CD:** Szczegóły konfiguracji GitHub Actions
+8. **Docker setup:** Konkretne Dockerfile i docker-compose.yml
+</unresolved_issues>
+</conversation_summary>
+
+
+Jesteś doświadczonym menedżerem produktu, którego zadaniem jest stworzenie kompleksowego dokumentu wymagań produktu (PRD) w oparciu o poniższe opisy:
+
+<project_description>
+{{project-description}} <- wprowadź pomysł na MVP
+</project_description>
+
+<project_details>
+{{project-details}} <- wprowadź podsumowanie sesji planistycznej
+</project_details>
+
+Wykonaj następujące kroki, aby stworzyć kompleksowy i dobrze zorganizowany dokument:
+
+1. Podziel PRD na następujące sekcje:
+   a. Przegląd projektu
+   b. Problem użytkownika
+   c. Wymagania funkcjonalne
+   d. Granice projektu
+   e. Historie użytkownika
+   f. Metryki sukcesu
+
+2. W każdej sekcji należy podać szczegółowe i istotne informacje w oparciu o opis projektu i odpowiedzi na pytania wyjaśniające. Upewnij się, że:
+   - Używasz jasnego i zwięzłego języka
+   - W razie potrzeby podajesz konkretne szczegóły i dane
+   - Zachowujesz spójność w całym dokumencie
+   - Odnosisz się do wszystkich punktów wymienionych w każdej sekcji
+
+3. Podczas tworzenia historyjek użytkownika i kryteriów akceptacji
+   - Wymień WSZYSTKIE niezbędne historyjki użytkownika, w tym scenariusze podstawowe, alternatywne i skrajne.
+   - Przypisz unikalny identyfikator wymagań (np. US-001) do każdej historyjki użytkownika w celu bezpośredniej identyfikowalności.
+   - Uwzględnij co najmniej jedną historię użytkownika specjalnie dla bezpiecznego dostępu lub uwierzytelniania, jeśli aplikacja wymaga identyfikacji użytkownika lub ograniczeń dostępu.
+   - Upewnij się, że żadna potencjalna interakcja użytkownika nie została pominięta.
+   - Upewnij się, że każda historia użytkownika jest testowalna.
+
+Użyj następującej struktury dla każdej historii użytkownika:
+- ID
+- Tytuł
+- Opis
+- Kryteria akceptacji
+
+4. Po ukończeniu PRD przejrzyj go pod kątem tej listy kontrolnej:
+   - Czy każdą historię użytkownika można przetestować?
+   - Czy kryteria akceptacji są jasne i konkretne?
+   - Czy mamy wystarczająco dużo historyjek użytkownika, aby zbudować w pełni funkcjonalną aplikację?
+   - Czy uwzględniliśmy wymagania dotyczące uwierzytelniania i autoryzacji (jeśli dotyczy)?
+
+5. Formatowanie PRD:
+   - Zachowaj spójne formatowanie i numerację.
+   - Nie używaj pogrubionego formatowania w markdown ( ** ).
+   - Wymień WSZYSTKIE historyjki użytkownika.
+   - Sformatuj PRD w poprawnym markdown.
+
+Przygotuj PRD z następującą strukturą:
+
+```markdown
+# Dokument wymagań produktu (PRD) - {{app-name}}
+## 1. Przegląd produktu
+## 2. Problem użytkownika
+## 3. Wymagania funkcjonalne
+## 4. Granice produktu
+## 5. Historyjki użytkowników
+## 6. Metryki sukcesu
+```
+
+Pamiętaj, aby wypełnić każdą sekcję szczegółowymi, istotnymi informacjami w oparciu o opis projektu i nasze pytania wyjaśniające. Upewnij się, że PRD jest wyczerpujący, jasny i zawiera wszystkie istotne informacje potrzebne do dalszej pracy nad produktem.
+
+Ostateczny wynik powinien składać się wyłącznie z PRD zgodnego ze wskazanym formatem w markdown, który zapiszesz w pliku .ai/prd.md
+
+@PLAN.md @README.md 
