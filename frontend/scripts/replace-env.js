@@ -6,7 +6,20 @@ const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
 
 const envProdPath = path.join(__dirname, '../src/environments/environment.prod.ts');
 
-let content = fs.readFileSync(envProdPath, 'utf8');
+const envProdTemplate = `export const environment = {
+  production: true,
+  supabaseUrl: '{{SUPABASE_URL}}',
+  supabaseAnonKey: '{{SUPABASE_ANON_KEY}}'
+};
+
+`;
+
+let content;
+if (fs.existsSync(envProdPath)) {
+  content = fs.readFileSync(envProdPath, 'utf8');
+} else {
+  content = envProdTemplate;
+}
 
 content = content.replace(/{{SUPABASE_URL}}/g, supabaseUrl);
 content = content.replace(/{{SUPABASE_ANON_KEY}}/g, supabaseAnonKey);
