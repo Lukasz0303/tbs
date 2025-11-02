@@ -97,7 +97,7 @@ $$;
 comment on function public.is_move_valid(bigint, smallint, smallint) is 'waliduje czy ruch jest poprawny (granice planszy i czy pozycja nie jest zajęta)';
 
 -- calculate_game_points: oblicza punkty za wygraną na podstawie typu gry i poziomu trudności
-create or replace function public.calculate_game_points(p_game_type game_type_enum, p_bot_difficulty bot_difficulty_enum)
+create or replace function public.calculate_game_points(p_game_type varchar, p_bot_difficulty varchar)
 returns bigint
 language plpgsql
 stable
@@ -124,7 +124,7 @@ begin
 END;
 $$;
 
-comment on function public.calculate_game_points(game_type_enum, bot_difficulty_enum) is 'oblicza punkty za wygraną: pvp=1000, vs_bot easy=100, medium=500, hard=1000';
+comment on function public.calculate_game_points(varchar, varchar) is 'oblicza punkty za wygraną: pvp=1000, vs_bot easy=100, medium=500, hard=1000';
 
 -- check_pvp_timeout: sprawdza gry pvp z timeout 20 sekund i automatycznie kończy je
 create or replace function public.check_pvp_timeout()

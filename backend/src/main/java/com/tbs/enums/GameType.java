@@ -1,5 +1,8 @@
 package com.tbs.enums;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+
 public enum GameType {
     VS_BOT("vs_bot"),
     PVP("pvp");
@@ -10,10 +13,12 @@ public enum GameType {
         this.value = value;
     }
 
+    @JsonValue
     public String getValue() {
         return value;
     }
 
+    @JsonCreator
     public static GameType fromValue(String value) {
         for (GameType type : GameType.values()) {
             if (type.value.equals(value)) {

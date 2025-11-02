@@ -6,36 +6,12 @@
 -- affected schemas: public
 -- 
 -- szczegóły:
--- - tworzy enumy dla typów gier, statusów, poziomów trudności bota, symboli graczy
 -- - tworzy tabele users (goście + zarejestrowani z integracją Supabase Auth), games, moves
+-- - używa VARCHAR z CHECK constraints dla enumów (zamiast PostgreSQL ENUM)
 -- - dodaje indeksy dla wydajnych zapytań
 -- - włącza row level security (rls)
 -- - konfiguruje rls policies dla bezpiecznego dostępu do danych
 -- ==============================================================================
-
--- ==============================================================================
--- 1. ENUMS - typy danych dla gry
--- ==============================================================================
-
--- typ gry: vs_bot (gra z botem) lub pvp (gra z innym graczem)
-create type game_type_enum as enum ('vs_bot', 'pvp');
-
-comment on type game_type_enum is 'typy gier: vs_bot (z botem), pvp (z innym graczem)';
-
--- status gry: oczekiwanie, w trakcie, zakończona, porzucona, remis
-create type game_status_enum as enum ('waiting', 'in_progress', 'finished', 'abandoned', 'draw');
-
-comment on type game_status_enum is 'statusy gry: waiting (oczekiwanie), in_progress (w trakcie), finished (zakończona), abandoned (porzucona), draw (remis)';
-
--- poziom trudności bota: easy (+100 pkt), medium (+500 pkt), hard (+1000 pkt)
-create type bot_difficulty_enum as enum ('easy', 'medium', 'hard');
-
-comment on type bot_difficulty_enum is 'poziomy trudności bota: easy (+100 pkt), medium (+500 pkt), hard (+1000 pkt)';
-
--- symbol gracza na planszy: x lub o
-create type player_symbol_enum as enum ('x', 'o');
-
-comment on type player_symbol_enum is 'symbole graczy na planszy: x, o';
 
 -- ==============================================================================
 -- 2. TABELA: users - użytkownicy (goście i zarejestrowani)
@@ -94,13 +70,13 @@ create index idx_users_last_seen_at on public.users (last_seen_at desc) where la
 
 create table if not exists public.games (
     id bigserial primary key,
-    game_type game_type_enum not null,
+    game_type varchar(20) not null check (game_type in ('vs_bot', 'pvp')),
     board_size smallint not null check (board_size in (3, 4, 5)),
     player1_id bigint not null references public.users(id) on delete cascade,
     player2_id bigint references public.users(id) on delete cascade,
-    bot_difficulty bot_difficulty_enum,
-    status game_status_enum not null default 'waiting',
-    current_player_symbol player_symbol_enum,
+    bot_difficulty varchar(20) check (bot_difficulty in ('easy', 'medium', 'hard')),
+    status varchar(20) not null default 'waiting',
+    current_player_symbol varchar(10) check (current_player_symbol in ('x', 'o')),
     winner_id bigint references public.users(id) on delete set null,
     last_move_at timestamp with time zone,
     created_at timestamp with time zone not null default now(),
@@ -166,7 +142,7 @@ create table if not exists public.moves (
     player_id bigint references public.users(id) on delete set null,
     row smallint not null check (row >= 0),
     col smallint not null check (col >= 0),
-    player_symbol player_symbol_enum not null,
+    player_symbol varchar(10) not null check (player_symbol in ('x', 'o')),
     move_order smallint not null check (move_order > 0),
     created_at timestamp with time zone not null default now()
 );

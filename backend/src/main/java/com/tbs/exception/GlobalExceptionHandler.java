@@ -46,6 +46,24 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(GameNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleGameNotFound(GameNotFoundException e) {
+        log.warn("Game not found: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("GAME_NOT_FOUND", e.getMessage())
+                ));
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ApiErrorResponse> handleForbidden(ForbiddenException e) {
+        log.warn("Forbidden: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("FORBIDDEN", e.getMessage())
+                ));
+    }
+
     @ExceptionHandler(com.tbs.exception.TokenBlacklistException.class)
     public ResponseEntity<ApiErrorResponse> handleTokenBlacklistException(com.tbs.exception.TokenBlacklistException e) {
         log.error("Token blacklist operation failed: {}", e.getMessage(), e);
@@ -116,6 +134,19 @@ public class GlobalExceptionHandler {
                         new ApiErrorResponse.ErrorDetails(
                                 "INTERNAL_SERVER_ERROR",
                                 message,
+                                null
+                        )
+                ));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiErrorResponse> handleIllegalArgumentException(IllegalArgumentException e) {
+        log.warn("Illegal argument: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails(
+                                "BAD_REQUEST",
+                                e.getMessage(),
                                 null
                         )
                 ));
