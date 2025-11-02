@@ -15,11 +15,13 @@
 │ PK id                │◄────┐   │ PK id                │◄───┐
 │    auth_user_id      │     │   │    game_type         │    │
 │    username          │     │   │    board_size        │    │
-│    is_guest          │     │   │    status            │    │
-│    ip_address        │     │   │    bot_difficulty    │    │
-│    total_points      │     │   │    current_player_symbol │
-│    games_played      │     │   │    winner_id         │    │
-│    games_won         │     │   │    last_move_at      │    │
+│    email             │     │   │    status            │    │
+│    password_hash      │     │   │    bot_difficulty    │    │
+│    is_guest          │     │   │    current_player_symbol │
+│    ip_address        │     │   │    winner_id         │    │
+│    total_points      │     │   │    last_move_at      │    │
+│    games_played      │     │   │    created_at        │    │
+│    games_won         │     │   │    updated_at        │    │
 │    last_seen_at      │     └───┤ FK player1_id        │    │
 │    created_at        │         │ FK player2_id        │    │
 │    updated_at        │         │ FK winner_id         │    │
@@ -42,7 +44,7 @@
                                  │    created_at           │
                                  └─────────────────────────┘
 
-📝 Uwaga: email i password_hash są w Supabase Auth (auth.users)
+📝 Uwaga: email i password_hash są w tabeli users (tylko dla lokalnego developmentu, bez Supabase Auth)
 ```
 
 ### Mermaid ERD (interaktywny)
@@ -59,10 +61,12 @@ erDiagram
 
     USERS {
         bigserial id PK
-        uuid auth_user_id "FK → auth.users"
+        uuid auth_user_id "FK → auth.users (nullable, dla przyszłości)"
         varchar username "UNIQUE, nullable"
+        varchar email "UNIQUE, nullable (lokalnie)"
+        varchar password_hash "nullable (lokalnie)"
         boolean is_guest "NOT NULL"
-        inet ip_address "nullable"
+        text ip_address "nullable"
         bigint total_points "DEFAULT 0"
         integer games_played "DEFAULT 0"
         integer games_won "DEFAULT 0"
@@ -210,14 +214,17 @@ auth.users (Supabase Auth)          users (profil)
 
 ### Zarządzanie użytkownikami
 
-- **Zarejestrowani**: email, hasło w `auth.users`; profil, statystyki w `users`
-- **Goście**: tylko `users`, bez `auth_user_id`
+- **Zarejestrowani**: email, username, password_hash w tabeli `users` (lokalnie, bez Supabase Auth)
+- **Goście**: tylko `users` z `ip_address`, bez email/password
+- **Autoryzacja**: JWT przez Spring Security (blacklista tokenów w Redis)
 
-### Bezpieczeństwo
+### Bezpieczeństwo (lokalnie)
 
-- Autentykacja przez Supabase Auth
-- `auth_user_id` jako FK do `auth.users.id`
-- Polityki RLS używają `auth.uid()` dla zarejestrowanych
+- Autentykacja przez Spring Security z JWT (lokalnie)
+- Hasła hashowane przez BCrypt w aplikacji
+- Tokeny JWT z blacklistą w Redis
+- `auth_user_id` nullable (dla przyszłej integracji z Supabase Auth)
+- **Uwaga**: Na produkcji użyj Supabase Auth zamiast własnej implementacji
 
 ---
 

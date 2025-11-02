@@ -1,0 +1,16 @@
+# Local Development Configuration
+# Copy this file to application-local.properties and set your actual values
+# NEVER commit application-local.properties to git!
+
+# JWT Configuration
+# Generate a new secret with: openssl rand -base64 64
+app.jwt.secret=YOUR_LOCAL_DEV_SECRET_HERE_BASE64_ENCODED
+
+# Optional: Override default port
+# server.port=8080
+
+# Optional: Override database if needed
+# spring.datasource.url=jdbc:postgresql://127.0.0.1:54322/postgres
+# spring.datasource.username=postgres
+# spring.datasource.password=postgres
+

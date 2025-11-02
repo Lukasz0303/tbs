@@ -24,8 +24,8 @@ For full product requirements, see the PRD: `.ai/prd.md`. For detailed technolog
 
 ## Tech stack
 - **Frontend**: Angular 17, TypeScript 5, SCSS, Angular Animations, PrimeNG; ESLint + Prettier; Jest + Angular Testing Library; Cypress
-- **Backend**: Java 21 + Spring Boot 3.x (monolith), Spring Security (JWT/OAuth2), Spring WebSocket
-- **Data/Infra**: **Supabase** (PostgreSQL 17), Redis 7.x
+- **Backend**: Java 21 + Spring Boot 3.x (monolith), Spring Security (JWT z blacklistą w Redis), BCrypt, Spring WebSocket
+- **Data/Infra**: **Supabase** (PostgreSQL 17), Redis 7.x (cache, sesje, blacklista tokenów)
 - **Quality/Observability**: SonarCloud, Spring Actuator (+ Prometheus metrics) + Grafana, Swagger/OpenAPI
 - **DevOps**: Docker + docker‑compose, GitHub Actions CI/CD
 
@@ -78,15 +78,29 @@ Sprawdź status: `npx supabase status`
 4. Dane dostępowe: zobacz sekcję "Dostępne usługi Supabase" powyżej
 
 ### Redis
-Uruchom lokalną instancję Redis (np. przez Docker):
+Redis jest używany do cache, sesji i blacklisty tokenów JWT. Uruchom lokalną instancję Redis (np. przez Docker):
 ```bash
 docker run --name waw-redis -p 6379:6379 -d redis:7
 ```
 
+**Uwaga:** Redis jest wymagany dla działania blacklisty tokenów JWT (przy wylogowaniu).
+
 ### Backend (Spring Boot 3.x)
-1. Uruchom backend:
+1. Uruchom backend (PowerShell):
+   ```powershell
+   # Zalecane: użyj skryptu automatyzującego
+   .\run-backend.ps1 start
+   ```
+   
+   Skrypt automatycznie:
+   - Sprawdzi i uruchomi Supabase (PostgreSQL + Redis)
+   - Zbuduje backend
+   - Uruchomi aplikację Spring Boot
+   - Wyświetli linki do dokumentacji API
+   
+2. Ręczne uruchomienie:
    - Windows (PowerShell):
-     ```bash
+     ```powershell
      cd backend
      .\gradlew.bat bootRun
      ```
@@ -95,7 +109,7 @@ docker run --name waw-redis -p 6379:6379 -d redis:7
      cd backend
      ./gradlew bootRun
      ```
-2. Aplikacja automatycznie łączy się z Supabase (port 54322) i Redis
+3. Aplikacja automatycznie łączy się z Supabase (port 54322) i Redis
 
 ### Frontend (Angular 17)
 1. Install dependencies and run the dev server:
@@ -117,7 +131,12 @@ From `frontend/package.json`:
 - `npm run ng <cmd>`: access Angular CLI
 
 ### Backend (Gradle)
-- `gradlew bootRun` / `./gradlew bootRun`: run the Spring Boot application
+- **`.\run-backend.ps1 start`** - uruchomienie BE z automatycznym uruchomieniem bazy i Redis
+- **`.\run-backend.ps1 restart`** - restart z przebudową i zastosowaniem migracji
+- **`.\run-backend.ps1 status`** - sprawdzenie statusu wszystkich serwisów (Supabase, Redis, Backend, Java)
+- **`.\run-backend.ps1 logs`** - wyświetlenie ostatnich logów
+- **`.\run-backend.ps1 stop`** - zatrzymanie backendu
+- `gradlew bootRun` / `./gradlew bootRun`: run the Spring Boot application (ręcznie)
 - Additional Gradle references are listed in `backend/HELP.md`
 
 ## Project scope
