@@ -25,6 +25,13 @@ Automatyczne aktualizacje i funkcje pomocnicze:
 - Pozwala na swobodne programowanie API bez ograniczeń dostępu
 - **UWAGA**: Tylko dla środowiska lokalnego! Nie deployować na produkcję!
 
+### 4. `20251101150000_add_email_and_password_to_users.sql` ⚠️
+**TYMCZASOWA** implementacja autoryzacji bez Supabase Auth:
+- Dodaje pola `email` i `password_hash` do tabeli `users`
+- Aktualizuje constraint `users_registered_check` dla nowych pól
+- Tworzy indeks na `email` dla szybkich wyszukiwań
+- **UWAGA**: Tylko dla lokalnego developmentu! Na produkcji użyj Supabase Auth!
+
 ## Kluczowe funkcjonalności
 
 ### System użytkowników
@@ -68,6 +75,18 @@ supabase db reset
 
 # Lub tylko nowe migracje
 supabase migration up
+
+# Sprawdź listę zastosowanych migracji (alternatywy):
+
+# Opcja 1: Przez Docker (najprostsza)
+docker exec supabase_db_tbs psql -U postgres -d postgres -c "SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version;"
+
+# Opcja 2: W Supabase Studio (GUI)
+# Otwórz http://127.0.0.1:54323 → SQL Editor → uruchom:
+# SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version;
+
+# Opcja 3: Przez psql (jeśli zainstalowane)
+# psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -c "SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version;"
 ```
 
 ### Produkcja (Supabase Dashboard)
@@ -124,10 +143,18 @@ SELECT get_user_ranking_position(user_id);
 
 ## Uwagi
 
-### Integracja z Supabase Auth
-- Tabela `auth.users` jest zarządzana przez Supabase Auth
-- Tabela `users` zawiera dane profilowe powiązane z `auth.users` przez `auth_user_id`
-- RLS używa `auth.uid()` dla automatycznej identyfikacji zarejestrowanych użytkowników
+### Integracja z Supabase Auth (lokalnie wyłączona)
+⚠️ **Aktualna implementacja (lokalnie):**
+- Autoryzacja przez Spring Security z JWT (bez Supabase Auth)
+- Email i password_hash są w tabeli `users` (tylko dla lokalnego developmentu)
+- Hasła hashowane przez BCrypt w aplikacji Spring Boot
+- Tokeny JWT z blacklistą w Redis
+- `auth_user_id` nullable (dla przyszłej integracji z Supabase Auth)
+
+**Na produkcji:**
+- Użyj Supabase Auth zamiast własnej implementacji
+- Tabela `auth.users` będzie zarządzana przez Supabase Auth
+- RLS użyje `auth.uid()` dla automatycznej identyfikacji zarejestrowanych użytkowników
 
 ### Goście
 - Identyfikowani przez IP i mają własny rekord w tabeli `users`
@@ -135,6 +162,7 @@ SELECT get_user_ranking_position(user_id);
 - Aplikacja powinna zarządzać sesjami gości (Redis/niekoniecznie baza danych)
 
 ### Redis Cache
+- **Blacklista tokenów JWT** - tokeny wylogowanych użytkowników są przechowywane w Redis
 - Sesje WebSocket dla PvP powinny być w Redis
 - Cache rankingu (opcjonalnie) dla szybszych zapytań
 - Stan aktywnych gier może być cache'owany w Redis

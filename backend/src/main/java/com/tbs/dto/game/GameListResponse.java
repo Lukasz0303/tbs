@@ -10,5 +10,5 @@ public record GameListResponse(
         int number,
         boolean first,
         boolean last
-) implements PaginatedResponse<GameListItem> {}
+) {}
 

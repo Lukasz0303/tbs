@@ -10,5 +10,5 @@ public record RankingListResponse(
         int number,
         boolean first,
         boolean last
-) implements PaginatedResponse<RankingItem> {}
+) {}
 

@@ -99,9 +99,10 @@
 Schemat bazy danych PostgreSQL został zaprojektowany zgodnie z wymaganiami PRD dla MVP. Baza obsługuje:
 
 1. **System użytkowników:**
-   - Użytkownicy zarejestrowani (email, username, password_hash)
+   - Użytkownicy zarejestrowani (email, username, password_hash) - autoryzacja przez JWT (lokalnie)
    - Użytkownicy goście (identyfikacja przez IP)
    - Statystyki graczy (punkty, rozegrane gry, wygrane)
+   - Hasła hashowane przez BCrypt w aplikacji Spring Boot
 
 2. **System gier:**
    - Gry VS_BOT (3 poziomy trudności: EASY=100pkt, MEDIUM=500pkt, HARD=1000pkt)
@@ -230,6 +231,12 @@ Schemat bazy danych PostgreSQL został zaprojektowany zgodnie z wymaganiami PRD 
 - Scheduled job dla `refresh_player_rankings()`
 - Scheduled job dla `check_pvp_timeout()`
 - Obsługa RLS policies w Spring Security (ustawianie `current_setting('app.user_id')`)
+
+✅ **Zaimplementowane w aplikacji Spring Boot:**
+- Autoryzacja JWT z blacklistą tokenów w Redis
+- Hashowanie haseł przez BCrypt
+- Endpointy: `/api/auth/register`, `/api/auth/login`, `/api/auth/me`, `/api/auth/logout`
+- Integracja z tabelą `users` (email, password_hash dla zarejestrowanych)
 
 **Następne kroki:**
 1. Integracja schematu bazy danych z aplikacją Spring Boot
