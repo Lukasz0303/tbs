@@ -1,7 +1,6 @@
 package com.tbs.dto.game;
 
 import com.tbs.enums.BotDifficulty;
-import com.tbs.enums.BoardSize;
 import com.tbs.enums.GameType;
 import jakarta.validation.constraints.NotNull;
 
@@ -10,7 +9,7 @@ public record CreateGameRequest(
         GameType gameType,
 
         @NotNull(message = "Board size is required")
-        BoardSize boardSize,
+        Integer boardSize,
 
         BotDifficulty botDifficulty
 ) {}

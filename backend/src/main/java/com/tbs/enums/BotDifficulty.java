@@ -1,5 +1,8 @@
 package com.tbs.enums;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+
 public enum BotDifficulty {
     EASY("easy"),
     MEDIUM("medium"),
@@ -11,10 +14,12 @@ public enum BotDifficulty {
         this.value = value;
     }
 
+    @JsonValue
     public String getValue() {
         return value;
     }
 
+    @JsonCreator
     public static BotDifficulty fromValue(String value) {
         for (BotDifficulty difficulty : BotDifficulty.values()) {
             if (difficulty.value.equals(value)) {

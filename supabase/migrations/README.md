@@ -6,7 +6,7 @@ Ten folder zawiera migracje bazy danych dla aplikacji World at War: Turn-Based S
 
 ### 1. `20251101140303_create_enums_and_tables.sql`
 Podstawowy schemat bazy danych:
-- **ENUMy**: `game_type_enum`, `game_status_enum`, `bot_difficulty_enum`, `player_symbol_enum`
+- **Kolumny z CHECK constraints**: `game_type`, `game_status`, `bot_difficulty`, `player_symbol` (użycie VARCHAR zamiast PostgreSQL ENUM dla kompatybilności z Hibernate)
 - **Tabele**: `users`, `games`, `moves`
 - **Indeksy**: optymalizacja zapytań rankingowych i filtrowania
 - **RLS**: Row Level Security włączony dla wszystkich tabel
@@ -45,7 +45,7 @@ Automatyczne aktualizacje i funkcje pomocnicze:
 - **Plansze**: 3x3, 4x4, 5x5
 - **Statusy**: waiting, in_progress, finished, abandoned, draw
 
-> **Uwaga:** ENUMy w bazie danych używają konwencji lowercase
+> **Uwaga:** Kolumny enum użyte w aplikacji (game_type, status, bot_difficulty, player_symbol) są typu VARCHAR z CHECK constraints
 
 ### System punktowy
 - **Automatyczna aktualizacja**: przez trigger `update_user_stats_on_game_finished`
