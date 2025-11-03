@@ -28,11 +28,11 @@ public class Game {
     @Column(name = "board_size", nullable = false)
     private BoardSize boardSize;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne
     @JoinColumn(name = "player1_id", nullable = false)
     private User player1;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne
     @JoinColumn(name = "player2_id")
     private User player2;
 
@@ -48,7 +48,7 @@ public class Game {
     @Column(name = "current_player_symbol")
     private PlayerSymbol currentPlayerSymbol;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne
     @JoinColumn(name = "winner_id")
     private User winner;
 

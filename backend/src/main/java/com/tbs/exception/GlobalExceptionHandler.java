@@ -64,6 +64,33 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(GameNotInProgressException.class)
+    public ResponseEntity<ApiErrorResponse> handleGameNotInProgress(GameNotInProgressException e) {
+        log.warn("Game not in progress: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("GAME_NOT_IN_PROGRESS", e.getMessage())
+                ));
+    }
+
+    @ExceptionHandler(InvalidMoveException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidMove(InvalidMoveException e) {
+        log.warn("Invalid move: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("INVALID_MOVE", e.getMessage())
+                ));
+    }
+
+    @ExceptionHandler(InvalidGameTypeException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidGameType(InvalidGameTypeException e) {
+        log.warn("Invalid game type: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("INVALID_GAME_TYPE", e.getMessage())
+                ));
+    }
+
     @ExceptionHandler(com.tbs.exception.TokenBlacklistException.class)
     public ResponseEntity<ApiErrorResponse> handleTokenBlacklistException(com.tbs.exception.TokenBlacklistException e) {
         log.error("Token blacklist operation failed: {}", e.getMessage(), e);
@@ -118,10 +145,27 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException e) {
         log.warn("Data integrity violation: {}", e.getMessage());
-        String message = "A database constraint violation occurred";
         
         if (e.getCause() instanceof ConstraintViolationException) {
             ConstraintViolationException cve = (ConstraintViolationException) e.getCause();
+            String constraintName = cve.getConstraintName();
+            
+            if (constraintName != null) {
+                String constraintNameLower = constraintName.toLowerCase();
+                if (constraintNameLower.contains("username") || constraintNameLower.contains("users_username_key")) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body(new ApiErrorResponse(
+                                    new ApiErrorResponse.ErrorDetails("USERNAME_EXISTS", "Username already exists")
+                            ));
+                }
+                if (constraintNameLower.contains("email") || constraintNameLower.contains("users_email_key")) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body(new ApiErrorResponse(
+                                    new ApiErrorResponse.ErrorDetails("EMAIL_EXISTS", "Email already exists")
+                            ));
+                }
+            }
+            
             if (cve.getCause() != null && cve.getCause() instanceof org.postgresql.util.PSQLException) {
                 org.postgresql.util.PSQLException psqlEx = (org.postgresql.util.PSQLException) cve.getCause();
                 String serverMessage = psqlEx.getServerErrorMessage().getMessage();
@@ -129,11 +173,11 @@ public class GlobalExceptionHandler {
             }
         }
         
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ApiErrorResponse(
                         new ApiErrorResponse.ErrorDetails(
-                                "INTERNAL_SERVER_ERROR",
-                                message,
+                                "DATA_INTEGRITY_VIOLATION",
+                                "A database constraint violation occurred",
                                 null
                         )
                 ));

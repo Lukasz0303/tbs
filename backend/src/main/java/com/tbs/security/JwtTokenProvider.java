@@ -95,6 +95,10 @@ public class JwtTokenProvider {
     }
 
     private Claims parseClaims(String token) {
+        if (token == null) {
+            throw new IllegalArgumentException("Token cannot be null");
+        }
+        
         Map<String, Claims> cache = claimsCache.get();
         Claims cachedClaims = cache.get(token);
         

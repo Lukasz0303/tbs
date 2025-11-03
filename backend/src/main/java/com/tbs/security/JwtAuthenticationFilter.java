@@ -41,7 +41,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String authHeader = request.getHeader(AUTH_HEADER);
 
             if (authHeader != null && authHeader.startsWith(TOKEN_PREFIX)) {
-                String token = authHeader.substring(TOKEN_PREFIX.length());
+                String token = authHeader.substring(TOKEN_PREFIX.length()).trim();
+                
+                if (token.isEmpty()) {
+                    log.warn("Empty token in Authorization header");
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
                 if (jwtTokenProvider.validateToken(token)) {
                     try {

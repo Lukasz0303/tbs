@@ -5,6 +5,7 @@ import com.tbs.dto.auth.LoginResponse;
 import com.tbs.dto.auth.LogoutResponse;
 import com.tbs.dto.auth.RegisterRequest;
 import com.tbs.dto.auth.RegisterResponse;
+import com.tbs.exception.BadRequestException;
 import com.tbs.exception.UnauthorizedException;
 import com.tbs.model.User;
 import com.tbs.repository.UserRepository;
@@ -75,25 +76,22 @@ public class AuthService {
         try {
             User savedUser = createAndSaveUser(request);
             String token = jwtTokenProvider.generateToken(savedUser.getId());
-
             return buildRegisterResponse(savedUser, token);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            log.warn("Data integrity violation during registration: {}", e.getMessage());
             handleDataIntegrityViolation(e, request);
-            throw e;
-        } catch (Exception e) {
-            log.error("Error during user registration: {}", e.getMessage(), e);
-            throw e;
+            throw new BadRequestException("Registration failed due to constraint violation");
         }
     }
 
     private void validateRegistrationRequest(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             log.warn("Registration failed: Email already exists: {}", request.email());
-            throw new com.tbs.exception.BadRequestException("Email already exists");
+            throw new BadRequestException("Email already exists");
         }
         if (userRepository.existsByUsername(request.username())) {
             log.warn("Registration failed: Username already exists: {}", request.username());
-            throw new com.tbs.exception.BadRequestException("Username already exists");
+            throw new BadRequestException("Username already exists");
         }
     }
 

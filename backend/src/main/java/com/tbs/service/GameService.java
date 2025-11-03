@@ -11,6 +11,7 @@ import com.tbs.enums.GameType;
 import com.tbs.exception.BadRequestException;
 import com.tbs.exception.ForbiddenException;
 import com.tbs.exception.GameNotFoundException;
+import com.tbs.mapper.MoveMapper;
 import com.tbs.model.Game;
 import com.tbs.model.Move;
 import com.tbs.model.User;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,6 +50,7 @@ public class GameService {
 
     @Transactional
     public CreateGameResponse createGame(CreateGameRequest request, Long userId) {
+        log.debug("Creating game: type={}, boardSize={}, userId={}", request.gameType(), request.boardSize(), userId);
         validateGameRequest(request);
 
         User player1 = userRepository.findById(userId)
@@ -69,7 +72,9 @@ public class GameService {
         return mapToCreateGameResponse(savedGame, boardState);
     }
 
+    @Transactional(readOnly = true)
     public GameDetailResponse getGameDetail(Long gameId, Long userId) {
+        log.debug("Retrieving game detail: gameId={}, userId={}", gameId, userId);
         Game game = gameRepository.findByIdWithPlayers(gameId)
                 .orElseThrow(() -> new GameNotFoundException("Game not found"));
 
@@ -79,13 +84,15 @@ public class GameService {
         BoardState boardState = boardStateService.generateBoardState(game, moves);
 
         List<MoveListItem> moveListItems = moves.stream()
-                .map(move -> mapToMoveListItem(move))
+                .map(MoveMapper::toMoveListItem)
                 .collect(Collectors.toList());
 
         return mapToGameDetailResponse(game, boardState, moves.size(), moveListItems);
     }
 
+    @Transactional(readOnly = true)
     public BoardStateResponse getBoardState(Long gameId, Long userId) {
+        log.debug("Retrieving board state: gameId={}, userId={}", gameId, userId);
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new GameNotFoundException("Game not found"));
 
@@ -94,21 +101,32 @@ public class GameService {
         List<Move> moves = moveRepository.findByGameIdOrderByMoveOrderAsc(gameId);
         BoardState boardState = boardStateService.generateBoardState(game, moves);
 
-        Move lastMove = moveRepository.findFirstByGameIdOrderByMoveOrderDesc(gameId).orElse(null);
-        BoardStateResponse.LastMove lastMoveDto = lastMove != null
-                ? new BoardStateResponse.LastMove(lastMove.getRow(), lastMove.getCol(),
-                lastMove.getPlayerSymbol(), lastMove.getMoveOrder())
-                : null;
+        BoardStateResponse.LastMove lastMoveDto = moveRepository
+                .findFirstByGameIdOrderByMoveOrderDesc(gameId)
+                .map(move -> new BoardStateResponse.LastMove(
+                        move.getRow(),
+                        move.getCol(),
+                        move.getPlayerSymbol(),
+                        move.getMoveOrder()))
+                .orElse(null);
 
         return new BoardStateResponse(boardState, game.getBoardSize(), moves.size(), lastMoveDto);
     }
 
+    @Transactional(readOnly = true)
     public GameListResponse getGames(Long userId, GameStatus status, GameType gameType, Pageable pageable) {
+        log.debug("Retrieving games list: userId={}, status={}, gameType={}, page={}", userId, status, gameType, pageable.isPaged() ? pageable.getPageNumber() : "unpaged");
         Page<Game> games = gameRepository.findByUserIdAndFilters(userId, status, gameType, pageable);
+
+        List<Long> gameIds = games.getContent().stream()
+                .map(Game::getId)
+                .collect(Collectors.toList());
+
+        Map<Long, Long> moveCountsMap = moveRepository.getMoveCountsByGameIds(gameIds);
 
         List<GameListItem> items = games.getContent().stream()
                 .map(g -> {
-                    long totalMoves = moveRepository.countByGameId(g.getId());
+                    long totalMoves = moveCountsMap.getOrDefault(g.getId(), 0L);
                     return mapToGameListItem(g, totalMoves);
                 })
                 .collect(Collectors.toList());
@@ -141,11 +159,15 @@ public class GameService {
         }
 
         if (newStatus == GameStatus.FINISHED) {
-            User winner = game.getPlayer1().getId().equals(userId)
-                    ? game.getPlayer2()
-                    : game.getPlayer1();
-            if (winner != null) {
+            if (game.getGameType() == GameType.PVP && game.getPlayer2() != null) {
+                User winner = game.getPlayer1().getId().equals(userId)
+                        ? game.getPlayer2()
+                        : game.getPlayer1();
                 game.setWinner(winner);
+                log.info("Game {} finished by surrender. Winner: user {}", gameId, winner.getId());
+            } else if (game.getGameType() == GameType.VS_BOT) {
+                game.setWinner(null);
+                log.info("Game {} finished by surrender - bot wins", gameId);
             }
         }
 
@@ -183,6 +205,14 @@ public class GameService {
 
         if (currentStatus == GameStatus.WAITING && newStatus == GameStatus.FINISHED) {
             throw new BadRequestException("Cannot finish a game that has not started");
+        }
+
+         if (currentStatus == GameStatus.WAITING && newStatus == GameStatus.IN_PROGRESS) {
+            throw new BadRequestException("Use POST /api/games/{gameId}/moves to start the game");
+        }
+
+        if (newStatus == GameStatus.FINISHED && currentStatus != GameStatus.IN_PROGRESS) {
+            throw new BadRequestException("Can only finish game that is in progress");
         }
 
         if (currentStatus == GameStatus.IN_PROGRESS) {
@@ -258,19 +288,6 @@ public class GameService {
         return new WinnerInfo(
                 user.getId(),
                 user.getUsername()
-        );
-    }
-
-    private MoveListItem mapToMoveListItem(Move move) {
-        return new MoveListItem(
-                move.getId(),
-                move.getRow(),
-                move.getCol(),
-                move.getPlayerSymbol(),
-                move.getMoveOrder(),
-                move.getPlayer() != null ? move.getPlayer().getId() : null,
-                move.getPlayer() != null ? move.getPlayer().getUsername() : null,
-                move.getCreatedAt()
         );
     }
 }
