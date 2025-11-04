@@ -131,16 +131,61 @@ public class AuthService {
 
     private void handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException e, RegisterRequest request) {
         log.warn("Data integrity violation during user registration: {}", e.getMessage());
-        if (e.getCause() instanceof org.hibernate.exception.ConstraintViolationException) {
-            org.hibernate.exception.ConstraintViolationException cve = 
-                (org.hibernate.exception.ConstraintViolationException) e.getCause();
-            if (cve.getConstraintName() != null && cve.getConstraintName().contains("users_registered_check")) {
-                log.warn("Constraint violation: users_registered_check. User data: isGuest={}, authUserId={}, username={}, email={}", 
-                    false, null, request.username(), request.email());
-                throw new BadRequestException("Registration failed: constraint violation. Please check database constraints.");
+        
+        String errorMessage = extractConstraintErrorMessage(e);
+        if (errorMessage != null) {
+            throw new BadRequestException(errorMessage);
+        }
+        
+        log.warn("Constraint violation: users_registered_check. User data: isGuest={}, authUserId={}, username={}, email={}", 
+            false, null, request.username(), request.email());
+        throw new BadRequestException("Registration failed due to constraint violation");
+    }
+
+    private String extractConstraintErrorMessage(org.springframework.dao.DataIntegrityViolationException e) {
+        if (!(e.getCause() instanceof org.hibernate.exception.ConstraintViolationException)) {
+            return null;
+        }
+        
+        org.hibernate.exception.ConstraintViolationException cve = 
+            (org.hibernate.exception.ConstraintViolationException) e.getCause();
+        String constraintName = cve.getConstraintName();
+        
+        if (constraintName != null) {
+            String constraintNameLower = constraintName.toLowerCase();
+            if (isUsernameConstraint(constraintNameLower)) {
+                return "Username already exists";
+            }
+            
+            if (isEmailConstraint(constraintNameLower)) {
+                return "Email already exists";
             }
         }
-        throw new BadRequestException("Registration failed due to constraint violation");
+        
+        if (cve.getCause() instanceof org.postgresql.util.PSQLException) {
+            org.postgresql.util.PSQLException psqlEx = (org.postgresql.util.PSQLException) cve.getCause();
+            if (psqlEx.getServerErrorMessage() != null) {
+                String detail = psqlEx.getServerErrorMessage().getDetail();
+                if (detail != null) {
+                    if (detail.contains("username")) {
+                        return "Username already exists";
+                    }
+                    if (detail.contains("email")) {
+                        return "Email already exists";
+                    }
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    private boolean isUsernameConstraint(String constraintName) {
+        return constraintName.contains("username") || constraintName.contains("idx_users_username");
+    }
+
+    private boolean isEmailConstraint(String constraintName) {
+        return constraintName.contains("email") || constraintName.contains("idx_users_email");
     }
 
     public LogoutResponse logout(String token) {
@@ -181,4 +226,6 @@ public class AuthService {
         return new LogoutResponse("Wylogowano pomyślnie");
     }
 }
+
+
 

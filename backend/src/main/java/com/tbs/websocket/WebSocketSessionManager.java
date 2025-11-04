@@ -46,5 +46,15 @@ public class WebSocketSessionManager {
         gameSessions.remove(gameId);
         log.debug("Removed all WebSocket sessions for game: gameId={}", gameId);
     }
+
+    public int getActiveConnectionCount() {
+        return gameSessions.values().stream()
+                .mapToInt(Map::size)
+                .sum();
+    }
+
+    public boolean hasActiveConnections() {
+        return !gameSessions.isEmpty();
+    }
 }
 

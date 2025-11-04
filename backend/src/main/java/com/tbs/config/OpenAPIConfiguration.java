@@ -42,7 +42,26 @@ public class OpenAPIConfiguration {
                                 "- **TIMER_UPDATE** - Aktualizacja timera\n" +
                                 "- **GAME_ENDED** - Gra zakończona\n" +
                                 "- **PONG** - Odpowiedź keep-alive\n\n" +
-                                "**Szczegółowa dokumentacja:** Zobacz plik `.ai/implementation-plans/websocket/ws-game-gameId.md`"))
+                                "**Szczegółowa dokumentacja:** Zobacz plik `.ai/implementation-plans/websocket/ws-game-gameId.md`\n\n" +
+                                "## Actuator Endpoints\n\n" +
+                                "**⚠️ UWAGA: To są endpointy systemowe (niebiznesowe) do monitorowania i zarządzania aplikacją.**\n\n" +
+                                "### GET /actuator/health\n\n" +
+                                "Endpoint do sprawdzania zdrowia aplikacji i jej komponentów.\n\n" +
+                                "**Status:** Publiczny (bez uwierzytelnienia)\n\n" +
+                                "**Zwraca:**\n" +
+                                "- Status aplikacji (UP/DOWN)\n" +
+                                "- Status komponentów (db, redis, webSocket)\n\n" +
+                                "**Użycie:** Load balancery, systemy monitoringu\n\n" +
+                                "### GET /actuator/metrics\n\n" +
+                                "Endpoint do pobierania metryk aplikacji w formacie Prometheus.\n\n" +
+                                "**Status:** Wymaga uwierzytelnienia\n\n" +
+                                "**Zwraca:** Metryki wydajności aplikacji\n\n" +
+                                "**Użycie:** Prometheus, Grafana\n\n" +
+                                "### GET /actuator/prometheus\n\n" +
+                                "Endpoint do pobierania metryk w formacie Prometheus.\n\n" +
+                                "**Status:** Wymaga uwierzytelnienia\n\n" +
+                                "**Zwraca:** Metryki w formacie Prometheus (text/plain)\n\n" +
+                                "**Użycie:** Prometheus scraping"))
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth",
                                 new SecurityScheme()

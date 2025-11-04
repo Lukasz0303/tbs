@@ -4,7 +4,8 @@
 
 # JWT Configuration
 # Generate a new secret with: openssl rand -base64 64
-app.jwt.secret=YOUR_LOCAL_DEV_SECRET_HERE_BASE64_ENCODED
+# For local development only - use a strong random secret
+app.jwt.secret=V2FyOiBUaGlzIGlzIGEgdG9wIHNlY3JldCBmb3IgSldUIGVuY29kaW5nLiBJbiBwcm9kdWN0aW9uIHVzZSBhIHN0cm9uZyByYW5kb20gc2VjcmV0IQ==
 
 # Optional: Override default port
 # server.port=8080
