@@ -16,7 +16,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -32,21 +31,21 @@ public class SecurityConfig {
 
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
-            @Value("${app.cors.allowed-origins}") String allowedOrigins,
-            @Value("${app.cors.allowed-methods}") String allowedMethods,
+            @Value("#{'${app.cors.allowed-origins}'.split(',')}") List<String> allowedOrigins,
+            @Value("#{'${app.cors.allowed-methods}'.split(',')}") List<String> allowedMethods,
             @Value("${app.cors.max-age:3600}") long maxAge
     ) {
         this.jwtAuthenticationFilter = Objects.requireNonNull(jwtAuthenticationFilter);
         
-        if (allowedOrigins == null || allowedOrigins.trim().isEmpty()) {
+        if (allowedOrigins == null || allowedOrigins.isEmpty()) {
             throw new IllegalArgumentException("app.cors.allowed-origins cannot be empty");
         }
-        if (allowedMethods == null || allowedMethods.trim().isEmpty()) {
+        if (allowedMethods == null || allowedMethods.isEmpty()) {
             throw new IllegalArgumentException("app.cors.allowed-methods cannot be empty");
         }
         
-        this.allowedOrigins = Arrays.asList(allowedOrigins.split(","));
-        this.allowedMethods = Arrays.asList(allowedMethods.split(","));
+        this.allowedOrigins = allowedOrigins;
+        this.allowedMethods = allowedMethods;
         this.maxAge = maxAge;
     }
 
@@ -88,6 +87,9 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout").authenticated()
                         .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/users/{userId}").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/users/{userId}/last-seen").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/users/{userId}").authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

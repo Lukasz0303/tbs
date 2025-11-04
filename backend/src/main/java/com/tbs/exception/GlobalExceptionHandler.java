@@ -266,6 +266,26 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ApiErrorResponse> handleConflict(ConflictException e) {
+        log.warn("Conflict: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("CONFLICT", e.getMessage())
+                ));
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleRateLimitExceeded(RateLimitExceededException e) {
+        log.warn("Rate limit exceeded: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("X-RateLimit-Remaining", String.valueOf(e.getRemainingRequests()))
+                .header("X-RateLimit-Reset", String.valueOf(e.getTimeToResetSeconds()))
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("RATE_LIMIT_EXCEEDED", e.getMessage())
+                ));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGenericException(Exception e) {
         log.error("Unexpected error occurred: {}", e.getMessage(), e);
