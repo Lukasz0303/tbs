@@ -8,6 +8,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -91,8 +92,8 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    @ExceptionHandler(com.tbs.exception.TokenBlacklistException.class)
-    public ResponseEntity<ApiErrorResponse> handleTokenBlacklistException(com.tbs.exception.TokenBlacklistException e) {
+    @ExceptionHandler(TokenBlacklistException.class)
+    public ResponseEntity<ApiErrorResponse> handleTokenBlacklistException(TokenBlacklistException e) {
         log.error("Token blacklist operation failed: {}", e.getMessage(), e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ApiErrorResponse(
@@ -101,6 +102,19 @@ public class GlobalExceptionHandler {
                                 "Token management operation failed",
                                 null
                         )
+                ));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException e) {
+        String message = e.getMessage();
+        if (e.getCause() != null && e.getCause() instanceof IllegalArgumentException) {
+            message = e.getCause().getMessage();
+        }
+        log.warn("HTTP message not readable: {}", message);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("INVALID_REQUEST_BODY", message != null ? message : "Invalid request body format")
                 ));
     }
 
@@ -144,7 +158,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException e) {
-        log.warn("Data integrity violation: {}", e.getMessage());
+        log.warn("Data integrity violation: {}", e.getMessage(), e);
+        
+        String errorMessage = "A database constraint violation occurred";
+        String errorCode = "DATA_INTEGRITY_VIOLATION";
         
         if (e.getCause() instanceof ConstraintViolationException) {
             ConstraintViolationException cve = (ConstraintViolationException) e.getCause();
@@ -164,20 +181,28 @@ public class GlobalExceptionHandler {
                                     new ApiErrorResponse.ErrorDetails("EMAIL_EXISTS", "Email already exists")
                             ));
                 }
+                log.warn("Constraint name: {}", constraintName);
             }
             
             if (cve.getCause() != null && cve.getCause() instanceof org.postgresql.util.PSQLException) {
                 org.postgresql.util.PSQLException psqlEx = (org.postgresql.util.PSQLException) cve.getCause();
-                String serverMessage = psqlEx.getServerErrorMessage().getMessage();
-                log.warn("PostgreSQL constraint violation: {}", serverMessage);
+                if (psqlEx.getServerErrorMessage() != null) {
+                    String serverMessage = psqlEx.getServerErrorMessage().getMessage();
+                    String detail = psqlEx.getServerErrorMessage().getDetail();
+                    log.warn("PostgreSQL constraint violation: {} - Detail: {}", serverMessage, detail);
+                    errorMessage = serverMessage != null ? serverMessage : errorMessage;
+                    if (detail != null) {
+                        errorMessage += " - " + detail;
+                    }
+                }
             }
         }
         
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ApiErrorResponse(
                         new ApiErrorResponse.ErrorDetails(
-                                "DATA_INTEGRITY_VIOLATION",
-                                "A database constraint violation occurred",
+                                errorCode,
+                                errorMessage,
                                 null
                         )
                 ));
@@ -193,6 +218,51 @@ public class GlobalExceptionHandler {
                                 e.getMessage(),
                                 null
                         )
+                ));
+    }
+
+    @ExceptionHandler(UserAlreadyInQueueException.class)
+    public ResponseEntity<ApiErrorResponse> handleUserAlreadyInQueue(UserAlreadyInQueueException e) {
+        log.warn("User already in queue: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("USER_ALREADY_IN_QUEUE", e.getMessage())
+                ));
+    }
+
+    @ExceptionHandler(UserNotInQueueException.class)
+    public ResponseEntity<ApiErrorResponse> handleUserNotInQueue(UserNotInQueueException e) {
+        log.warn("User not in queue: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("USER_NOT_IN_QUEUE", e.getMessage())
+                ));
+    }
+
+    @ExceptionHandler(UserHasActiveGameException.class)
+    public ResponseEntity<ApiErrorResponse> handleUserHasActiveGame(UserHasActiveGameException e) {
+        log.warn("User has active game: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("USER_HAS_ACTIVE_GAME", e.getMessage())
+                ));
+    }
+
+    @ExceptionHandler(CannotChallengeSelfException.class)
+    public ResponseEntity<ApiErrorResponse> handleCannotChallengeSelf(CannotChallengeSelfException e) {
+        log.warn("Cannot challenge self: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("CANNOT_CHALLENGE_SELF", e.getMessage())
+                ));
+    }
+
+    @ExceptionHandler(UserUnavailableException.class)
+    public ResponseEntity<ApiErrorResponse> handleUserUnavailable(UserUnavailableException e) {
+        log.warn("User unavailable: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("USER_UNAVAILABLE", e.getMessage())
                 ));
     }
 

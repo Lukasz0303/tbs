@@ -1,4 +1,4 @@
-# Test scenariusza ruchu bota
+[propertyType] $PropertyName# Test scenariusza ruchu bota
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Test scenariusza ruchu bota" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan

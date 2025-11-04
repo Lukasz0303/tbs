@@ -98,8 +98,8 @@ alter table public.games
         -- vs_bot: game_type='vs_bot' AND player2_id null AND bot_difficulty not null
         (game_type = 'vs_bot' AND player2_id IS NULL AND bot_difficulty IS NOT NULL)
         OR
-        -- pvp: game_type='pvp' AND player2_id not null AND bot_difficulty null
-        (game_type = 'pvp' AND player2_id IS NOT NULL AND bot_difficulty IS NULL)
+        -- pvp: game_type='pvp' AND player2_id może być null (waiting) lub not null (in_progress) AND bot_difficulty null
+        (game_type = 'pvp' AND bot_difficulty IS NULL)
     );
 
 -- constraint: zapewnia poprawność statusu gry

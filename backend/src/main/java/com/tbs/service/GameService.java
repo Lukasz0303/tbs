@@ -9,8 +9,8 @@ import com.tbs.enums.BoardSize;
 import com.tbs.enums.GameStatus;
 import com.tbs.enums.GameType;
 import com.tbs.exception.BadRequestException;
-import com.tbs.exception.ForbiddenException;
 import com.tbs.exception.GameNotFoundException;
+import com.tbs.exception.UserNotFoundException;
 import com.tbs.mapper.MoveMapper;
 import com.tbs.model.Game;
 import com.tbs.model.Move;
@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,22 +40,28 @@ public class GameService {
     private final MoveRepository moveRepository;
     private final UserRepository userRepository;
     private final BoardStateService boardStateService;
+    private final GameValidationService gameValidationService;
 
     public GameService(GameRepository gameRepository, MoveRepository moveRepository,
-                       UserRepository userRepository, BoardStateService boardStateService) {
-        this.gameRepository = gameRepository;
-        this.moveRepository = moveRepository;
-        this.userRepository = userRepository;
-        this.boardStateService = boardStateService;
+                       UserRepository userRepository, BoardStateService boardStateService,
+                       GameValidationService gameValidationService) {
+        this.gameRepository = Objects.requireNonNull(gameRepository, "GameRepository cannot be null");
+        this.moveRepository = Objects.requireNonNull(moveRepository, "MoveRepository cannot be null");
+        this.userRepository = Objects.requireNonNull(userRepository, "UserRepository cannot be null");
+        this.boardStateService = Objects.requireNonNull(boardStateService, "BoardStateService cannot be null");
+        this.gameValidationService = Objects.requireNonNull(gameValidationService, "GameValidationService cannot be null");
     }
 
     @Transactional
     public CreateGameResponse createGame(CreateGameRequest request, Long userId) {
+        if (userId == null) {
+            throw new BadRequestException("User ID cannot be null");
+        }
         log.debug("Creating game: type={}, boardSize={}, userId={}", request.gameType(), request.boardSize(), userId);
         validateGameRequest(request);
 
         User player1 = userRepository.findById(userId)
-                .orElseThrow(() -> new com.tbs.exception.UserNotFoundException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         Game game = new Game();
         game.setGameType(request.gameType());
@@ -74,11 +81,14 @@ public class GameService {
 
     @Transactional(readOnly = true)
     public GameDetailResponse getGameDetail(Long gameId, Long userId) {
+        if (gameId == null) {
+            throw new BadRequestException("Game ID cannot be null");
+        }
         log.debug("Retrieving game detail: gameId={}, userId={}", gameId, userId);
         Game game = gameRepository.findByIdWithPlayers(gameId)
                 .orElseThrow(() -> new GameNotFoundException("Game not found"));
 
-        validateParticipation(game, userId);
+        gameValidationService.validateParticipation(game, userId);
 
         List<Move> moves = moveRepository.findByGameIdOrderByMoveOrderAsc(gameId);
         BoardState boardState = boardStateService.generateBoardState(game, moves);
@@ -96,7 +106,7 @@ public class GameService {
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new GameNotFoundException("Game not found"));
 
-        validateParticipation(game, userId);
+        gameValidationService.validateParticipation(game, userId);
 
         List<Move> moves = moveRepository.findByGameIdOrderByMoveOrderAsc(gameId);
         BoardState boardState = boardStateService.generateBoardState(game, moves);
@@ -122,7 +132,9 @@ public class GameService {
                 .map(Game::getId)
                 .collect(Collectors.toList());
 
-        Map<Long, Long> moveCountsMap = moveRepository.getMoveCountsByGameIds(gameIds);
+        Map<Long, Long> moveCountsMap = gameIds.isEmpty()
+                ? Map.of()
+                : moveRepository.getMoveCountsByGameIds(gameIds);
 
         List<GameListItem> items = games.getContent().stream()
                 .map(g -> {
@@ -147,7 +159,7 @@ public class GameService {
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new GameNotFoundException("Game not found"));
 
-        validateParticipation(game, userId);
+        gameValidationService.validateParticipation(game, userId);
         
         GameStatus oldStatus = game.getStatus();
         validateStatusTransition(oldStatus, newStatus);
@@ -159,16 +171,7 @@ public class GameService {
         }
 
         if (newStatus == GameStatus.FINISHED) {
-            if (game.getGameType() == GameType.PVP && game.getPlayer2() != null) {
-                User winner = game.getPlayer1().getId().equals(userId)
-                        ? game.getPlayer2()
-                        : game.getPlayer1();
-                game.setWinner(winner);
-                log.info("Game {} finished by surrender. Winner: user {}", gameId, winner.getId());
-            } else if (game.getGameType() == GameType.VS_BOT) {
-                game.setWinner(null);
-                log.info("Game {} finished by surrender - bot wins", gameId);
-            }
+            determineWinnerOnSurrender(game, userId, gameId);
         }
 
         Game updatedGame = gameRepository.save(game);
@@ -191,12 +194,6 @@ public class GameService {
         }
     }
 
-    private void validateParticipation(Game game, Long userId) {
-        if (!game.getPlayer1().getId().equals(userId) &&
-                (game.getPlayer2() == null || !game.getPlayer2().getId().equals(userId))) {
-            throw new ForbiddenException("You are not a participant of this game");
-        }
-    }
 
     private void validateStatusTransition(GameStatus currentStatus, GameStatus newStatus) {
         if (currentStatus == GameStatus.FINISHED || currentStatus == GameStatus.ABANDONED) {
@@ -215,10 +212,10 @@ public class GameService {
             throw new BadRequestException("Can only finish game that is in progress");
         }
 
-        if (currentStatus == GameStatus.IN_PROGRESS) {
-            if (newStatus != GameStatus.FINISHED && newStatus != GameStatus.ABANDONED) {
-                throw new BadRequestException("Invalid status transition from " + currentStatus + " to " + newStatus);
-            }
+        if (currentStatus == GameStatus.IN_PROGRESS 
+                && newStatus != GameStatus.FINISHED 
+                && newStatus != GameStatus.ABANDONED) {
+            throw new BadRequestException("Invalid status transition from " + currentStatus + " to " + newStatus);
         }
     }
 
@@ -289,6 +286,29 @@ public class GameService {
                 user.getId(),
                 user.getUsername()
         );
+    }
+
+    private void determineWinnerOnSurrender(Game game, Long userId, Long gameId) {
+        if (game.getGameType() == GameType.PVP) {
+            User winner = determinePvpWinner(game, userId);
+            if (winner != null) {
+                game.setWinner(winner);
+                log.info("Game {} finished by surrender. Winner: user {}", gameId, winner.getId());
+            }
+        } else if (game.getGameType() == GameType.VS_BOT) {
+            game.setWinner(null);
+            log.info("Game {} finished by surrender - bot wins", gameId);
+        }
+    }
+
+    private User determinePvpWinner(Game game, Long userId) {
+        if (game.getPlayer1() == null || game.getPlayer2() == null) {
+            return null;
+        }
+        
+        return game.getPlayer1().getId().equals(userId)
+                ? game.getPlayer2()
+                : game.getPlayer1();
     }
 }
 

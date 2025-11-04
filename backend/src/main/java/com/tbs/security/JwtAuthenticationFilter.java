@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.lang.NonNull;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -34,8 +35,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
             throws ServletException, IOException {
+
+        String requestPath = request.getRequestURI();
+        if (requestPath != null && requestPath.startsWith("/ws/")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         try {
             String authHeader = request.getHeader(AUTH_HEADER);
@@ -50,32 +57,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
 
-                if (jwtTokenProvider.validateToken(token)) {
-                    try {
-                        String tokenId = jwtTokenProvider.getTokenId(token);
-                        
-                        if (tokenBlacklistService.isBlacklisted(tokenId)) {
-                            log.warn("Attempted access with blacklisted token");
-                            SecurityContextHolder.clearContext();
-                            filterChain.doFilter(request, response);
-                            return;
-                        }
-
-                        Long userId = jwtTokenProvider.getUserIdFromToken(token);
-                        setAuthentication(userId);
-                    } catch (Exception e) {
-                        log.warn("Failed to process JWT token: {}", e.getMessage());
-                        SecurityContextHolder.clearContext();
-                    }
-                } else {
+                if (!jwtTokenProvider.validateToken(token)) {
                     log.warn("Invalid JWT token");
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                try {
+                    String tokenId = jwtTokenProvider.getTokenId(token);
+                    
+                    if (tokenBlacklistService.isBlacklisted(tokenId)) {
+                        log.warn("Attempted access with blacklisted token");
+                        SecurityContextHolder.clearContext();
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+
+                    Long userId = jwtTokenProvider.getUserIdFromToken(token);
+                    setAuthentication(userId);
+                } catch (Exception e) {
+                    log.warn("Failed to process JWT token: {}", e.getMessage());
                     SecurityContextHolder.clearContext();
                 }
             }
 
             filterChain.doFilter(request, response);
-        } finally {
-            jwtTokenProvider.clearClaimsCache();
         }
     }
 

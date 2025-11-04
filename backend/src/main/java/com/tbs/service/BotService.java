@@ -57,6 +57,9 @@ public class BotService {
     }
 
     private BotMovePosition generateEasyMove(List<BotMovePosition> availablePositions) {
+        if (availablePositions.isEmpty()) {
+            throw new IllegalStateException("No available positions for bot move");
+        }
         Collections.shuffle(availablePositions, ThreadLocalRandom.current());
         return availablePositions.get(0);
     }
@@ -82,6 +85,7 @@ public class BotService {
         if (boardSize == 3) {
             return generateHardMove3x3(boardState, availablePositions, botSymbol, game);
         }
+        log.debug("Hard mode not fully optimized for board size {}, falling back to medium difficulty", boardSize);
         return generateMediumMove(boardState, availablePositions, botSymbol, boardSize, game);
     }
 
@@ -120,7 +124,8 @@ public class BotService {
                 .toList();
         
         if (!availableCorners.isEmpty()) {
-            return availableCorners.get(ThreadLocalRandom.current().nextInt(availableCorners.size()));
+            int randomIndex = ThreadLocalRandom.current().nextInt(availableCorners.size());
+            return availableCorners.get(randomIndex);
         }
 
         return generateEasyMove(availablePositions);

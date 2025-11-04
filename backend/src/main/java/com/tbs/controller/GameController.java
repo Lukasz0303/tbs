@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import java.net.URI;
 
 @RestController
-@RequestMapping("/api/games")
+@RequestMapping("/api/v1/games")
 @Tag(name = "Games", description = "API endpoints for game management")
 @PreAuthorize("isAuthenticated()")
 public class GameController {
@@ -39,14 +39,16 @@ public class GameController {
     @Operation(summary = "Create new game", description = "Creates a new game (vs_bot or pvp)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Game created successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid game parameters"),
+            @ApiResponse(responseCode = "400", description = "Invalid game parameters or missing botDifficulty for VS_BOT games"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required"),
+            @ApiResponse(responseCode = "404", description = "User not found"),
             @ApiResponse(responseCode = "422", description = "Validation errors")
     })
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<CreateGameResponse> createGame(@Valid @RequestBody CreateGameRequest request) {
         Long userId = authenticationService.getCurrentUserId();
         CreateGameResponse response = gameService.createGame(request, userId);
-        URI locationUri = URI.create("/api/games/" + response.gameId());
+        URI locationUri = URI.create("/api/v1/games/" + response.gameId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .location(locationUri)
                 .body(response);
@@ -61,16 +63,12 @@ public class GameController {
     })
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<GameListResponse> getGames(
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String gameType,
+            @RequestParam(required = false) GameStatus status,
+            @RequestParam(required = false) GameType gameType,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         Long userId = authenticationService.getCurrentUserId();
-
-        GameStatus statusEnum = status != null ? GameStatus.fromValue(status) : null;
-        GameType gameTypeEnum = gameType != null ? GameType.fromValue(gameType) : null;
-
-        GameListResponse response = gameService.getGames(userId, statusEnum, gameTypeEnum, pageable);
+        GameListResponse response = gameService.getGames(userId, status, gameType, pageable);
         return ResponseEntity.ok(response);
     }
 

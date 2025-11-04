@@ -21,7 +21,7 @@ import java.net.URI;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/games")
+@RequestMapping("/api/v1/games")
 @Tag(name = "Moves", description = "API endpoints for game moves management")
 @PreAuthorize("isAuthenticated()")
 public class MoveController {
@@ -70,7 +70,7 @@ public class MoveController {
     ) {
         Long userId = authenticationService.getCurrentUserId();
         CreateMoveResponse response = moveService.createMove(gameId, request, userId);
-        URI locationUri = URI.create("/api/games/" + gameId + "/moves/" + response.moveId());
+        URI locationUri = URI.create("/api/v1/games/" + gameId + "/moves/" + response.moveId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .location(locationUri)
                 .body(response);
