@@ -19,12 +19,38 @@ public class AuthenticationService {
             throw new com.tbs.exception.UnauthorizedException("Authentication principal is null");
         }
         
-        String principalString = principal.toString();
-        try {
-            return Long.parseLong(principalString);
-        } catch (NumberFormatException e) {
-            throw new com.tbs.exception.UnauthorizedException("Authentication failed");
+        if (principal instanceof String) {
+            try {
+                return Long.parseLong((String) principal);
+            } catch (NumberFormatException e) {
+                throw new com.tbs.exception.UnauthorizedException("Invalid user ID in authentication");
+            }
         }
+        
+        throw new com.tbs.exception.UnauthorizedException("Unexpected principal type: " + principal.getClass().getName());
+    }
+
+    public Long getCurrentUserIdOrNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (principal == null) {
+            return null;
+        }
+        
+        if (principal instanceof String) {
+            try {
+                return Long.parseLong((String) principal);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        
+        return null;
     }
 }
 

@@ -23,6 +23,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     
     boolean existsByUsername(String username);
     
+    Optional<User> findByUsername(String username);
+    
     @Modifying
     @Query("UPDATE User u SET u.lastSeenAt = :timestamp WHERE u.id = :userId")
     int updateLastSeenAt(@Param("userId") Long userId, @Param("timestamp") Instant timestamp);

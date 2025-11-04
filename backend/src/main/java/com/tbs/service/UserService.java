@@ -1,11 +1,21 @@
 package com.tbs.service;
 
-import com.tbs.dto.auth.UserProfileResponse;
+import com.tbs.dto.user.LastSeenResponse;
+import com.tbs.dto.user.UpdateUserRequest;
+import com.tbs.dto.user.UpdateUserResponse;
+import com.tbs.dto.user.UserProfileResponse;
+import com.tbs.exception.ConflictException;
+import com.tbs.exception.ForbiddenException;
 import com.tbs.exception.UserNotFoundException;
 import com.tbs.model.User;
 import com.tbs.repository.UserRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
 
 @Service
 @Transactional(readOnly = true)
@@ -19,13 +29,74 @@ public class UserService {
         this.authenticationService = authenticationService;
     }
 
-    public UserProfileResponse getCurrentUserProfile() {
+    public com.tbs.dto.auth.UserProfileResponse getCurrentUserProfile() {
         Long userId = authenticationService.getCurrentUserId();
         
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
+        return mapToAuthUserProfileResponse(user);
+    }
+
+    @Cacheable(value = "userProfile", key = "#userId")
+    public UserProfileResponse getUserProfile(Long userId, Long currentUserId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+        if (user.getIsGuest() && (currentUserId == null || !userId.equals(currentUserId))) {
+            throw new ForbiddenException("Access denied to guest profile");
+        }
+
         return mapToUserProfileResponse(user);
+    }
+
+    @Transactional
+    @CacheEvict(value = "userProfile", key = "#userId")
+    public LastSeenResponse updateLastSeen(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+        Instant now = Instant.now();
+        user.setLastSeenAt(now);
+        userRepository.save(user);
+
+        return new LastSeenResponse("Last seen updated successfully", now);
+    }
+
+    @Transactional
+    @CacheEvict(value = "userProfile", key = "#userId")
+    public UpdateUserResponse updateUserProfile(Long userId, UpdateUserRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+        if (request.username() != null && !request.username().equals(user.getUsername())) {
+            java.util.Optional<User> existingUser = userRepository.findByUsername(request.username());
+            if (existingUser.isPresent() && !existingUser.get().getId().equals(userId)) {
+                throw new ConflictException("Username already exists");
+            }
+            user.setUsername(request.username());
+        }
+
+        try {
+            userRepository.save(user);
+        } catch (DataIntegrityViolationException e) {
+            throw new ConflictException("Username already exists");
+        }
+
+        return mapToUpdateUserResponse(user);
+    }
+
+    private com.tbs.dto.auth.UserProfileResponse mapToAuthUserProfileResponse(User user) {
+        return new com.tbs.dto.auth.UserProfileResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getIsGuest(),
+                user.getTotalPoints(),
+                user.getGamesPlayed(),
+                user.getGamesWon(),
+                user.getCreatedAt(),
+                user.getLastSeenAt()
+        );
     }
 
     private UserProfileResponse mapToUserProfileResponse(User user) {
@@ -36,8 +107,19 @@ public class UserService {
                 user.getTotalPoints(),
                 user.getGamesPlayed(),
                 user.getGamesWon(),
-                user.getCreatedAt(),
-                user.getLastSeenAt()
+                user.getCreatedAt()
+        );
+    }
+
+    private UpdateUserResponse mapToUpdateUserResponse(User user) {
+        return new UpdateUserResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getIsGuest(),
+                user.getTotalPoints(),
+                user.getGamesPlayed(),
+                user.getGamesWon(),
+                user.getUpdatedAt()
         );
     }
 }
