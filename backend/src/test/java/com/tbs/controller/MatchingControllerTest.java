@@ -138,7 +138,7 @@ class MatchingControllerTest {
         when(authenticationService.getCurrentUserId()).thenReturn(userId);
         when(matchmakingService.getQueueStatus(boardSize)).thenReturn(response);
 
-        ResponseEntity<QueueStatusResponse> result = matchingController.getQueueStatus(boardSize);
+        ResponseEntity<QueueStatusResponse> result = matchingController.getQueueStatus("THREE");
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody().players()).hasSize(1);

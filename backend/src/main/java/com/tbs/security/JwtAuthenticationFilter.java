@@ -45,44 +45,51 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         try {
-            String authHeader = request.getHeader(AUTH_HEADER);
+            String token = extractToken(request);
+            if (token != null && validateAndSetAuthentication(token)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+        } catch (Exception e) {
+            log.error("Error processing JWT authentication", e);
+        }
+        
+        SecurityContextHolder.clearContext();
+        filterChain.doFilter(request, response);
+    }
 
-            if (authHeader != null && authHeader.startsWith(TOKEN_PREFIX)) {
-                String token = authHeader.substring(TOKEN_PREFIX.length()).trim();
-                
-                if (token.isEmpty()) {
-                    log.warn("Empty token in Authorization header");
-                    SecurityContextHolder.clearContext();
-                    filterChain.doFilter(request, response);
-                    return;
-                }
+    private String extractToken(HttpServletRequest request) {
+        String authHeader = request.getHeader(AUTH_HEADER);
+        if (authHeader == null || !authHeader.startsWith(TOKEN_PREFIX)) {
+            return null;
+        }
+        return authHeader.substring(TOKEN_PREFIX.length()).trim();
+    }
 
-                if (!jwtTokenProvider.validateToken(token)) {
-                    log.warn("Invalid JWT token");
-                    SecurityContextHolder.clearContext();
-                    filterChain.doFilter(request, response);
-                    return;
-                }
+    private boolean validateAndSetAuthentication(String token) {
+        if (token.isEmpty()) {
+            log.warn("Empty token in Authorization header");
+            return false;
+        }
 
-                try {
-                    String tokenId = jwtTokenProvider.getTokenId(token);
-                    
-                    if (tokenBlacklistService.isBlacklisted(tokenId)) {
-                        log.warn("Attempted access with blacklisted token");
-                        SecurityContextHolder.clearContext();
-                        filterChain.doFilter(request, response);
-                        return;
-                    }
+        if (!jwtTokenProvider.validateToken(token)) {
+            log.warn("Invalid JWT token");
+            return false;
+        }
 
-                    Long userId = jwtTokenProvider.getUserIdFromToken(token);
-                    setAuthentication(userId);
-                } catch (Exception e) {
-                    log.warn("Failed to process JWT token: {}", e.getMessage());
-                    SecurityContextHolder.clearContext();
-                }
+        try {
+            String tokenId = jwtTokenProvider.getTokenId(token);
+            if (tokenBlacklistService.isBlacklisted(tokenId)) {
+                log.warn("Attempted access with blacklisted token");
+                return false;
             }
 
-            filterChain.doFilter(request, response);
+            Long userId = jwtTokenProvider.getUserIdFromToken(token);
+            setAuthentication(userId);
+            return true;
+        } catch (Exception e) {
+            log.warn("Failed to process JWT token: {}", e.getMessage());
+            return false;
         }
     }
 

@@ -38,6 +38,16 @@ public class MatchmakingService {
 
     @Transactional
     public MatchmakingQueueResponse addToQueue(Long userId, MatchmakingQueueRequest request) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId cannot be null");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("request cannot be null");
+        }
+        if (request.boardSize() == null) {
+            throw new BadRequestException("boardSize is required");
+        }
+        
         log.debug("Adding user {} to matchmaking queue for board size {}", userId, request.boardSize());
 
         if (redisService.isUserInQueue(userId)) {
@@ -76,6 +86,10 @@ public class MatchmakingService {
 
     @Transactional
     public LeaveQueueResponse removeFromQueue(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId cannot be null");
+        }
+        
         log.debug("Removing user {} from matchmaking queue", userId);
 
         boolean removed = redisService.removeFromQueue(userId);
@@ -90,6 +104,19 @@ public class MatchmakingService {
 
     @Transactional
     public ChallengeResponse createDirectChallenge(Long challengerId, Long challengedId, ChallengeRequest request) {
+        if (challengerId == null) {
+            throw new IllegalArgumentException("challengerId cannot be null");
+        }
+        if (challengedId == null) {
+            throw new IllegalArgumentException("challengedId cannot be null");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("request cannot be null");
+        }
+        if (request.boardSize() == null) {
+            throw new BadRequestException("boardSize is required");
+        }
+        
         log.debug("Creating direct challenge: challenger {} challenges {} for board size {}",
                 challengerId, challengedId, request.boardSize());
 

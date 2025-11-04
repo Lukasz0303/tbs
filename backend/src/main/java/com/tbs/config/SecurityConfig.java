@@ -18,6 +18,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 @Configuration
 @EnableWebSecurity
@@ -35,7 +36,15 @@ public class SecurityConfig {
             @Value("${app.cors.allowed-methods}") String allowedMethods,
             @Value("${app.cors.max-age:3600}") long maxAge
     ) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.jwtAuthenticationFilter = Objects.requireNonNull(jwtAuthenticationFilter);
+        
+        if (allowedOrigins == null || allowedOrigins.trim().isEmpty()) {
+            throw new IllegalArgumentException("app.cors.allowed-origins cannot be empty");
+        }
+        if (allowedMethods == null || allowedMethods.trim().isEmpty()) {
+            throw new IllegalArgumentException("app.cors.allowed-methods cannot be empty");
+        }
+        
         this.allowedOrigins = Arrays.asList(allowedOrigins.split(","));
         this.allowedMethods = Arrays.asList(allowedMethods.split(","));
         this.maxAge = maxAge;
@@ -74,6 +83,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/websocket/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-resources/**", "/webjars/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers("/actuator/metrics", "/actuator/prometheus").authenticated()
                         .requestMatchers("/actuator/**").authenticated()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout").authenticated()
