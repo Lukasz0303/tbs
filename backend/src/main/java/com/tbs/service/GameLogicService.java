@@ -6,6 +6,7 @@ import com.tbs.model.Game;
 import com.tbs.model.Move;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -27,19 +28,19 @@ public class GameLogicService {
             );
         }
         
-        if (existingMoves != null) {
-            boolean positionOccupied = existingMoves.stream()
-                .anyMatch(m -> m.getRow() == row && m.getCol() == col);
-            
-            if (positionOccupied) {
-                throw new com.tbs.exception.InvalidMoveException(
-                    String.format("Position (%d, %d) is already occupied", row, col)
-                );
-            }
+        List<Move> movesToCheck = existingMoves != null ? existingMoves : Collections.emptyList();
+        
+        boolean positionOccupied = movesToCheck.stream()
+            .anyMatch(m -> m.getRow() == row && m.getCol() == col);
+        
+        if (positionOccupied) {
+            throw new com.tbs.exception.InvalidMoveException(
+                String.format("Position (%d, %d) is already occupied", row, col)
+            );
         }
         
         PlayerSymbol currentSymbol = game.getCurrentPlayerSymbol();
-        boolean isFirstMove = existingMoves == null || existingMoves.isEmpty();
+        boolean isFirstMove = movesToCheck.isEmpty();
         
         if (currentSymbol == null && !isFirstMove) {
             throw new com.tbs.exception.InvalidMoveException(

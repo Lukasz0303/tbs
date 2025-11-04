@@ -6,6 +6,8 @@ import com.tbs.dto.auth.LogoutResponse;
 import com.tbs.dto.auth.RegisterRequest;
 import com.tbs.dto.auth.RegisterResponse;
 import com.tbs.exception.BadRequestException;
+import com.tbs.exception.ForbiddenException;
+import com.tbs.exception.TokenBlacklistException;
 import com.tbs.exception.UnauthorizedException;
 import com.tbs.model.User;
 import com.tbs.repository.UserRepository;
@@ -19,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Date;
+import java.util.Objects;
 
 @Service
 @Transactional
@@ -39,11 +42,11 @@ public class AuthService {
             TokenBlacklistService tokenBlacklistService,
             AuthenticationService authenticationService
     ) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtTokenProvider = jwtTokenProvider;
-        this.tokenBlacklistService = tokenBlacklistService;
-        this.authenticationService = authenticationService;
+        this.userRepository = Objects.requireNonNull(userRepository, "UserRepository cannot be null");
+        this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "PasswordEncoder cannot be null");
+        this.jwtTokenProvider = Objects.requireNonNull(jwtTokenProvider, "JwtTokenProvider cannot be null");
+        this.tokenBlacklistService = Objects.requireNonNull(tokenBlacklistService, "TokenBlacklistService cannot be null");
+        this.authenticationService = Objects.requireNonNull(authenticationService, "AuthenticationService cannot be null");
     }
 
     public LoginResponse login(LoginRequest request) {
@@ -71,27 +74,13 @@ public class AuthService {
     public RegisterResponse register(RegisterRequest request) {
         log.info("Attempting to register user with email: {}", request.email());
         
-        validateRegistrationRequest(request);
-        
         try {
             User savedUser = createAndSaveUser(request);
             String token = jwtTokenProvider.generateToken(savedUser.getId());
             return buildRegisterResponse(savedUser, token);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            log.warn("Data integrity violation during registration: {}", e.getMessage());
             handleDataIntegrityViolation(e, request);
             throw new BadRequestException("Registration failed due to constraint violation");
-        }
-    }
-
-    private void validateRegistrationRequest(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
-            log.warn("Registration failed: Email already exists: {}", request.email());
-            throw new BadRequestException("Email already exists");
-        }
-        if (userRepository.existsByUsername(request.username())) {
-            log.warn("Registration failed: Username already exists: {}", request.username());
-            throw new BadRequestException("Username already exists");
         }
     }
 
@@ -148,18 +137,29 @@ public class AuthService {
             if (cve.getConstraintName() != null && cve.getConstraintName().contains("users_registered_check")) {
                 log.warn("Constraint violation: users_registered_check. User data: isGuest={}, authUserId={}, username={}, email={}", 
                     false, null, request.username(), request.email());
-                throw new com.tbs.exception.BadRequestException("Registration failed: constraint violation. Please check database constraints.");
+                throw new BadRequestException("Registration failed: constraint violation. Please check database constraints.");
             }
         }
+        throw new BadRequestException("Registration failed due to constraint violation");
     }
 
     public LogoutResponse logout(String token) {
-        if (token == null || token.isEmpty()) {
+        if (token == null || token.trim().isEmpty()) {
             throw new UnauthorizedException("Token is required");
         }
 
-        Long userId = authenticationService.getCurrentUserId();
-        
+        if (!jwtTokenProvider.validateToken(token)) {
+            throw new UnauthorizedException("Invalid token");
+        }
+
+        Long userId = jwtTokenProvider.getUserIdFromToken(token);
+        Long currentUserId = authenticationService.getCurrentUserId();
+
+        if (!userId.equals(currentUserId)) {
+            log.warn("Token userId {} does not match current user {}", userId, currentUserId);
+            throw new ForbiddenException("Token does not belong to current user");
+        }
+
         try {
             String tokenId = jwtTokenProvider.getTokenId(token);
             Date expirationTime = jwtTokenProvider.getExpirationDateFromToken(token);
@@ -167,6 +167,7 @@ public class AuthService {
             log.debug("Token blacklisted: tokenId={}, userId={}", tokenId, userId);
         } catch (Exception e) {
             log.error("Failed to blacklist token during logout: userId={}", userId, e);
+            throw new TokenBlacklistException("Failed to blacklist token");
         }
 
         try {
@@ -174,9 +175,9 @@ public class AuthService {
         } catch (Exception e) {
             log.error("Failed to update last seen timestamp: userId={}", userId, e);
         }
-        
+
         log.info("User logged out successfully: userId={}", userId);
-        
+
         return new LogoutResponse("Wylogowano pomyślnie");
     }
 }

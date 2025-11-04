@@ -22,7 +22,7 @@ public class JwtTokenProvider {
 
     private final SecretKey secretKey;
     private final long validityInMilliseconds;
-    private final ThreadLocal<Map<String, Claims>> claimsCache = ThreadLocal.withInitial(ConcurrentHashMap::new);
+    private final Map<String, Claims> claimsCache = new ConcurrentHashMap<>();
 
     public JwtTokenProvider(
             @Value("${app.jwt.secret}") String secret,
@@ -99,8 +99,7 @@ public class JwtTokenProvider {
             throw new IllegalArgumentException("Token cannot be null");
         }
         
-        Map<String, Claims> cache = claimsCache.get();
-        Claims cachedClaims = cache.get(token);
+        Claims cachedClaims = claimsCache.get(token);
         
         if (cachedClaims != null) {
             return cachedClaims;
@@ -112,12 +111,12 @@ public class JwtTokenProvider {
                 .parseSignedClaims(token)
                 .getPayload();
         
-        cache.put(token, claims);
+        claimsCache.put(token, claims);
         return claims;
     }
 
     public void clearClaimsCache() {
-        claimsCache.remove();
+        claimsCache.clear();
     }
 }
 

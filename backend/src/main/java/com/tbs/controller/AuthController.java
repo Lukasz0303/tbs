@@ -22,7 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 @Tag(name = "Authentication", description = "API endpoints for user authentication and profile management")
 public class AuthController {
 
@@ -53,7 +53,8 @@ public class AuthController {
     @Operation(summary = "Register new user", description = "Creates a new user account and returns JWT token")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "User successfully created"),
-            @ApiResponse(responseCode = "400", description = "Email or username already exists"),
+            @ApiResponse(responseCode = "400", description = "Bad request - invalid input"),
+            @ApiResponse(responseCode = "409", description = "Email or username already exists"),
             @ApiResponse(responseCode = "422", description = "Validation error")
     })
     public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {

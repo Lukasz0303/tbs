@@ -33,5 +33,27 @@ public interface GameRepository extends JpaRepository<Game, Long> {
         @Param("gameType") com.tbs.enums.GameType gameType,
         Pageable pageable
     );
+
+    @Query(value = "SELECT COUNT(*) > 0 FROM games " +
+           "WHERE (player1_id = :userId OR player2_id = :userId) " +
+           "AND game_type = 'pvp' " +
+           "AND status IN ('waiting', 'in_progress')", nativeQuery = true)
+    boolean hasActivePvpGame(@Param("userId") Long userId);
+
+    @Query("SELECT g FROM Game g " +
+           "LEFT JOIN FETCH g.player1 p1 " +
+           "LEFT JOIN FETCH g.player2 p2 " +
+           "WHERE (g.player1.id = :userId OR g.player2.id = :userId) " +
+           "AND g.gameType = com.tbs.enums.GameType.PVP " +
+           "AND g.status IN (com.tbs.enums.GameStatus.WAITING, com.tbs.enums.GameStatus.IN_PROGRESS)")
+    java.util.Optional<Game> findActivePvpGameForUser(@Param("userId") Long userId);
+
+    @Query("SELECT g FROM Game g " +
+           "LEFT JOIN FETCH g.player1 p1 " +
+           "LEFT JOIN FETCH g.player2 p2 " +
+           "WHERE (g.player1.id IN :userIds OR g.player2.id IN :userIds) " +
+           "AND g.gameType = com.tbs.enums.GameType.PVP " +
+           "AND g.status IN (com.tbs.enums.GameStatus.WAITING, com.tbs.enums.GameStatus.IN_PROGRESS)")
+    java.util.List<Game> findActivePvpGamesForUsers(@Param("userIds") java.util.List<Long> userIds);
 }
 

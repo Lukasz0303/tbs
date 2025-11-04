@@ -16,6 +16,7 @@ public record CreateMoveResponse(
         Instant createdAt,
         BoardState boardState,
         GameStatus gameStatus,
-        WinnerInfo winner
+        WinnerInfo winner,
+        PlayerSymbol currentPlayerSymbol
 ) {}
 

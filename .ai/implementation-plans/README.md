@@ -52,6 +52,7 @@ Plany są zorganizowane według kategorii endpointów:
 
 - ⏳ **`post-matching-queue.md`** - POST /api/matching/queue - Dołączenie do kolejki matchmakingu
 - ⏳ **`delete-matching-queue.md`** - DELETE /api/matching/queue - Opuszczenie kolejki matchmakingu
+- ⏳ **`get-matching-queue.md`** - GET /api/matching/queue - Pobranie listy wszystkich graczy w kolejce wraz ze statusem
 - ⏳ **`post-matching-challenge-userId.md`** - POST /api/matching/challenge/{userId} - Wyzwanie konkretnego gracza
 
 ### Endpointy rankingów (`ranking/`)
