@@ -20,7 +20,9 @@ public class RedisService {
     private static final Logger log = LoggerFactory.getLogger(RedisService.class);
     private static final String QUEUE_PREFIX = "matchmaking:queue:";
     private static final String USER_PREFIX = "matchmaking:user:";
+    private static final String LOCK_PREFIX = "matchmaking:lock:";
     private static final int QUEUE_TTL_SECONDS = 300;
+    private static final int LOCK_TTL_SECONDS = 5;
 
     private final RedisTemplate<String, String> redisTemplate;
 
@@ -162,6 +164,21 @@ public class RedisService {
         }
         
         return timestamps;
+    }
+
+    public boolean acquireLock(String lockKey, int timeoutSeconds) {
+        String fullLockKey = LOCK_PREFIX + lockKey;
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(
+                fullLockKey, 
+                "locked", 
+                java.time.Duration.ofSeconds(timeoutSeconds)
+        );
+        return Boolean.TRUE.equals(acquired);
+    }
+
+    public void releaseLock(String lockKey) {
+        String fullLockKey = LOCK_PREFIX + lockKey;
+        redisTemplate.delete(fullLockKey);
     }
 
     public record QueueEntry(Long userId, BoardSize boardSize, Instant joinedAt) {}

@@ -1,8 +1,8 @@
-# API Endpoint Implementation Plan: POST /api/users/{userId}/last-seen
+# API Endpoint Implementation Plan: POST /api/v1/users/{userId}/last-seen
 
 ## 1. Przegląd punktu końcowego
 
-**POST /api/users/{userId}/last-seen** to endpoint służący do aktualizacji znacznika czasu ostatniej aktywności użytkownika. Endpoint jest kluczowy dla systemu matchmakingu, aby identyfikować aktywnych graczy i dopasowywać ich do gier w czasie rzeczywistym.
+**POST /api/v1/users/{userId}/last-seen** to endpoint służący do aktualizacji znacznika czasu ostatniej aktywności użytkownika. Endpoint jest kluczowy dla systemu matchmakingu, aby identyfikować aktywnych graczy i dopasowywać ich do gier w czasie rzeczywistym.
 
 Endpoint wymaga uwierzytelnienia i autoryzacji - użytkownik może aktualizować tylko swój własny `last_seen_at`. Automatyczna aktualizacja znacznika czasu pozwala systemowi matchmakingu na efektywne łączenie graczy, którzy są obecnie aktywni w aplikacji.
 
@@ -19,7 +19,7 @@ Kluczowe zastosowania:
 
 ### Struktura URL
 ```
-POST /api/users/{userId}/last-seen
+POST /api/v1/users/{userId}/last-seen
 ```
 
 ### Nagłówki żądania
@@ -44,7 +44,7 @@ POST /api/users/{userId}/last-seen
 
 ### Przykład żądania
 ```http
-POST /api/users/42/last-seen HTTP/1.1
+POST /api/v1/users/42/last-seen HTTP/1.1
 Host: api.example.com
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
@@ -171,7 +171,7 @@ public record LastSeenResponse(
 
 ### Sekwencja operacji
 
-1. **Odebranie żądania HTTP POST /api/users/{userId}/last-seen**
+1. **Odebranie żądania HTTP POST /api/v1/users/{userId}/last-seen**
    - Parsowanie `userId` z path variable
    - Walidacja formatu `userId` (Long)
    - Weryfikacja tokenu JWT z nagłówka Authorization
@@ -223,7 +223,7 @@ public record LastSeenResponse(
 - Weryfikacja, że `userId` odpowiada zalogowanemu użytkownikowi
 
 **Konfiguracja Security:**
-- `/api/users/{userId}/last-seen` wymaga roli ROLE_USER
+- `/api/v1/users/{userId}/last-seen` wymaga roli ROLE_USER
 - Wyjątki dla nieuwierzytelnionych żądań → 401
 
 ## 6. Względy bezpieczeństwa
@@ -419,9 +419,9 @@ public class GlobalExceptionHandler {
 ### Monitoring i metryki
 
 **Metryki Prometheus:**
-- `http_requests_total{method="POST",endpoint="/api/users/{userId}/last-seen",status="200"}` - liczba pomyślnych żądań
-- `http_requests_total{method="POST",endpoint="/api/users/{userId}/last-seen",status="403"}` - liczba błędów autoryzacji
-- `http_request_duration_seconds{method="POST",endpoint="/api/users/{userId}/last-seen"}` - czas odpowiedzi
+- `http_requests_total{method="POST",endpoint="/api/v1/users/{userId}/last-seen",status="200"}` - liczba pomyślnych żądań
+- `http_requests_total{method="POST",endpoint="/api/v1/users/{userId}/last-seen",status="403"}` - liczba błędów autoryzacji
+- `http_request_duration_seconds{method="POST",endpoint="/api/v1/users/{userId}/last-seen"}` - czas odpowiedzi
 
 **Alerty:**
 - Długi czas odpowiedzi (>100ms)
@@ -476,7 +476,7 @@ public class UserService {
 **3.1 Utworzenie UserController:**
 ```java
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/v1/users")
 public class UserController {
     private final UserService userService;
     private final AuthenticationService authenticationService;
@@ -497,7 +497,7 @@ public class UserController {
 ```
 
 **3.2 Konfiguracja Spring Security:**
-- Konfiguracja `/api/users/{userId}/last-seen` wymaga uwierzytelnienia
+- Konfiguracja `/api/v1/users/{userId}/last-seen` wymaga uwierzytelnienia
 - Wyjątki dla nieuwierzytelnionych żądań → 401
 - Weryfikacja roli ROLE_USER
 
@@ -590,7 +590,7 @@ public LastSeenResponse updateLastSeen(Long userId) {
 
 ## 10. Podsumowanie
 
-Plan implementacji endpointu **POST /api/users/{userId}/last-seen** obejmuje kompleksowe podejście do wdrożenia z obsługą uwierzytelnienia i autoryzacji. Kluczowe aspekty:
+Plan implementacji endpointu **POST /api/v1/users/{userId}/last-seen** obejmuje kompleksowe podejście do wdrożenia z obsługą uwierzytelnienia i autoryzacji. Kluczowe aspekty:
 
 - **Bezpieczeństwo:** Uwierzytelnienie JWT, autoryzacja dostępu, ochrona przed nieautoryzowanymi aktualizacjami
 - **Wydajność:** Proste operacje UPDATE, opcjonalne cache'owanie

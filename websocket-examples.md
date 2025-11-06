@@ -14,11 +14,11 @@ eyJhbGciOiJIUzUxMiJ9.eyJqdGkiOiI2ZjA2NzQ3Mi1iMjQxLTRiY2ItOThhOS04OTQ5MzNmY2FiODY
 
 ### 0. Dołączenie do kolejki matchmakingu (REST API)
 
-**Endpoint:** `POST /api/matching/queue`
+**Endpoint:** `POST /api/v1/matching/queue`
 
 ```bash
 curl -X 'POST' \
-  'http://localhost:8080/api/matching/queue' \
+  'http://localhost:8080/api/v1/matching/queue' \
   -H 'accept: */*' \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.eyJqdGkiOiJiMTk3ZDVhOC04NmNhLTQ5Y2ItODQ2My02NzNhZTY2MDgxYzciLCJzdWIiOiIxIiwiaWF0IjoxNzYyMjU0MTI3LCJleHAiOjE3NjIyNTc3Mjd9.tQZFj0jL5fZKFe3tXDd3SAZjKz1tuhUfLjc2yNtm7b80y0856v2iEfve6_zHThb9Qg-YXqUeLFmwj2_28VwP_g' \
@@ -27,20 +27,20 @@ curl -X 'POST' \
 }'
 ```
 
-**Endpoint:** `DELETE /api/matching/queue`
+**Endpoint:** `DELETE /api/v1/matching/queue`
 
 ```bash
 curl -X 'DELETE' \
-  'http://localhost:8080/api/matching/queue' \
+  'http://localhost:8080/api/v1/matching/queue' \
   -H 'accept: */*' \
   -H 'Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.eyJqdGkiOiJiMTk3ZDVhOC04NmNhLTQ5Y2ItODQ2My02NzNhZTY2MDgxYzciLCJzdWIiOiIxIiwiaWF0IjoxNzYyMjU0MTI3LCJleHAiOjE3NjIyNTc3Mjd9.tQZFj0jL5fZKFe3tXDd3SAZjKz1tuhUfLjc2yNtm7b80y0856v2iEfve6_zHThb9Qg-YXqUeLFmwj2_28VwP_g'
 ```
 
-**Endpoint:** `POST /api/matching/challenge/{userId}`
+**Endpoint:** `POST /api/v1/matching/challenge/{userId}`
 
 ```bash
 curl -X 'POST' \
-  'http://localhost:8080/api/matching/challenge/1' \
+  'http://localhost:8080/api/v1/matching/challenge/1' \
   -H 'accept: */*' \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.eyJqdGkiOiJiMTk3ZDVhOC04NmNhLTQ5Y2ItODQ2My02NzNhZTY2MDgxYzciLCJzdWIiOiIxIiwiaWF0IjoxNzYyMjU0MTI3LCJleHAiOjE3NjIyNTc3Mjd9.tQZFj0jL5fZKFe3tXDd3SAZjKz1tuhUfLjc2yNtm7b80y0856v2iEfve6_zHThb9Qg-YXqUeLFmwj2_28VwP_g' \

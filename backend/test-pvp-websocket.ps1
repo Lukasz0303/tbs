@@ -42,7 +42,7 @@ function Get-Or-Create-User {
     } | ConvertTo-Json
     
     try {
-        $registerResponse = Invoke-WebRequest -Uri "$baseUrl/api/auth/register" -Method POST -Headers @{"accept"="*/*"; "content-type"="application/json"} -Body $registerBody -ContentType "application/json" -ErrorAction Stop
+        $registerResponse = Invoke-WebRequest -Uri "$baseUrl/api/v1/auth/register" -Method POST -Headers @{"accept"="*/*"; "content-type"="application/json"} -Body $registerBody -ContentType "application/json" -ErrorAction Stop
         $registerData = $registerResponse.Content | ConvertFrom-Json
         $token = $registerData.authToken
         $userId = $registerData.userId
@@ -81,7 +81,7 @@ function Get-Or-Create-User {
             } | ConvertTo-Json
             
             try {
-                $loginResponse = Invoke-WebRequest -Uri "$baseUrl/api/auth/login" -Method POST -Headers @{"accept"="*/*"; "content-type"="application/json"} -Body $loginBody -ContentType "application/json" -ErrorAction Stop
+                $loginResponse = Invoke-WebRequest -Uri "$baseUrl/api/v1/auth/login" -Method POST -Headers @{"accept"="*/*"; "content-type"="application/json"} -Body $loginBody -ContentType "application/json" -ErrorAction Stop
                 $loginData = $loginResponse.Content | ConvertFrom-Json
                 $token = $loginData.authToken
                 $userId = $loginData.userId
@@ -372,7 +372,7 @@ function End-ActivePvpGames {
     
     foreach ($status in $statusesToCheck) {
         try {
-            $gamesResponse = Invoke-WebRequest -Uri "$baseUrl/api/games?status=$status&gameType=PVP" -Method GET -Headers @{"accept"="*/*"; "authorization"="Bearer $token"} -ErrorAction Stop
+            $gamesResponse = Invoke-WebRequest -Uri "$baseUrl/api/v1/games?status=$status&gameType=PVP" -Method GET -Headers @{"accept"="*/*"; "authorization"="Bearer $token"} -ErrorAction Stop
             $gamesData = $gamesResponse.Content | ConvertFrom-Json
             $games = $gamesData.content
             
@@ -397,7 +397,7 @@ function End-ActivePvpGames {
                             status = $endStatus
                         } | ConvertTo-Json
                         
-                        $endGameResponse = Invoke-WebRequest -Uri "$baseUrl/api/games/$($game.gameId)/status" -Method PUT -Headers @{"accept"="*/*"; "authorization"="Bearer $token"; "content-type"="application/json"} -Body $endGameBody -ContentType "application/json" -ErrorAction Stop
+                        $endGameResponse = Invoke-WebRequest -Uri "$baseUrl/api/v1/games/$($game.gameId)/status" -Method PUT -Headers @{"accept"="*/*"; "authorization"="Bearer $token"; "content-type"="application/json"} -Body $endGameBody -ContentType "application/json" -ErrorAction Stop
                         Write-Host "  OK Gra ID $($game.gameId) zakonczona ze statusem $endStatus" -ForegroundColor Green
                         $gameEnded = $true
                     } catch {
@@ -417,7 +417,7 @@ Write-Host ""
 Write-Host "KROK: Przygotowanie graczy przed wyzwaniem..." -ForegroundColor Yellow
 
 try {
-    $removeFromQueueResponse = Invoke-WebRequest -Uri "$baseUrl/api/matching/queue" -Method DELETE -Headers @{"accept"="*/*"; "authorization"="Bearer $user1Token"} -ErrorAction SilentlyContinue
+    $removeFromQueueResponse = Invoke-WebRequest -Uri "$baseUrl/api/v1/matching/queue" -Method DELETE -Headers @{"accept"="*/*"; "authorization"="Bearer $user1Token"} -ErrorAction SilentlyContinue
     Write-Host "OK Gracz A usuniety z kolejki matchmaking" -ForegroundColor Green
 } catch {
     $statusCode = $null
@@ -430,7 +430,7 @@ try {
 }
 
 try {
-    $removeFromQueueResponse = Invoke-WebRequest -Uri "$baseUrl/api/matching/queue" -Method DELETE -Headers @{"accept"="*/*"; "authorization"="Bearer $user2Token"} -ErrorAction SilentlyContinue
+    $removeFromQueueResponse = Invoke-WebRequest -Uri "$baseUrl/api/v1/matching/queue" -Method DELETE -Headers @{"accept"="*/*"; "authorization"="Bearer $user2Token"} -ErrorAction SilentlyContinue
     Write-Host "OK Gracz B usuniety z kolejki matchmaking" -ForegroundColor Green
 } catch {
     $statusCode = $null
@@ -453,7 +453,7 @@ $challengeBody = @{
 } | ConvertTo-Json
 
 try {
-    $challengeResponse = Invoke-WebRequest -Uri "$baseUrl/api/matching/challenge/$user2Id" -Method POST -Headers @{"accept"="*/*"; "authorization"="Bearer $user1Token"; "content-type"="application/json"} -Body $challengeBody -ContentType "application/json" -ErrorAction Stop
+    $challengeResponse = Invoke-WebRequest -Uri "$baseUrl/api/v1/matching/challenge/$user2Id" -Method POST -Headers @{"accept"="*/*"; "authorization"="Bearer $user1Token"; "content-type"="application/json"} -Body $challengeBody -ContentType "application/json" -ErrorAction Stop
     $challengeData = $challengeResponse.Content | ConvertFrom-Json
     $gameId = $challengeData.gameId
     Write-Host "OK Gra PvP utworzona: ID $gameId" -ForegroundColor Green
@@ -537,7 +537,7 @@ function Make-Move {
     } | ConvertTo-Json
     
     try {
-        $moveResponse = Invoke-WebRequest -Uri "$baseUrl/api/games/$gameId/moves" -Method POST -Headers @{"accept"="*/*"; "authorization"="Bearer $token"; "content-type"="application/json"} -Body $moveBody -ContentType "application/json" -ErrorAction Stop
+        $moveResponse = Invoke-WebRequest -Uri "$baseUrl/api/v1/games/$gameId/moves" -Method POST -Headers @{"accept"="*/*"; "authorization"="Bearer $token"; "content-type"="application/json"} -Body $moveBody -ContentType "application/json" -ErrorAction Stop
         $moveData = $moveResponse.Content | ConvertFrom-Json
         Write-Host "OK Ruch wykonany: Move ID $($moveData.moveId)" -ForegroundColor Green
         Write-Host "  Position: ($($moveData.row), $($moveData.col)), Symbol: $($moveData.playerSymbol)" -ForegroundColor Gray
@@ -583,7 +583,7 @@ function Make-Move {
         
         Write-Host ""
         Write-Host "KROK: Pobieranie stanu gry z REST API..." -ForegroundColor Yellow
-        $gameResponse = Invoke-WebRequest -Uri "$baseUrl/api/games/$gameId" -Method GET -Headers @{"accept"="*/*"; "authorization"="Bearer $token"} -ErrorAction Stop
+        $gameResponse = Invoke-WebRequest -Uri "$baseUrl/api/v1/games/$gameId" -Method GET -Headers @{"accept"="*/*"; "authorization"="Bearer $token"} -ErrorAction Stop
         $gameData = $gameResponse.Content | ConvertFrom-Json
         
         Write-Host ""
@@ -697,7 +697,7 @@ $maxAttempts = 20
 $attempts = 0
 
 while ($attempts -lt $maxAttempts -and $moveIndex -lt $moveSequence.Length) {
-    $gameStateResponse = Invoke-WebRequest -Uri "$baseUrl/api/games/$gameId" -Method GET -Headers @{"accept"="*/*"; "authorization"="Bearer $user1Token"} -ErrorAction Stop
+    $gameStateResponse = Invoke-WebRequest -Uri "$baseUrl/api/v1/games/$gameId" -Method GET -Headers @{"accept"="*/*"; "authorization"="Bearer $user1Token"} -ErrorAction Stop
     $gameState = $gameStateResponse.Content | ConvertFrom-Json
     
     if ($gameState.status -eq "FINISHED" -or $gameState.status -eq "DRAW") {

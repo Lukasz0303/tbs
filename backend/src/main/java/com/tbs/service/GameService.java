@@ -41,15 +41,17 @@ public class GameService {
     private final UserRepository userRepository;
     private final BoardStateService boardStateService;
     private final GameValidationService gameValidationService;
+    private final PointsService pointsService;
 
     public GameService(GameRepository gameRepository, MoveRepository moveRepository,
                        UserRepository userRepository, BoardStateService boardStateService,
-                       GameValidationService gameValidationService) {
+                       GameValidationService gameValidationService, PointsService pointsService) {
         this.gameRepository = Objects.requireNonNull(gameRepository, "GameRepository cannot be null");
         this.moveRepository = Objects.requireNonNull(moveRepository, "MoveRepository cannot be null");
         this.userRepository = Objects.requireNonNull(userRepository, "UserRepository cannot be null");
         this.boardStateService = Objects.requireNonNull(boardStateService, "BoardStateService cannot be null");
         this.gameValidationService = Objects.requireNonNull(gameValidationService, "GameValidationService cannot be null");
+        this.pointsService = Objects.requireNonNull(pointsService, "PointsService cannot be null");
     }
 
     @Transactional
@@ -170,11 +172,16 @@ public class GameService {
             game.setFinishedAt(Instant.now());
         }
 
+        User winner = null;
         if (newStatus == GameStatus.FINISHED) {
-            determineWinnerOnSurrender(game, userId, gameId);
+            winner = determineWinnerOnSurrender(game, userId, gameId);
         }
 
         Game updatedGame = gameRepository.save(game);
+        
+        if (newStatus == GameStatus.FINISHED && winner != null) {
+            pointsService.awardPointsForWin(updatedGame, winner);
+        }
 
         log.info("Game {} status updated from {} to {} by user {}", gameId, oldStatus, newStatus, userId);
 
@@ -288,17 +295,20 @@ public class GameService {
         );
     }
 
-    private void determineWinnerOnSurrender(Game game, Long userId, Long gameId) {
+    private User determineWinnerOnSurrender(Game game, Long userId, Long gameId) {
         if (game.getGameType() == GameType.PVP) {
             User winner = determinePvpWinner(game, userId);
             if (winner != null) {
                 game.setWinner(winner);
                 log.info("Game {} finished by surrender. Winner: user {}", gameId, winner.getId());
             }
+            return winner;
         } else if (game.getGameType() == GameType.VS_BOT) {
             game.setWinner(null);
             log.info("Game {} finished by surrender - bot wins", gameId);
+            return null;
         }
+        return null;
     }
 
     private User determinePvpWinner(Game game, Long userId) {

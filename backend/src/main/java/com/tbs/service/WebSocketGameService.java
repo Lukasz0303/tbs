@@ -32,6 +32,7 @@ public class WebSocketGameService {
     private final GameLogicService gameLogicService;
     private final TurnValidationService turnValidationService;
     private final MoveCreationService moveCreationService;
+    private final PointsService pointsService;
 
     public WebSocketGameService(
             GameRepository gameRepository,
@@ -40,7 +41,8 @@ public class WebSocketGameService {
             BoardStateService boardStateService,
             GameLogicService gameLogicService,
             TurnValidationService turnValidationService,
-            MoveCreationService moveCreationService
+            MoveCreationService moveCreationService,
+            PointsService pointsService
     ) {
         this.gameRepository = gameRepository;
         this.moveRepository = moveRepository;
@@ -49,6 +51,7 @@ public class WebSocketGameService {
         this.gameLogicService = gameLogicService;
         this.turnValidationService = turnValidationService;
         this.moveCreationService = moveCreationService;
+        this.pointsService = pointsService;
     }
 
     @Transactional
@@ -97,7 +100,9 @@ public class WebSocketGameService {
         game.setStatus(GameStatus.FINISHED);
         game.setWinner(winner);
         game.setFinishedAt(Instant.now());
-        gameRepository.save(game);
+        Game savedGame = gameRepository.save(game);
+
+        pointsService.awardPointsForWin(savedGame, winner);
 
         List<Move> moves = moveRepository.findByGameIdOrderByMoveOrderAsc(gameId);
         BoardState boardState = boardStateService.generateBoardState(game, moves);
@@ -112,6 +117,7 @@ public class WebSocketGameService {
             game.setStatus(GameStatus.FINISHED);
             game.setWinner(player);
             game.setFinishedAt(Instant.now());
+            pointsService.awardPointsForWin(game, player);
             log.info("Game {} finished. Winner: user {}", game.getId(), player.getId());
             return;
         }
@@ -119,6 +125,7 @@ public class WebSocketGameService {
         if (gameLogicService.checkDrawCondition(game, boardState)) {
             game.setStatus(GameStatus.DRAW);
             game.setFinishedAt(Instant.now());
+            pointsService.awardPointsForDraw(game);
             log.info("Game {} ended in draw", game.getId());
             return;
         }

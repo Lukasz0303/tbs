@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Duration;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/v1/users")
 @Tag(name = "Users", description = "API endpoints for user profile management")
 public class UserController {
 

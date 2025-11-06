@@ -30,9 +30,9 @@ Plany są zorganizowane według kategorii endpointów:
 
 ### Endpointy profilu użytkownika (`user/`)
 
-- ⏳ **`get-users-userId.md`** - GET /api/users/{userId} - Pobranie profilu użytkownika po ID
-- ⏳ **`put-users-userId.md`** - PUT /api/users/{userId} - Aktualizacja profilu użytkownika
-- ⏳ **`post-users-userId-last-seen.md`** - POST /api/users/{userId}/last-seen - Aktualizacja ostatniej aktywności
+- ⏳ **`get-users-userId.md`** - GET /api/v1/users/{userId} - Pobranie profilu użytkownika po ID
+- ⏳ **`put-users-userId.md`** - PUT /api/v1/users/{userId} - Aktualizacja profilu użytkownika
+- ⏳ **`post-users-userId-last-seen.md`** - POST /api/v1/users/{userId}/last-seen - Aktualizacja ostatniej aktywności
 
 ### Endpointy zarządzania grami (`game/`)
 
@@ -50,10 +50,10 @@ Plany są zorganizowane według kategorii endpointów:
 
 ### Endpointy matchmakingu PvP (`matchmaking/`)
 
-- ⏳ **`post-matching-queue.md`** - POST /api/matching/queue - Dołączenie do kolejki matchmakingu
-- ⏳ **`delete-matching-queue.md`** - DELETE /api/matching/queue - Opuszczenie kolejki matchmakingu
-- ⏳ **`get-matching-queue.md`** - GET /api/matching/queue - Pobranie listy wszystkich graczy w kolejce wraz ze statusem
-- ⏳ **`post-matching-challenge-userId.md`** - POST /api/matching/challenge/{userId} - Wyzwanie konkretnego gracza
+- ⏳ **`post-matching-queue.md`** - POST /api/v1/matching/queue - Dołączenie do kolejki matchmakingu
+- ⏳ **`delete-matching-queue.md`** - DELETE /api/v1/matching/queue - Opuszczenie kolejki matchmakingu
+- ⏳ **`get-matching-queue.md`** - GET /api/v1/matching/queue - Pobranie listy wszystkich graczy w kolejce wraz ze statusem
+- ⏳ **`post-matching-challenge-userId.md`** - POST /api/v1/matching/challenge/{userId} - Wyzwanie konkretnego gracza
 
 ### Endpointy rankingów (`ranking/`)
 

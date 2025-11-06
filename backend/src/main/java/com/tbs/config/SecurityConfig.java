@@ -87,9 +87,9 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout").authenticated()
                         .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/users/{userId}").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/users/{userId}/last-seen").authenticated()
-                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/users/{userId}").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/users/{userId}").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/users/{userId}/last-seen").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/v1/users/{userId}").authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

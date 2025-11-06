@@ -239,7 +239,7 @@ public record UserProfileResponse(
 - Klucz: `user:profile:{userId}`
 - TTL: 5-15 minut
 - Strategia cache-aside: sprawdź cache → jeśli brak, pobierz z DB → zapisz w cache
-- Inwalidacja: przy aktualizacji profilu użytkownika (PUT /api/users/{userId})
+- Inwalidacja: przy aktualizacji profilu użytkownika (PUT /api/v1/users/{userId})
 
 ## 6. Względy bezpieczeństwa
 
@@ -436,7 +436,7 @@ public class GlobalExceptionHandler {
 - **Strategia:** Cache-aside
   - Sprawdź cache przed zapytaniem do DB
   - Jeśli cache miss: pobierz z DB, zapisz w cache
-  - Inwalidacja: przy aktualizacji profilu (PUT /api/users/{userId})
+  - Inwalidacja: przy aktualizacji profilu (PUT /api/v1/users/{userId})
 
 **Korzyści:**
 - Redukcja obciążenia bazy danych dla często używanych profili

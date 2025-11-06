@@ -1,4 +1,3 @@
-[propertyType] $PropertyName# Test scenariusza ruchu bota
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Test scenariusza ruchu bota" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
@@ -15,16 +14,27 @@ $registerBody = @{
 } | ConvertTo-Json
 
 try {
-    $registerResponse = Invoke-WebRequest -Uri "$baseUrl/api/auth/register" -Method POST -Headers @{"accept"="*/*"; "content-type"="application/json"} -Body $registerBody -ContentType "application/json"
+    $registerResponse = Invoke-WebRequest -Uri "$baseUrl/api/v1/auth/register" -Method POST -Headers @{"accept"="*/*"} -Body $registerBody -ContentType "application/json" -ErrorAction Stop
     $registerData = $registerResponse.Content | ConvertFrom-Json
     $token = $registerData.authToken
     $userId = $registerData.userId
     Write-Host "OK Uzytkownik zarejestrowany: $($registerData.username) (ID: $userId)" -ForegroundColor Green
-    Write-Host "  Token: $($token.Substring(0,50))..." -ForegroundColor Gray
+    Write-Host "  Token: $($token.Substring(0, [Math]::Min(50, $token.Length)))..." -ForegroundColor Gray
 } catch {
     Write-Host "ERROR Blad rejestracji: $($_.Exception.Message)" -ForegroundColor Red
     if ($_.ErrorDetails) {
-        Write-Host "  Szczegoly: $($_.ErrorDetails.Message)" -ForegroundColor Red
+        $errorDetails = $_.ErrorDetails.Message | ConvertFrom-Json -ErrorAction SilentlyContinue
+        if ($errorDetails) {
+            Write-Host "  Szczegoly: $($errorDetails.error.message)" -ForegroundColor Red
+        } else {
+            Write-Host "  Szczegoly: $($_.ErrorDetails.Message)" -ForegroundColor Red
+        }
+    }
+    if ($_.Exception.Response) {
+        $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+        $responseBody = $reader.ReadToEnd()
+        $reader.Close()
+        Write-Host "  Response body: $responseBody" -ForegroundColor Red
     }
     exit 1
 }
@@ -38,7 +48,7 @@ $createGameBody = @{
 } | ConvertTo-Json
 
 try {
-    $createGameResponse = Invoke-WebRequest -Uri "$baseUrl/api/games" -Method POST -Headers @{"accept"="*/*"; "authorization"="Bearer $token"; "content-type"="application/json"} -Body $createGameBody -ContentType "application/json"
+    $createGameResponse = Invoke-WebRequest -Uri "$baseUrl/api/v1/games" -Method POST -Headers @{"accept"="*/*"; "authorization"="Bearer $token"} -Body $createGameBody -ContentType "application/json" -ErrorAction Stop
     $gameData = $createGameResponse.Content | ConvertFrom-Json
     $gameId = $gameData.gameId
     Write-Host "OK Gra utworzona: ID $gameId" -ForegroundColor Green
@@ -46,7 +56,18 @@ try {
 } catch {
     Write-Host "ERROR Blad tworzenia gry: $($_.Exception.Message)" -ForegroundColor Red
     if ($_.ErrorDetails) {
-        Write-Host "  Szczegoly: $($_.ErrorDetails.Message)" -ForegroundColor Red
+        $errorDetails = $_.ErrorDetails.Message | ConvertFrom-Json -ErrorAction SilentlyContinue
+        if ($errorDetails) {
+            Write-Host "  Szczegoly: $($errorDetails.error.message)" -ForegroundColor Red
+        } else {
+            Write-Host "  Szczegoly: $($_.ErrorDetails.Message)" -ForegroundColor Red
+        }
+    }
+    if ($_.Exception.Response) {
+        $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+        $responseBody = $reader.ReadToEnd()
+        $reader.Close()
+        Write-Host "  Response body: $responseBody" -ForegroundColor Red
     }
     exit 1
 }
@@ -60,7 +81,7 @@ $playerMoveBody = @{
 } | ConvertTo-Json
 
 try {
-    $playerMoveResponse = Invoke-WebRequest -Uri "$baseUrl/api/games/$gameId/moves" -Method POST -Headers @{"accept"="*/*"; "authorization"="Bearer $token"; "content-type"="application/json"} -Body $playerMoveBody -ContentType "application/json"
+    $playerMoveResponse = Invoke-WebRequest -Uri "$baseUrl/api/v1/games/$gameId/moves" -Method POST -Headers @{"accept"="*/*"; "authorization"="Bearer $token"} -Body $playerMoveBody -ContentType "application/json" -ErrorAction Stop
     $playerMoveData = $playerMoveResponse.Content | ConvertFrom-Json
     Write-Host "OK Ruch gracza wykonany: Move ID $($playerMoveData.moveId)" -ForegroundColor Green
     Write-Host "  Position: ($($playerMoveData.row), $($playerMoveData.col)), Symbol: $($playerMoveData.playerSymbol)" -ForegroundColor Gray
@@ -75,7 +96,18 @@ try {
 } catch {
     Write-Host "ERROR Blad ruchu gracza: $($_.Exception.Message)" -ForegroundColor Red
     if ($_.ErrorDetails) {
-        Write-Host "  Szczegoly: $($_.ErrorDetails.Message)" -ForegroundColor Red
+        $errorDetails = $_.ErrorDetails.Message | ConvertFrom-Json -ErrorAction SilentlyContinue
+        if ($errorDetails) {
+            Write-Host "  Szczegoly: $($errorDetails.error.message)" -ForegroundColor Red
+        } else {
+            Write-Host "  Szczegoly: $($_.ErrorDetails.Message)" -ForegroundColor Red
+        }
+    }
+    if ($_.Exception.Response) {
+        $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+        $responseBody = $reader.ReadToEnd()
+        $reader.Close()
+        Write-Host "  Response body: $responseBody" -ForegroundColor Red
     }
     exit 1
 }
@@ -83,7 +115,7 @@ try {
 Write-Host ""
 Write-Host "KROK 4: Wykonanie ruchu bota..." -ForegroundColor Yellow
 try {
-    $botMoveResponse = Invoke-WebRequest -Uri "$baseUrl/api/games/$gameId/bot-move" -Method POST -Headers @{"accept"="*/*"; "authorization"="Bearer $token"} -ContentType "application/json"
+    $botMoveResponse = Invoke-WebRequest -Uri "$baseUrl/api/v1/games/$gameId/bot-move" -Method POST -Headers @{"accept"="*/*"; "authorization"="Bearer $token"} -ContentType "application/json" -ErrorAction Stop
     $botMoveData = $botMoveResponse.Content | ConvertFrom-Json
     Write-Host "OK Ruch bota wykonany: Move ID $($botMoveData.moveId)" -ForegroundColor Green
     Write-Host "  Position: ($($botMoveData.row), $($botMoveData.col)), Symbol: $($botMoveData.playerSymbol)" -ForegroundColor Gray
@@ -100,17 +132,47 @@ try {
         Write-Host ""
         Write-Host "PROBLEM: Bot wykonal ruch 'x' zamiast 'o'!" -ForegroundColor Red
         Write-Host "  Oczekiwano: 'o', otrzymano: '$($botMoveData.playerSymbol)'" -ForegroundColor Red
+        exit 1
     } elseif ($botMoveData.playerSymbol -eq "o") {
         Write-Host ""
         Write-Host "OK Ruch bota poprawny: symbol '$($botMoveData.playerSymbol)'" -ForegroundColor Green
     } else {
         Write-Host ""
         Write-Host "PROBLEM: Nieoczekiwany symbol bota: '$($botMoveData.playerSymbol)'" -ForegroundColor Red
+        exit 1
+    }
+    
+    if ($botMoveData.row -lt 0 -or $botMoveData.row -ge 3 -or $botMoveData.col -lt 0 -or $botMoveData.col -ge 3) {
+        Write-Host ""
+        Write-Host "PROBLEM: Bot wykonal ruch poza plansza!" -ForegroundColor Red
+        Write-Host "  Position: ($($botMoveData.row), $($botMoveData.col))" -ForegroundColor Red
+        exit 1
+    }
+    
+    $boardState = $botMoveData.boardState.state
+    if ($boardState[$botMoveData.row][$botMoveData.col] -ne $botMoveData.playerSymbol) {
+        Write-Host ""
+        Write-Host "PROBLEM: Symbol na planszy nie odpowiada symbolowi ruchu!" -ForegroundColor Red
+        Write-Host "  Position: ($($botMoveData.row), $($botMoveData.col))" -ForegroundColor Red
+        Write-Host "  Symbol ruchu: $($botMoveData.playerSymbol)" -ForegroundColor Red
+        Write-Host "  Symbol na planszy: $($boardState[$botMoveData.row][$botMoveData.col])" -ForegroundColor Red
+        exit 1
     }
 } catch {
     Write-Host "ERROR Blad ruchu bota: $($_.Exception.Message)" -ForegroundColor Red
     if ($_.ErrorDetails) {
-        Write-Host "  Szczegoly: $($_.ErrorDetails.Message)" -ForegroundColor Red
+        $errorDetails = $_.ErrorDetails.Message | ConvertFrom-Json -ErrorAction SilentlyContinue
+        if ($errorDetails) {
+            Write-Host "  Szczegoly: $($errorDetails.error.message)" -ForegroundColor Red
+        } else {
+            Write-Host "  Szczegoly: $($_.ErrorDetails.Message)" -ForegroundColor Red
+        }
+    }
+    if ($_.Exception.Response) {
+        $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+        $responseBody = $reader.ReadToEnd()
+        $reader.Close()
+        Write-Host "  Response body: $responseBody" -ForegroundColor Red
     }
     exit 1
 }

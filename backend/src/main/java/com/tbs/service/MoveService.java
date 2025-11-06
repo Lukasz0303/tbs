@@ -49,6 +49,7 @@ public class MoveService {
     private final MoveCreationService moveCreationService;
     private final TurnDeterminationService turnDeterminationService;
     private final BotUserService botUserService;
+    private final PointsService pointsService;
 
     public MoveService(MoveRepository moveRepository, GameRepository gameRepository,
                        UserRepository userRepository, BoardStateService boardStateService,
@@ -58,7 +59,7 @@ public class MoveService {
                        TurnValidationService turnValidationService,
                        MoveCreationService moveCreationService,
                        TurnDeterminationService turnDeterminationService,
-                       BotUserService botUserService) {
+                       BotUserService botUserService, PointsService pointsService) {
         this.moveRepository = Objects.requireNonNull(moveRepository, "MoveRepository cannot be null");
         this.gameRepository = Objects.requireNonNull(gameRepository, "GameRepository cannot be null");
         this.userRepository = Objects.requireNonNull(userRepository, "UserRepository cannot be null");
@@ -71,6 +72,7 @@ public class MoveService {
         this.moveCreationService = Objects.requireNonNull(moveCreationService, "MoveCreationService cannot be null");
         this.turnDeterminationService = Objects.requireNonNull(turnDeterminationService, "TurnDeterminationService cannot be null");
         this.botUserService = Objects.requireNonNull(botUserService, "BotUserService cannot be null");
+        this.pointsService = Objects.requireNonNull(pointsService, "PointsService cannot be null");
     }
 
     @Transactional(readOnly = true)
@@ -293,6 +295,8 @@ public class MoveService {
             game.setWinner(winnerUser);
             game.setFinishedAt(Instant.now());
 
+            pointsService.awardPointsForWin(game, winnerUser);
+
             WinnerInfo winner = new WinnerInfo(winnerUser.getId(), winnerUser.getUsername());
             log.info("Game {} finished. Winner: user {}", game.getId(), winnerUser.getId());
             return new GameStateUpdateResult(winner);
@@ -301,6 +305,7 @@ public class MoveService {
         if (gameLogicService.checkDrawCondition(game, boardState)) {
             game.setStatus(GameStatus.DRAW);
             game.setFinishedAt(Instant.now());
+            pointsService.awardPointsForDraw(game);
             log.info("Game {} ended in draw", game.getId());
             return new GameStateUpdateResult(null);
         }

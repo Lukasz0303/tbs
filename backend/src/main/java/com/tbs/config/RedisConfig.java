@@ -59,9 +59,18 @@ public class RedisConfig {
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer))
                 .disableCachingNullValues();
 
+        RedisCacheConfiguration rankingsConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofSeconds(300))
+                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer))
+                .disableCachingNullValues();
+
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
                 .withCacheConfiguration("userProfile", userProfileConfig)
+                .withCacheConfiguration("rankings", rankingsConfig)
+                .withCacheConfiguration("rankingDetail", rankingsConfig)
+                .withCacheConfiguration("rankingsAround", rankingsConfig)
                 .build();
     }
 }

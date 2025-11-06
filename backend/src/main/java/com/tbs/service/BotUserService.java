@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class BotUserService {
 
     private static final Logger log = LoggerFactory.getLogger(BotUserService.class);
-    private static final Long BOT_USER_ID = 0L;
     private static final String BOT_USERNAME = "Bot";
 
     private final UserRepository userRepository;
@@ -20,9 +19,9 @@ public class BotUserService {
         this.userRepository = userRepository;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public User getBotUser() {
-        return userRepository.findById(BOT_USER_ID)
+        return userRepository.findByUsername(BOT_USERNAME)
                 .orElseGet(() -> {
                     log.warn("Bot user not found in database, creating default bot user");
                     return createDefaultBotUser();
@@ -32,10 +31,9 @@ public class BotUserService {
     @Transactional
     private User createDefaultBotUser() {
         User botUser = new User();
-        botUser.setId(Long.valueOf(BOT_USER_ID));
         botUser.setUsername(BOT_USERNAME);
-        botUser.setEmail(null);
-        botUser.setPasswordHash(null);
+        botUser.setEmail("bot@system.local");
+        botUser.setPasswordHash("$2a$10$botSystemPasswordHashPlaceholder");
         botUser.setIsGuest(false);
         botUser.setIpAddress(null);
         botUser.setTotalPoints(0L);
@@ -44,8 +42,9 @@ public class BotUserService {
         try {
             return userRepository.save(botUser);
         } catch (Exception e) {
-            log.error("Failed to create bot user, returning user with ID=0", e);
-            return botUser;
+            log.error("Failed to create bot user, trying to retrieve existing one", e);
+            return userRepository.findByUsername(BOT_USERNAME)
+                    .orElseThrow(() -> new IllegalStateException("Failed to create bot user and user not found", e));
         }
     }
 }

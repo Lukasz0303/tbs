@@ -1,17 +1,17 @@
-# API Endpoint Implementation Plan: GET /api/matching/queue
+# API Endpoint Implementation Plan: GET /api/v1/matching/queue
 
 > **Status:** ⏳ Do implementacji
 
 ## 1. Przegląd punktu końcowego
 
-GET /api/matching/queue - Pobranie listy wszystkich graczy w kolejce matchmakingu
+GET /api/v1/matching/queue - Pobranie listy wszystkich graczy w kolejce matchmakingu
 
 Endpoint umożliwia pobranie listy wszystkich graczy znajdujących się w kolejce matchmakingu wraz z ich statusem (czekają, grają, zmapowani). Informacje obejmują również szczegóły o aktywnych grach dla graczy, którzy zostali już zmapowani. Endpoint wykorzystuje Redis do pobrania danych z kolejki i PostgreSQL do sprawdzenia statusu aktywnych gier.
 
 ## 2. Szczegóły żądania
 
 - **Metoda HTTP:** GET
-- **URL:** `/api/matching/queue`
+- **URL:** `/api/v1/matching/queue`
 - **Autoryzacja:** Wymagane (JWT token)
 - **Query Parameters:**
   - `boardSize` (opcjonalne): Filtrowanie po rozmiarze planszy
@@ -20,8 +20,8 @@ Endpoint umożliwia pobranie listy wszystkich graczy znajdujących się w kolejc
     - Jeśli nie podano, zwracane są gracze ze wszystkich rozmiarów planszy
 
 **Przykłady:**
-- `GET /api/matching/queue` - Wszyscy gracze w kolejce
-- `GET /api/matching/queue?boardSize=THREE` - Tylko gracze czekający na planszę 3x3
+- `GET /api/v1/matching/queue` - Wszyscy gracze w kolejce
+- `GET /api/v1/matching/queue?boardSize=THREE` - Tylko gracze czekający na planszę 3x3
 
 ## 3. Wykorzystywane typy
 
@@ -108,7 +108,7 @@ Endpoint umożliwia pobranie listy wszystkich graczy znajdujących się w kolejc
 ## 5. Przepływ danych
 
 ```
-1. Klient wysyła żądanie GET /api/matching/queue
+1. Klient wysyła żądanie GET /api/v1/matching/queue
    ↓
 2. SecurityFilter: Walidacja JWT tokena
    ↓
@@ -273,7 +273,7 @@ log.error("Failed to retrieve queue status", exception);
 
 ### 9.3 Implementacja kontrolera
 8. MatchingController:
-   - `GET /api/matching/queue` → getQueueStatus(@RequestParam(required = false) BoardSize boardSize)
+   - `GET /api/v1/matching/queue` → getQueueStatus(@RequestParam(required = false) BoardSize boardSize)
 
 9. Konfiguracja Swagger:
    - @Operation, @ApiResponse dla endpointu

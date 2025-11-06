@@ -1,17 +1,17 @@
-# API Endpoint Implementation Plan: POST /api/matching/queue
+# API Endpoint Implementation Plan: POST /api/v1/matching/queue
 
 > **Status:** ⏳ Do implementacji
 
 ## 1. Przegląd punktu końcowego
 
-POST /api/matching/queue - Dołączenie do kolejki wyszukiwania przeciwnika
+POST /api/v1/matching/queue - Dołączenie do kolejki wyszukiwania przeciwnika
 
 Endpoint umożliwia graczowi dołączenie do kolejki matchmakingu PvP dla wybranego rozmiaru planszy. System automatycznie wyszukuje pasującego przeciwnika i tworzy grę. Endpoint wykorzystuje Redis do zarządzania kolejką w czasie rzeczywistym i PostgreSQL do trwałego przechowywania danych.
 
 ## 2. Szczegóły żądania
 
 - **Metoda HTTP:** POST
-- **URL:** `/api/matching/queue`
+- **URL:** `/api/v1/matching/queue`
 - **Autoryzacja:** Wymagane (JWT token)
 - **Content-Type:** `application/json`
 
@@ -62,7 +62,7 @@ Endpoint umożliwia graczowi dołączenie do kolejki matchmakingu PvP dla wybran
 ## 5. Przepływ danych
 
 ```
-1. Klient wysyła żądanie POST /api/matching/queue
+1. Klient wysyła żądanie POST /api/v1/matching/queue
    ↓
 2. SecurityFilter: Walidacja JWT tokena
    ↓
@@ -222,7 +222,7 @@ log.error("Failed to add user {} to matchmaking queue", userId, exception);
 
 ### 9.3 Implementacja kontrolera
 6. MatchingController:
-   - `POST /api/matching/queue` → addToQueue()
+   - `POST /api/v1/matching/queue` → addToQueue()
 
 7. Konfiguracja Swagger:
    - @Operation, @ApiResponse dla endpointu

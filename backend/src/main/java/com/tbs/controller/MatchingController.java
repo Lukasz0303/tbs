@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import java.net.URI;
 
 @RestController
-@RequestMapping("/api/matching")
+@RequestMapping("/api/v1/matching")
 @Tag(name = "Matchmaking", description = "API endpoints for matchmaking and player challenges")
 @PreAuthorize("isAuthenticated()")
 public class MatchingController {
@@ -117,7 +117,7 @@ public class MatchingController {
     ) {
         Long challengerId = authenticationService.getCurrentUserId();
         ChallengeResponse response = matchmakingService.createDirectChallenge(challengerId, userId, request);
-        String locationPath = "/api/games/" + response.gameId();
+        String locationPath = "/api/v1/games/" + response.gameId();
         URI locationUri = URI.create(locationPath);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .location(locationUri)
