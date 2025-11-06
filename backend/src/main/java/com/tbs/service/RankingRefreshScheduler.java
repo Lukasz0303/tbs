@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -55,7 +56,7 @@ public class RankingRefreshScheduler {
                         log.warn("Error in scheduled refresh of player_rankings materialized view (attempt {}/{}), retrying in {}ms", 
                                 retries, maxRetries, retryDelayMs, e);
                         try {
-                            Thread.sleep(retryDelayMs);
+                            TimeUnit.MILLISECONDS.sleep(retryDelayMs);
                         } catch (InterruptedException ie) {
                             Thread.currentThread().interrupt();
                             log.error("Retry sleep interrupted", ie);

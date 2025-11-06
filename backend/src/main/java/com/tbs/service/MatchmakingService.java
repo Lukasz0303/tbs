@@ -197,6 +197,20 @@ public class MatchmakingService {
     }
 
     private Game createPvpGame(Long player1Id, Long player2Id, BoardSize boardSize) {
+        if (player1Id == null || player2Id == null) {
+            throw new IllegalArgumentException("Player IDs cannot be null");
+        }
+        if (player1Id.equals(player2Id)) {
+            throw new IllegalArgumentException("Player 1 and Player 2 cannot be the same");
+        }
+
+        if (gameRepository.hasActivePvpGame(player1Id)) {
+            throw new UserHasActiveGameException("Player 1 already has an active game");
+        }
+        if (gameRepository.hasActivePvpGame(player2Id)) {
+            throw new UserHasActiveGameException("Player 2 already has an active game");
+        }
+
         User player1 = userRepository.findById(player1Id)
                 .orElseThrow(() -> new UserNotFoundException("Player 1 not found"));
         User player2 = userRepository.findById(player2Id)

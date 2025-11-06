@@ -31,6 +31,7 @@ public class RankingServiceImpl implements RankingService {
     private static final Logger log = LoggerFactory.getLogger(RankingServiceImpl.class);
     private static final int RANKING_ITEM_COLUMNS = 7;
     private static final int RANKING_AROUND_ITEM_COLUMNS = 6;
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final RankingRepository rankingRepository;
     private final UserRepository userRepository;
@@ -45,8 +46,10 @@ public class RankingServiceImpl implements RankingService {
     public RankingListResponse getRankings(Pageable pageable, Integer startRank) {
         log.debug("Fetching rankings with pageable: {}, startRank: {}", pageable, startRank);
 
-        if (pageable.getPageSize() <= 0) {
-            throw new IllegalArgumentException("Page size must be positive");
+        if (pageable.getPageSize() <= 0 || pageable.getPageSize() > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException(
+                String.format("Page size must be between 1 and %d", MAX_PAGE_SIZE)
+            );
         }
 
         List<RankingItem> items;

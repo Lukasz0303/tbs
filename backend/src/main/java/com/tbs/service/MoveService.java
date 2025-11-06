@@ -30,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -142,44 +143,7 @@ public class MoveService {
         log.info("MoveService.createMove: gameId={}, gameType={}, status={}", 
                 gameId, game.getGameType(), updatedGame.getStatus());
         
-        if (game.getGameType() != GameType.PVP) {
-            log.debug("Game is not PVP (gameType={}), skipping WebSocket notification", game.getGameType());
-            return new CreateMoveResponse(
-                    savedMove.getId(),
-                    gameId,
-                    request.row(),
-                    request.col(),
-                    request.playerSymbol(),
-                    savedMove.getMoveOrder(),
-                    savedMove.getCreatedAt(),
-                    boardState,
-                    updatedGame.getStatus(),
-                    stateUpdate.winner(),
-                    updatedGame.getCurrentPlayerSymbol()
-            );
-        }
-        
-        log.info("Game is PVP, calling notifyMoveFromRestApi: gameId={}, userId={}, moveId={}", 
-                gameId, userId, savedMove.getId());
-        try {
-            gameWebSocketHandler.notifyMoveFromRestApi(
-                    gameId,
-                    userId,
-                    savedMove.getId(),
-                    request.row(),
-                    request.col(),
-                    request.playerSymbol(),
-                    boardState,
-                    updatedGame.getCurrentPlayerSymbol(),
-                    updatedGame.getStatus()
-            );
-            log.info("Successfully called notifyMoveFromRestApi for gameId={}, userId={}", gameId, userId);
-        } catch (Exception e) {
-            log.error("Failed to notify WebSocket about move from REST API: gameId={}, userId={}", 
-                    gameId, userId, e);
-        }
-
-        return new CreateMoveResponse(
+        CreateMoveResponse response = new CreateMoveResponse(
                 savedMove.getId(),
                 gameId,
                 request.row(),
@@ -192,6 +156,16 @@ public class MoveService {
                 stateUpdate.winner(),
                 updatedGame.getCurrentPlayerSymbol()
         );
+
+        if (game.getGameType() == GameType.PVP) {
+            CompletableFuture.runAsync(() -> 
+                notifyWebSocket(gameId, userId, savedMove.getId(), request.row(), request.col(),
+                    request.playerSymbol(), boardState, updatedGame.getCurrentPlayerSymbol(),
+                    updatedGame.getStatus())
+            );
+        }
+
+        return response;
     }
 
     @Transactional
@@ -313,6 +287,30 @@ public class MoveService {
         PlayerSymbol nextPlayerSymbol = gameLogicService.getOppositeSymbol(moveSymbol);
         game.setCurrentPlayerSymbol(nextPlayerSymbol);
         return new GameStateUpdateResult(null);
+    }
+
+    private void notifyWebSocket(Long gameId, Long userId, Long moveId, int row, int col,
+                                 PlayerSymbol playerSymbol, BoardState boardState,
+                                 PlayerSymbol currentPlayerSymbol, GameStatus gameStatus) {
+        try {
+            log.info("Game is PVP, calling notifyMoveFromRestApi: gameId={}, userId={}, moveId={}", 
+                    gameId, userId, moveId);
+            gameWebSocketHandler.notifyMoveFromRestApi(
+                    gameId,
+                    userId,
+                    moveId,
+                    row,
+                    col,
+                    playerSymbol,
+                    boardState,
+                    currentPlayerSymbol,
+                    gameStatus
+            );
+            log.info("Successfully called notifyMoveFromRestApi for gameId={}, userId={}", gameId, userId);
+        } catch (Exception e) {
+            log.error("Failed to notify WebSocket about move from REST API: gameId={}, userId={}", 
+                    gameId, userId, e);
+        }
     }
 
     private static record GameStateUpdateResult(WinnerInfo winner) {}

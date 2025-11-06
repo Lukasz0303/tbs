@@ -63,8 +63,14 @@ public class PointsService {
             return;
         }
 
+        Long winnerId = winner.getId();
+        if (winnerId == null) {
+            log.error("Winner user ID is null for game {}", game.getId());
+            throw new IllegalStateException("Winner user ID cannot be null");
+        }
+
         if (Boolean.TRUE.equals(winner.getIsGuest())) {
-            log.debug("Skipping points award for guest user {} in game {}", winner.getId(), game.getId());
+            log.debug("Skipping points award for guest user {} in game {}", winnerId, game.getId());
             return;
         }
 
@@ -75,8 +81,8 @@ public class PointsService {
             return;
         }
 
-        User user = userRepository.findById(winner.getId())
-                .orElseThrow(() -> new IllegalStateException("Winner user not found: " + winner.getId()));
+        User user = userRepository.findById(winnerId)
+                .orElseThrow(() -> new IllegalStateException("Winner user not found: " + winnerId));
 
         long currentPoints = user.getTotalPoints() != null ? user.getTotalPoints() : 0L;
         int currentWins = user.getGamesWon() != null ? user.getGamesWon() : 0;
@@ -123,8 +129,13 @@ public class PointsService {
             return;
         }
 
-        User user = userRepository.findById(player.getId())
-                .orElseThrow(() -> new IllegalStateException("Player user not found: " + player.getId()));
+        Long playerId = player.getId();
+        if (playerId == null) {
+            log.error("Player user ID is null for game {}", game.getId());
+            throw new IllegalStateException("Player user ID cannot be null");
+        }
+        User user = userRepository.findById(playerId)
+                .orElseThrow(() -> new IllegalStateException("Player user not found: " + playerId));
 
         int currentPlayed = user.getGamesPlayed() != null ? user.getGamesPlayed() : 0;
         user.setGamesPlayed(currentPlayed + 1);

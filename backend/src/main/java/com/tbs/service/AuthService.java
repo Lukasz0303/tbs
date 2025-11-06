@@ -6,6 +6,7 @@ import com.tbs.dto.auth.LogoutResponse;
 import com.tbs.dto.auth.RegisterRequest;
 import com.tbs.dto.auth.RegisterResponse;
 import com.tbs.exception.BadRequestException;
+import com.tbs.exception.ConflictException;
 import com.tbs.exception.ForbiddenException;
 import com.tbs.exception.TokenBlacklistException;
 import com.tbs.exception.UnauthorizedException;
@@ -73,6 +74,13 @@ public class AuthService {
 
     public RegisterResponse register(RegisterRequest request) {
         log.info("Attempting to register user with email: {}", request.email());
+        
+        if (userRepository.existsByEmail(request.email())) {
+            throw new ConflictException("Email already exists");
+        }
+        if (userRepository.existsByUsername(request.username())) {
+            throw new ConflictException("Username already exists");
+        }
         
         try {
             User savedUser = createAndSaveUser(request);
