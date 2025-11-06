@@ -54,6 +54,10 @@ public class RankingController {
             @Max(value = 100, message = "Size must not exceed 100")
             Integer size
     ) {
+        if (startRank != null && pageable.getPageNumber() > 0) {
+            throw new IllegalArgumentException("Cannot use both startRank and page number. Use either startRank or standard pagination.");
+        }
+
         Pageable adjustedPageable = size != null
                 ? Pageable.ofSize(size).withPage(pageable.getPageNumber())
                 : pageable;
@@ -107,6 +111,20 @@ public class RankingController {
     ) {
         RankingAroundResponse response = rankingService.getRankingsAround(userId, range);
         return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/cache")
+    @Operation(
+            summary = "Clear rankings cache",
+            description = "Clears all rankings cache entries from Redis. Useful after schema changes or cache issues."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Cache cleared successfully"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<Void> clearCache() {
+        rankingService.clearRankingsCache();
+        return ResponseEntity.ok().build();
     }
 }
 

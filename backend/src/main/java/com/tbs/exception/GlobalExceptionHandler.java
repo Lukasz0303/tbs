@@ -1,7 +1,8 @@
 package com.tbs.exception;
 
 import com.tbs.dto.common.ApiErrorResponse;
-import org.hibernate.exception.ConstraintViolationException;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -142,6 +143,20 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleConstraintViolation(ConstraintViolationException e) {
+        String errors = e.getConstraintViolations()
+                .stream()
+                .map(ConstraintViolation::getMessage)
+                .collect(Collectors.joining(", "));
+
+        log.warn("Constraint violation: {}", errors);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("VALIDATION_ERROR", errors)
+                ));
+    }
+
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ApiErrorResponse> handleDataAccessException(DataAccessException e) {
         log.error("Database error occurred: {}", e.getMessage(), e);
@@ -172,8 +187,8 @@ public class GlobalExceptionHandler {
         String errorMessage = "A database constraint violation occurred";
         String errorCode = "DATA_INTEGRITY_VIOLATION";
         
-        if (e.getCause() instanceof ConstraintViolationException) {
-            ConstraintViolationException cve = (ConstraintViolationException) e.getCause();
+        if (e.getCause() instanceof org.hibernate.exception.ConstraintViolationException) {
+            org.hibernate.exception.ConstraintViolationException cve = (org.hibernate.exception.ConstraintViolationException) e.getCause();
             String constraintName = cve.getConstraintName();
             
             if (constraintName != null) {

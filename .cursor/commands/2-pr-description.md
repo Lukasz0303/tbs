@@ -1,4 +1,4 @@
-Wygeneruj szczegółowy, profesjonalny opis Pull Requesta po angielsku na podstawie wszystkich zmian na bieżącej gałęzi względem main. Opis powinien być gotowy do wklejenia do formularza opisu PR na GitHub.
+Wygeneruj szczegółowy, profesjonalny opis Pull Requesta po angielsku na podstawie wszystkich zmian na bieżącej gałęzi względem main, uwaga to bardzo ważne weś pod uwagę tylko zmiany względem main. Opis powinien być gotowy do wklejenia do formularza opisu PR na GitHub.
 
 Format opisu powinien być zgodny z przykładem z pliku `.cursor/examples/pr-description-example.md` i zawierać następujące sekcje:
 
@@ -30,5 +30,4 @@ Opis powinien być:
 - Z jasnym opisem kontekstu i celu PR
 
 Po wpisaniu tej komendy, AI automatycznie przygotuje szczegółowy opis PR — nie musisz samodzielnie uruchamiać żadnych dodatkowych poleceń w terminalu.
-
 Po wygenerowaniu opisu AI zapyta, czy opis jest odpowiedni. Jeśli zaakceptujesz – AI przygotuje komendę do commita. Jeśli nie – będziesz mógł wybrać opcję dodatkowego skrócenia lub dostosowania opisu.

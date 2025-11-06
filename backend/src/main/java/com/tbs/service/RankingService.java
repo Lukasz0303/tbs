@@ -13,4 +13,6 @@ public interface RankingService {
     RankingAroundResponse getRankingsAround(Long userId, Integer range);
 
     void refreshPlayerRankings();
+
+    void clearRankingsCache();
 }
