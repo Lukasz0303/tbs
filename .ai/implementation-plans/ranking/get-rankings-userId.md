@@ -162,7 +162,7 @@ WHERE id = :userId;
 ## 9. Etapy wdrożenia
 
 1. Utworzenie interfejsu `RankingService` i implementacji `RankingServiceImpl`
-2. Utworzenie kontrolera `RankingController` z endpointem `GET /api/rankings/{userId}`
+2. Utworzenie kontrolera `RankingController` z endpointem `GET /api/v1/rankings/{userId}`
 3. Implementacja metody `getUserRanking(userId)` w service layer
 4. Implementacja sprawdzania czy użytkownik jest gościem
 5. Implementacja cache logic (Redis) w Service Layer
@@ -171,4 +171,10 @@ WHERE id = :userId;
 8. Implementacja obsługi błędów (EntityNotFoundException, 404 dla gości)
 9. Testy jednostkowe dla Service i Controller (JUnit 5, Mockito)
 10. Testy integracyjne i E2E (Cypress)
+
+## 10. Powiązane endpointy
+
+- **GET /api/v1/rankings** - Pobranie globalnego rankingu z paginacją (zobacz: `get-rankings.md`)
+- **GET /api/v1/rankings/around/{userId}** - Pobranie rankingów wokół użytkownika (zobacz: `get-rankings-around-userId.md`)
+- **DELETE /api/v1/rankings/cache** - Czyszczenie cache rankingów (zobacz: `clear-rankings-cache.md`)
 

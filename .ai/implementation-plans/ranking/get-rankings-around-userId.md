@@ -210,7 +210,7 @@ ORDER BY pr.rank_position;
 ## 9. Etapy wdrożenia
 
 1. Utworzenie interfejsu `RankingService` i implementacji `RankingServiceImpl`
-2. Utworzenie kontrolera `RankingController` z endpointem `GET /api/rankings/around/{userId}`
+2. Utworzenie kontrolera `RankingController` z endpointem `GET /api/v1/rankings/around/{userId}`
 3. Implementacja metody `getRankingsAround(userId, range)` w service layer
 4. Implementacja sprawdzania czy użytkownik jest gościem
 5. Implementacja CTE query dla pobierania zakresu graczy
@@ -220,4 +220,10 @@ ORDER BY pr.rank_position;
 9. Implementacja obsługi błędów (EntityNotFoundException, 404 dla gości)
 10. Testy jednostkowe dla Service i Controller (JUnit 5, Mockito)
 11. Testy integracyjne i E2E (Cypress)
+
+## 10. Powiązane endpointy
+
+- **GET /api/v1/rankings** - Pobranie globalnego rankingu z paginacją (zobacz: `get-rankings.md`)
+- **GET /api/v1/rankings/{userId}** - Pobranie szczegółowej pozycji w rankingu dla użytkownika (zobacz: `get-rankings-userId.md`)
+- **DELETE /api/v1/rankings/cache** - Czyszczenie cache rankingów (zobacz: `clear-rankings-cache.md`)
 

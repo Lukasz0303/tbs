@@ -7,8 +7,6 @@ import com.tbs.model.User;
 import com.tbs.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -16,7 +14,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
-import java.util.concurrent.Executor;
 
 @Service
 public class PointsService {
@@ -41,11 +38,10 @@ public class PointsService {
     private final UserRepository userRepository;
     private final RankingService rankingService;
 
-    @Autowired(required = false)
-    @Qualifier("rankingRefreshExecutor")
-    private Executor rankingRefreshExecutor;
-
-    public PointsService(UserRepository userRepository, RankingService rankingService) {
+    public PointsService(
+            UserRepository userRepository,
+            RankingService rankingService
+    ) {
         this.userRepository = Objects.requireNonNull(userRepository, "UserRepository cannot be null");
         this.rankingService = Objects.requireNonNull(rankingService, "RankingService cannot be null");
     }

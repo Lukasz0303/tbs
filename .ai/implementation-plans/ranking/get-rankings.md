@@ -147,7 +147,7 @@ OFFSET :offset LIMIT :size;
 ## 9. Etapy wdrożenia
 
 1. Utworzenie interfejsu `RankingService` i implementacji `RankingServiceImpl`
-2. Utworzenie kontrolera `RankingController` z endpointem `GET /api/rankings`
+2. Utworzenie kontrolera `RankingController` z endpointem `GET /api/v1/rankings`
 3. Implementacja metody `getRankings(page, size, startRank)` w service layer
 4. Implementacja cache logic (Redis) w Service Layer
 5. Dodanie walidacji parametrów przez Bean Validation
@@ -156,4 +156,10 @@ OFFSET :offset LIMIT :size;
 8. Testy jednostkowe dla Service i Controller (JUnit 5, Mockito)
 9. Testy integracyjne i E2E (Cypress)
 10. Deployment i monitoring metryk w produkcji
+
+## 10. Powiązane endpointy
+
+- **GET /api/v1/rankings/{userId}** - Pobranie szczegółowej pozycji w rankingu dla użytkownika
+- **GET /api/v1/rankings/around/{userId}** - Pobranie rankingów wokół użytkownika
+- **DELETE /api/v1/rankings/cache** - Czyszczenie cache rankingów (zobacz: `clear-rankings-cache.md`)
 

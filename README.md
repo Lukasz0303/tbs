@@ -139,6 +139,29 @@ From `frontend/package.json`:
 - `gradlew bootRun` / `./gradlew bootRun`: run the Spring Boot application (ręcznie)
 - Additional Gradle references are listed in `backend/HELP.md`
 
+## API Endpoints
+
+### Rankings
+
+- **GET /api/v1/rankings** - Pobranie globalnego rankingu z paginacją
+  - Query params: `page`, `size`, `startRank`
+  - Szczegóły: [`.ai/implementation-plans/ranking/get-rankings.md`](.ai/implementation-plans/ranking/get-rankings.md)
+
+- **GET /api/v1/rankings/{userId}** - Pobranie szczegółowej pozycji w rankingu dla użytkownika
+  - Path param: `userId`
+  - Szczegóły: [`.ai/implementation-plans/ranking/get-rankings-userId.md`](.ai/implementation-plans/ranking/get-rankings-userId.md)
+
+- **GET /api/v1/rankings/around/{userId}** - Pobranie rankingów wokół użytkownika
+  - Path param: `userId`
+  - Query param: `range` (default: 5, max: 10)
+  - Szczegóły: [`.ai/implementation-plans/ranking/get-rankings-around-userId.md`](.ai/implementation-plans/ranking/get-rankings-around-userId.md)
+
+- **DELETE /api/v1/rankings/cache** - Czyszczenie cache rankingów z Redis
+  - Automatycznie wywoływany przez `run-backend.ps1` przy opcjach `start` i `restart`
+  - Szczegóły: [`.ai/implementation-plans/ranking/clear-rankings-cache.md`](.ai/implementation-plans/ranking/clear-rankings-cache.md)
+
+Pełna dokumentacja API dostępna w Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+
 ## Project scope
 
 ### In scope (MVP)

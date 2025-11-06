@@ -41,7 +41,7 @@ public class RankingServiceImpl implements RankingService {
     }
 
     @Override
-    @Cacheable(value = "rankings", key = "'rankings_' + #pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#pageable.sort != null ? #pageable.sort.toString().hashCode() : 0) + '_' + (#startRank != null ? #startRank : 'null')")
+    @Cacheable(value = "rankings", key = "'rankings_' + #pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#startRank != null ? #startRank : 'null')")
     public RankingListResponse getRankings(Pageable pageable, Integer startRank) {
         log.debug("Fetching rankings with pageable: {}, startRank: {}", pageable, startRank);
 
@@ -60,13 +60,13 @@ public class RankingServiceImpl implements RankingService {
             items = rankingRepository.findRankingsFromPositionRaw(startRank, pageable.getPageSize())
                     .stream()
                     .map(this::mapToRankingItem)
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toUnmodifiableList());
         } else {
             int offset = (int) pageable.getOffset();
             items = rankingRepository.findRankingsRaw(offset, pageable.getPageSize())
                     .stream()
                     .map(this::mapToRankingItem)
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toUnmodifiableList());
         }
 
         return new RankingListResponse(
@@ -96,7 +96,7 @@ public class RankingServiceImpl implements RankingService {
         List<Object[]> results = rankingRepository.findByUserIdRaw(userId);
         if (results.isEmpty()) {
             log.warn("Ranking not found for user: {}", userId);
-            throw new UserNotFoundException("Ranking not found for user with id: " + userId);
+            throw new UserNotInRankingException("Ranking not found for user with id: " + userId);
         }
 
         Object[] result = results.get(0);
@@ -119,19 +119,19 @@ public class RankingServiceImpl implements RankingService {
         List<Object[]> results = rankingRepository.findRankingsAroundUserRaw(userId, range);
         if (results.isEmpty()) {
             log.warn("Rankings around user not found for userId: {}", userId);
-            throw new UserNotFoundException("Ranking not found for user with id: " + userId);
+            throw new UserNotInRankingException("Ranking not found for user with id: " + userId);
         }
 
         List<RankingAroundItem> items = results.stream()
                 .map(this::mapToRankingAroundItem)
-                .collect(Collectors.toList());
+                .collect(Collectors.toUnmodifiableList());
 
         boolean userFound = items.stream()
                 .anyMatch(item -> Objects.equals(item.userId(), userId));
 
         if (!userFound) {
             log.warn("User rank position not found in results for userId: {}", userId);
-            throw new UserNotFoundException("Ranking position not found for user with id: " + userId);
+            throw new UserNotInRankingException("Ranking position not found for user with id: " + userId);
         }
 
         return new RankingAroundResponse(items);
@@ -221,13 +221,14 @@ public class RankingServiceImpl implements RankingService {
     @CacheEvict(value = {"rankings", "rankingDetail", "rankingsAround"}, allEntries = true)
     public void refreshPlayerRankings() {
         log.debug("Refreshing player_rankings materialized view");
-        try {
-            rankingRepository.refreshPlayerRankings();
-            log.info("Successfully refreshed player_rankings materialized view");
-        } catch (Exception e) {
-            log.error("Error refreshing player_rankings materialized view", e);
-            throw new RuntimeException("Failed to refresh player rankings", e);
-        }
+        rankingRepository.refreshPlayerRankings();
+        log.info("Successfully refreshed player_rankings materialized view");
+    }
+
+    @Override
+    @CacheEvict(value = {"rankings", "rankingDetail", "rankingsAround"}, allEntries = true)
+    public void clearRankingsCache() {
+        log.info("Clearing all rankings cache");
     }
 
     private Instant mapTimestampToInstant(Object timestamp) {
@@ -240,7 +241,6 @@ public class RankingServiceImpl implements RankingService {
         if (timestamp instanceof Instant) {
             return (Instant) timestamp;
         }
-        log.warn("Unexpected timestamp type: {}", timestamp.getClass());
-        return null;
+        throw new IllegalStateException("Unexpected timestamp type: " + timestamp.getClass().getName());
     }
 }

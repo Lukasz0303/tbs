@@ -1383,6 +1383,38 @@ function Apply-Migrations {
     }
 }
 
+function Clear-RedisCache {
+    $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Czyszczenie cache Redis..."
+    
+    $maxRetries = 5
+    $retryDelay = 2
+    $retries = 0
+    $success = $false
+    
+    while ($retries -lt $maxRetries -and -not $success) {
+        try {
+            $response = Invoke-WebRequest -Uri "http://localhost:8080/api/v1/rankings/cache" -Method Delete -TimeoutSec 5 -ErrorAction Stop
+            if ($response.StatusCode -eq 200) {
+                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Cache Redis wyczyszczony pomyslnie"
+                $success = $true
+                return $true
+            }
+        } catch {
+            $retries++
+            if ($retries -lt $maxRetries) {
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Próba $retries/$maxRetries - Aplikacja może nie być jeszcze gotowa, czekam $retryDelay sekund..."
+                Start-Sleep -Seconds $retryDelay
+            } else {
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Nie udalo sie wyczyscic cache Redis (aplikacja może nie być jeszcze uruchomiona)"
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Cache zostanie automatycznie odswiezony przy pierwszym zapytaniu"
+                return $false
+            }
+        }
+    }
+    
+    return $false
+}
+
 function Show-Status {
     Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Sprawdzanie statusu serwisow..."
     Write-Host ""
@@ -1546,6 +1578,10 @@ switch ($Action) {
             exit 1
         }
         
+        Write-Host "[DEBUG] ====== WYWOŁYWANIE Clear-RedisCache =====" -ForegroundColor Magenta
+        Clear-RedisCache
+        Write-Host "[DEBUG] ====== PO Clear-RedisCache =====" -ForegroundColor Magenta
+        
         Write-Host ""
         Write-ColorOutput -ForegroundColor Green "===================================================================="
         Write-ColorOutput -ForegroundColor Green "Backend uruchomiony pomyslnie!"
@@ -1588,6 +1624,10 @@ switch ($Action) {
             Get-Logs
             exit 1
         }
+        
+        Write-Host "[DEBUG] ====== WYWOŁYWANIE Clear-RedisCache =====" -ForegroundColor Magenta
+        Clear-RedisCache
+        Write-Host "[DEBUG] ====== PO Clear-RedisCache =====" -ForegroundColor Magenta
         
         Write-Host ""
         Write-ColorOutput -ForegroundColor Green "===================================================================="
