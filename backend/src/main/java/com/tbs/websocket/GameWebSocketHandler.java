@@ -13,6 +13,7 @@ import com.tbs.repository.MoveRepository;
 import com.tbs.service.BoardStateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -26,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -51,7 +51,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final Map<Long, ScheduledFuture<?>> gameTimers = new ConcurrentHashMap<>();
     private final Map<Long, Instant> moveDeadlines = new ConcurrentHashMap<>();
     private final Map<String, Instant> lastPingTime = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(4);
+    private final ScheduledExecutorService scheduler;
 
     public GameWebSocketHandler(
             ObjectMapper objectMapper,
@@ -60,7 +60,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             MoveRepository moveRepository,
             BoardStateService boardStateService,
             com.tbs.service.WebSocketMessageStorageService messageStorageService,
-            com.tbs.service.WebSocketGameService webSocketGameService
+            com.tbs.service.WebSocketGameService webSocketGameService,
+            @Qualifier("webSocketScheduler") ScheduledExecutorService scheduler
     ) {
         this.objectMapper = objectMapper;
         this.sessionManager = sessionManager;
@@ -69,6 +70,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         this.boardStateService = boardStateService;
         this.messageStorageService = messageStorageService;
         this.webSocketGameService = webSocketGameService;
+        this.scheduler = scheduler;
     }
 
     @Override
@@ -80,6 +82,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (gameId == null || userId == null || game == null) {
             log.error("WebSocket connection established with missing attributes");
             session.close(CloseStatus.BAD_DATA);
+            return;
+        }
+
+        if (game.getStatus() == com.tbs.enums.GameStatus.FINISHED || 
+            game.getStatus() == com.tbs.enums.GameStatus.ABANDONED) {
+            log.warn("WebSocket connection attempted for finished game: gameId={}, status={}", 
+                    gameId, game.getStatus());
+            session.close(CloseStatus.POLICY_VIOLATION);
             return;
         }
 
@@ -688,17 +698,5 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         sessionManager.removeAllGameSessions(gameId);
     }
     
-    @jakarta.annotation.PreDestroy
-    public void destroy() {
-        scheduler.shutdown();
-        try {
-            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                scheduler.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            scheduler.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
-    }
 }
 

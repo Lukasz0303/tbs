@@ -5,6 +5,8 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -20,6 +22,9 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    
+    @Autowired(required = false)
+    private Environment environment;
 
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ApiErrorResponse> handleUnauthorized(UnauthorizedException e) {
@@ -326,19 +331,42 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGenericException(Exception e) {
         log.error("Unexpected error occurred: {}", e.getMessage(), e);
-        String message = e.getMessage();
+        
+        String message = "An unexpected error occurred";
         if (e.getCause() != null) {
             log.error("Root cause: {}", e.getCause().getMessage(), e.getCause());
-            message = e.getCause().getMessage();
         }
+        
+        boolean isProduction = isProductionEnvironment();
+        if (!isProduction && e.getMessage() != null) {
+            message += ": " + e.getMessage();
+        }
+        
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ApiErrorResponse(
                         new ApiErrorResponse.ErrorDetails(
                                 "INTERNAL_SERVER_ERROR",
-                                "An unexpected error occurred: " + (message != null ? message : e.getClass().getSimpleName()),
+                                message,
                                 null
                         )
                 ));
+    }
+
+    private boolean isProductionEnvironment() {
+        if (environment == null) {
+            return false;
+        }
+        String[] activeProfiles = environment.getActiveProfiles();
+        if (activeProfiles == null || activeProfiles.length == 0) {
+            String defaultProfile = environment.getProperty("spring.profiles.default", "dev");
+            return "prod".equals(defaultProfile) || "production".equals(defaultProfile);
+        }
+        for (String profile : activeProfiles) {
+            if ("prod".equals(profile) || "production".equals(profile)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 

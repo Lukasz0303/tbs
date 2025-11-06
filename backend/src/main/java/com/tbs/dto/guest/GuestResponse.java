@@ -8,7 +8,8 @@ public record GuestResponse(
         long totalPoints,
         int gamesPlayed,
         int gamesWon,
-        Instant createdAt
+        Instant createdAt,
+        String authToken
 ) {
     public GuestResponse {
         isGuest = true;
