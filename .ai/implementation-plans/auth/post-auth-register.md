@@ -266,7 +266,7 @@ public record RegisterResponse(
 
 7. **Zwrócenie odpowiedzi HTTP 201 Created**
    - Serializacja `RegisterResponse` do JSON
-   - Ustawienie nagłówka `Location: /api/users/{userId}` (opcjonalne)
+   - Ustawienie nagłówka `Location: /api/v1/users/{userId}` (opcjonalne)
 
 ### Integracja z bazą danych
 

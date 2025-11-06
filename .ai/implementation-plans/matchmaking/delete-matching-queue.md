@@ -1,17 +1,17 @@
-# API Endpoint Implementation Plan: DELETE /api/matching/queue
+# API Endpoint Implementation Plan: DELETE /api/v1/matching/queue
 
 > **Status:** ⏳ Do implementacji
 
 ## 1. Przegląd punktu końcowego
 
-DELETE /api/matching/queue - Opuszczenie kolejki matchmakingu
+DELETE /api/v1/matching/queue - Opuszczenie kolejki matchmakingu
 
 Endpoint umożliwia graczowi opuszczenie kolejki matchmakingu PvP. Gracz może opuścić kolejkę w dowolnym momencie przed znalezieniem przeciwnika. Endpoint wykorzystuje Redis do usunięcia gracza z kolejki.
 
 ## 2. Szczegóły żądania
 
 - **Metoda HTTP:** DELETE
-- **URL:** `/api/matching/queue`
+- **URL:** `/api/v1/matching/queue`
 - **Autoryzacja:** Wymagane (JWT token)
 - **Request Body:** Brak
 
@@ -41,7 +41,7 @@ Endpoint umożliwia graczowi opuszczenie kolejki matchmakingu PvP. Gracz może o
 ## 5. Przepływ danych
 
 ```
-1. Klient wysyła żądanie DELETE /api/matching/queue
+1. Klient wysyła żądanie DELETE /api/v1/matching/queue
    ↓
 2. SecurityFilter: Walidacja JWT tokena
    ↓
@@ -140,7 +140,7 @@ log.warn("User {} attempted to leave queue but was not in queue", userId);
 
 ### 9.3 Implementacja kontrolera
 5. MatchingController:
-   - `DELETE /api/matching/queue` → removeFromQueue()
+   - `DELETE /api/v1/matching/queue` → removeFromQueue()
 
 6. Konfiguracja Swagger:
    - @Operation, @ApiResponse dla endpointu

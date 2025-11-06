@@ -71,7 +71,7 @@ class UserControllerIntegrationTest {
 
     @Test
     void getUserProfile_shouldReturnProfileForRegisteredUser() throws Exception {
-        mockMvc.perform(get("/api/users/{userId}", testUser.getId())
+        mockMvc.perform(get("/api/v1/users/{userId}", testUser.getId())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(testUser.getId()))
@@ -87,7 +87,7 @@ class UserControllerIntegrationTest {
     void getUserProfile_shouldReturnProfileForGuestUserWhenOwner() throws Exception {
         String guestToken = jwtTokenProvider.generateToken(guestUser.getId());
 
-        mockMvc.perform(get("/api/users/{userId}", guestUser.getId())
+        mockMvc.perform(get("/api/v1/users/{userId}", guestUser.getId())
                         .header("Authorization", "Bearer " + guestToken)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -98,7 +98,7 @@ class UserControllerIntegrationTest {
 
     @Test
     void getUserProfile_shouldReturn403ForGuestUserWhenNotOwner() throws Exception {
-        mockMvc.perform(get("/api/users/{userId}", guestUser.getId())
+        mockMvc.perform(get("/api/v1/users/{userId}", guestUser.getId())
                         .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden())
@@ -110,7 +110,7 @@ class UserControllerIntegrationTest {
     void getUserProfile_shouldReturn404ForNonExistentUser() throws Exception {
         Long nonExistentId = 99999L;
 
-        mockMvc.perform(get("/api/users/{userId}", nonExistentId)
+        mockMvc.perform(get("/api/v1/users/{userId}", nonExistentId)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("USER_NOT_FOUND"))
@@ -119,7 +119,7 @@ class UserControllerIntegrationTest {
 
     @Test
     void updateLastSeen_shouldUpdateTimestampSuccessfully() throws Exception {
-        mockMvc.perform(post("/api/users/{userId}/last-seen", testUser.getId())
+        mockMvc.perform(post("/api/v1/users/{userId}/last-seen", testUser.getId())
                         .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -138,7 +138,7 @@ class UserControllerIntegrationTest {
         otherUser = userRepository.save(otherUser);
         String otherToken = jwtTokenProvider.generateToken(otherUser.getId());
 
-        mockMvc.perform(post("/api/users/{userId}/last-seen", testUser.getId())
+        mockMvc.perform(post("/api/v1/users/{userId}/last-seen", testUser.getId())
                         .header("Authorization", "Bearer " + otherToken)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden())
@@ -148,7 +148,7 @@ class UserControllerIntegrationTest {
 
     @Test
     void updateLastSeen_shouldReturn401WhenUnauthenticated() throws Exception {
-        mockMvc.perform(post("/api/users/{userId}/last-seen", testUser.getId())
+        mockMvc.perform(post("/api/v1/users/{userId}/last-seen", testUser.getId())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isUnauthorized());
     }
@@ -157,7 +157,7 @@ class UserControllerIntegrationTest {
     void updateLastSeen_shouldReturn404ForNonExistentUser() throws Exception {
         Long nonExistentId = 99999L;
 
-        mockMvc.perform(post("/api/users/{userId}/last-seen", nonExistentId)
+        mockMvc.perform(post("/api/v1/users/{userId}/last-seen", nonExistentId)
                         .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
@@ -168,7 +168,7 @@ class UserControllerIntegrationTest {
     void updateUserProfile_shouldUpdateUsernameSuccessfully() throws Exception {
         UpdateUserRequest request = new UpdateUserRequest("newusername");
 
-        mockMvc.perform(put("/api/users/{userId}", testUser.getId())
+        mockMvc.perform(put("/api/v1/users/{userId}", testUser.getId())
                         .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -185,7 +185,7 @@ class UserControllerIntegrationTest {
     void updateUserProfile_shouldReturn400ForInvalidUsername() throws Exception {
         UpdateUserRequest request = new UpdateUserRequest("ab");
 
-        mockMvc.perform(put("/api/users/{userId}", testUser.getId())
+        mockMvc.perform(put("/api/v1/users/{userId}", testUser.getId())
                         .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -203,7 +203,7 @@ class UserControllerIntegrationTest {
 
         UpdateUserRequest request = new UpdateUserRequest("newusername");
 
-        mockMvc.perform(put("/api/users/{userId}", testUser.getId())
+        mockMvc.perform(put("/api/v1/users/{userId}", testUser.getId())
                         .header("Authorization", "Bearer " + otherToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -221,7 +221,7 @@ class UserControllerIntegrationTest {
 
         UpdateUserRequest request = new UpdateUserRequest("existinguser");
 
-        mockMvc.perform(put("/api/users/{userId}", testUser.getId())
+        mockMvc.perform(put("/api/v1/users/{userId}", testUser.getId())
                         .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -235,7 +235,7 @@ class UserControllerIntegrationTest {
         Long nonExistentId = 99999L;
         UpdateUserRequest request = new UpdateUserRequest("newusername");
 
-        mockMvc.perform(put("/api/users/{userId}", nonExistentId)
+        mockMvc.perform(put("/api/v1/users/{userId}", nonExistentId)
                         .header("Authorization", "Bearer " + authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -247,7 +247,7 @@ class UserControllerIntegrationTest {
     void updateUserProfile_shouldReturn401WhenUnauthenticated() throws Exception {
         UpdateUserRequest request = new UpdateUserRequest("newusername");
 
-        mockMvc.perform(put("/api/users/{userId}", testUser.getId())
+        mockMvc.perform(put("/api/v1/users/{userId}", testUser.getId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());

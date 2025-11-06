@@ -34,10 +34,10 @@ public interface GameRepository extends JpaRepository<Game, Long> {
         Pageable pageable
     );
 
-    @Query(value = "SELECT COUNT(*) > 0 FROM games " +
-           "WHERE (player1_id = :userId OR player2_id = :userId) " +
-           "AND game_type = 'pvp' " +
-           "AND status IN ('waiting', 'in_progress')", nativeQuery = true)
+    @Query("SELECT COUNT(g) > 0 FROM Game g " +
+           "WHERE (g.player1.id = :userId OR g.player2.id = :userId) " +
+           "AND g.gameType = com.tbs.enums.GameType.PVP " +
+           "AND g.status IN (com.tbs.enums.GameStatus.WAITING, com.tbs.enums.GameStatus.IN_PROGRESS)")
     boolean hasActivePvpGame(@Param("userId") Long userId);
 
     @Query("SELECT g FROM Game g " +

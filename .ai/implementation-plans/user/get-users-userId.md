@@ -1,8 +1,8 @@
-# API Endpoint Implementation Plan: GET /api/users/{userId}
+# API Endpoint Implementation Plan: GET /api/v1/users/{userId}
 
 ## 1. Przegląd punktu końcowego
 
-**GET /api/users/{userId}** to endpoint służący do pobrania profilu użytkownika po ID. Endpoint jest częściowo publiczny - zarejestrowani użytkownicy mogą przeglądać publiczne profile innych zarejestrowanych użytkowników (dla rankingu), natomiast własny profil wymaga uwierzytelnienia dla pełnych danych.
+**GET /api/v1/users/{userId}** to endpoint służący do pobrania profilu użytkownika po ID. Endpoint jest częściowo publiczny - zarejestrowani użytkownicy mogą przeglądać publiczne profile innych zarejestrowanych użytkowników (dla rankingu), natomiast własny profil wymaga uwierzytelnienia dla pełnych danych.
 
 Endpoint zwraca publiczne informacje o profilu użytkownika: statystyki gry (punkty, rozegrane gry, wygrane) oraz metadane (data utworzenia). Email i inne wrażliwe dane nie są zwracane.
 
@@ -18,7 +18,7 @@ Kluczowe zastosowania:
 
 ### Struktura URL
 ```
-GET /api/users/{userId}
+GET /api/v1/users/{userId}
 ```
 
 ### Nagłówki żądania
@@ -44,7 +44,7 @@ GET /api/users/{userId}
 
 ### Przykład żądania
 ```http
-GET /api/users/42 HTTP/1.1
+GET /api/v1/users/42 HTTP/1.1
 Host: api.example.com
 Accept: application/json
 ```
@@ -169,7 +169,7 @@ public record UserProfileResponse(
 
 ### Sekwencja operacji
 
-1. **Odebranie żądania HTTP GET /api/users/{userId}**
+1. **Odebranie żądania HTTP GET /api/v1/users/{userId}**
    - Parsowanie `userId` z path variable
    - Walidacja formatu `userId` (Long)
 
@@ -226,7 +226,7 @@ public record UserProfileResponse(
 - Goście mogą być widoczni tylko dla właściciela profilu
 
 **Konfiguracja Security:**
-- `/api/users/{userId}` może być publiczny lub wymagać uwierzytelnienia
+- `/api/v1/users/{userId}` może być publiczny lub wymagać uwierzytelnienia
 - Weryfikacja dostępu w warstwie aplikacji (serwis)
 
 ## 6. Względy bezpieczeństwa
@@ -374,7 +374,7 @@ public class GlobalExceptionHandler {
 - Klucz: `user:profile:{userId}`
 - TTL: 5-15 minut
 - Strategia: Cache-aside
-- Inwalidacja: przy aktualizacji profilu (PUT /api/users/{userId})
+- Inwalidacja: przy aktualizacji profilu (PUT /api/v1/users/{userId})
 
 **Korzyści:**
 - Redukcja obciążenia bazy danych dla często przeglądanych profili
@@ -390,9 +390,9 @@ public class GlobalExceptionHandler {
 ### Monitoring i metryki
 
 **Metryki Prometheus:**
-- `http_requests_total{method="GET",endpoint="/api/users/{userId}",status="200"}` - liczba pomyślnych żądań
-- `http_requests_total{method="GET",endpoint="/api/users/{userId}",status="404"}` - liczba błędów 404
-- `http_request_duration_seconds{method="GET",endpoint="/api/users/{userId}"}` - czas odpowiedzi
+- `http_requests_total{method="GET",endpoint="/api/v1/users/{userId}",status="200"}` - liczba pomyślnych żądań
+- `http_requests_total{method="GET",endpoint="/api/v1/users/{userId}",status="404"}` - liczba błędów 404
+- `http_request_duration_seconds{method="GET",endpoint="/api/v1/users/{userId}"}` - czas odpowiedzi
 
 **Alerty:**
 - Wysoki wskaźnik błędów 404 (>10% żądań)
@@ -444,7 +444,7 @@ public class UserService {
 **3.1 Utworzenie UserController:**
 ```java
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/v1/users")
 public class UserController {
     private final UserService userService;
     private final AuthenticationService authenticationService;
@@ -459,7 +459,7 @@ public class UserController {
 ```
 
 **3.2 Konfiguracja Spring Security:**
-- Konfiguracja `/api/users/{userId}` jako publiczny lub z uwierzytelnieniem
+- Konfiguracja `/api/v1/users/{userId}` jako publiczny lub z uwierzytelnieniem
 - Wyjątki dla nieuwierzytelnionych żądań → 401 (jeśli wymagane uwierzytelnienie)
 
 **3.3 Testy kontrolera:**
@@ -547,7 +547,7 @@ public UserProfileResponse getUserProfile(Long userId, Long currentUserId) {
 
 ## 10. Podsumowanie
 
-Plan implementacji endpointu **GET /api/users/{userId}** obejmuje kompleksowe podejście do wdrożenia z obsługą publicznych profili i autoryzacji. Kluczowe aspekty:
+Plan implementacji endpointu **GET /api/v1/users/{userId}** obejmuje kompleksowe podejście do wdrożenia z obsługą publicznych profili i autoryzacji. Kluczowe aspekty:
 
 - **Bezpieczeństwo:** Autoryzacja dostępu, ochrona wrażliwych danych, rate limiting
 - **Wydajność:** Optymalizacja zapytań, opcjonalne cache'owanie

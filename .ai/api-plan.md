@@ -172,7 +172,7 @@ Uwierzytelnianie i autoryzacja użytkowników zarządzane przez system Supabase 
 
 ### 2.3 Punkty końcowe profilu użytkownika
 
-#### GET /api/users/{userId}
+#### GET /api/v1/users/{userId}
 **Opis**: Pobranie profilu użytkownika po ID
 **Autoryzacja**: Publiczne (zarejestrowani użytkownicy), Wymagane uwierzytelnienie (własny profil)
 
@@ -196,7 +196,7 @@ Uwierzytelnianie i autoryzacja użytkowników zarządzane przez system Supabase 
 
 ---
 
-#### PUT /api/users/{userId}
+#### PUT /api/v1/users/{userId}
 **Opis**: Aktualizacja profilu użytkownika
 **Autoryzacja**: Wymagane uwierzytelnienie (tylko własny profil)
 
@@ -227,7 +227,7 @@ Uwierzytelnianie i autoryzacja użytkowników zarządzane przez system Supabase 
 
 ---
 
-#### POST /api/users/{userId}/last-seen
+#### POST /api/v1/users/{userId}/last-seen
 **Opis**: Aktualizacja znacznika czasu ostatniej aktywności użytkownika (dla matchmakingu)
 **Autoryzacja**: Wymagane uwierzytelnienie (tylko własny profil)
 
@@ -509,7 +509,7 @@ Uwierzytelnianie i autoryzacja użytkowników zarządzane przez system Supabase 
 
 ### 2.7 Punkty końcowe matchmakingu PvP
 
-#### POST /api/matching/queue
+#### POST /api/v1/matching/queue
 **Opis**: Dołączenie do kolejki matchmakingu dla PvP
 **Autoryzacja**: Wymagane uwierzytelnienie
 
@@ -530,7 +530,7 @@ Uwierzytelnianie i autoryzacja użytkowników zarządzane przez system Supabase 
 
 ---
 
-#### DELETE /api/matching/queue
+#### DELETE /api/v1/matching/queue
 **Opis**: Opuszczenie kolejki matchmakingu
 **Autoryzacja**: Wymagane uwierzytelnienie
 
@@ -543,7 +543,7 @@ Uwierzytelnianie i autoryzacja użytkowników zarządzane przez system Supabase 
 
 ---
 
-#### POST /api/matching/challenge/{userId}
+#### POST /api/v1/matching/challenge/{userId}
 **Opis**: Wyzwanie konkretnego gracza do gry
 **Autoryzacja**: Wymagane uwierzytelnienie
 
@@ -931,7 +931,7 @@ Polityki Row Level Security w PostgreSQL wymuszają:
 - Tworzy grę natychmiast po znalezieniu dopasowania
 
 **Wyzwania**:
-- Wyzwania konkretnego gracza przez `/api/matching/challenge/{userId}`
+- Wyzwania konkretnego gracza przez `/api/v1/matching/challenge/{userId}`
 - Sprawdza czy docelowy użytkownik jest dostępny online
 - Zwraca 409 jeśli użytkownik niedostępny lub w aktywnej grze
 

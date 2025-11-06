@@ -50,15 +50,24 @@ public class MatchmakingService {
         
         log.debug("Adding user {} to matchmaking queue for board size {}", userId, request.boardSize());
 
-        if (redisService.isUserInQueue(userId)) {
-            throw new UserAlreadyInQueueException("User is already in the matchmaking queue");
+        String lockKey = userId.toString();
+        if (!redisService.acquireLock(lockKey, 5)) {
+            throw new UserAlreadyInQueueException("User is already in the matchmaking queue or operation in progress");
         }
 
-        if (gameRepository.hasActivePvpGame(userId)) {
-            throw new UserHasActiveGameException("User already has an active PvP game");
-        }
+        try {
+            if (redisService.isUserInQueue(userId)) {
+                throw new UserAlreadyInQueueException("User is already in the matchmaking queue");
+            }
 
-        redisService.addToQueue(userId, request.boardSize());
+            if (gameRepository.hasActivePvpGame(userId)) {
+                throw new UserHasActiveGameException("User already has an active PvP game");
+            }
+
+            redisService.addToQueue(userId, request.boardSize());
+        } finally {
+            redisService.releaseLock(lockKey);
+        }
 
         int estimatedWaitTime = calculateEstimatedWaitTime(request.boardSize());
 
@@ -148,12 +157,9 @@ public class MatchmakingService {
                 savedGame.getId(), challengerId, challengedId);
 
         Long gameId = savedGame.getId();
-        Long player1Id = savedGame.getPlayer1() != null ? savedGame.getPlayer1().getId() : null;
-        Long player2Id = savedGame.getPlayer2() != null ? savedGame.getPlayer2().getId() : null;
         
-        if (gameId == null || player1Id == null || player2Id == null) {
-            log.error("Failed to create challenge game: gameId={}, player1Id={}, player2Id={}", 
-                    gameId, player1Id, player2Id);
+        if (gameId == null) {
+            log.error("Failed to create challenge game: gameId is null");
             throw new BadRequestException("Failed to create challenge game");
         }
         
@@ -161,8 +167,8 @@ public class MatchmakingService {
                 gameId,
                 savedGame.getGameType(),
                 savedGame.getBoardSize(),
-                player1Id,
-                player2Id,
+                challengerId,
+                challengedId,
                 savedGame.getStatus(),
                 savedGame.getCreatedAt()
         );

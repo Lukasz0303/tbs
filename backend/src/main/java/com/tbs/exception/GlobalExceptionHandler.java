@@ -38,6 +38,15 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(com.tbs.exception.UserNotInRankingException.class)
+    public ResponseEntity<ApiErrorResponse> handleUserNotInRanking(com.tbs.exception.UserNotInRankingException e) {
+        log.warn("User not in ranking: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails("USER_NOT_IN_RANKING", e.getMessage())
+                ));
+    }
+
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<ApiErrorResponse> handleBadRequest(BadRequestException e) {
         log.warn("Bad request: {}", e.getMessage());
@@ -215,6 +224,19 @@ public class GlobalExceptionHandler {
                 .body(new ApiErrorResponse(
                         new ApiErrorResponse.ErrorDetails(
                                 "BAD_REQUEST",
+                                e.getMessage(),
+                                null
+                        )
+                ));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiErrorResponse> handleIllegalStateException(IllegalStateException e) {
+        log.error("Illegal state: {}", e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails(
+                                "INTERNAL_SERVER_ERROR",
                                 e.getMessage(),
                                 null
                         )

@@ -1,17 +1,17 @@
-# API Endpoint Implementation Plan: POST /api/matching/challenge/{userId}
+# API Endpoint Implementation Plan: POST /api/v1/matching/challenge/{userId}
 
 > **Status:** ⏳ Do implementacji
 
 ## 1. Przegląd punktu końcowego
 
-POST /api/matching/challenge/{userId} - Bezpośrednie wyzwanie konkretnego gracza do gry
+POST /api/v1/matching/challenge/{userId} - Bezpośrednie wyzwanie konkretnego gracza do gry
 
 Endpoint umożliwia graczowi wyzwanie konkretnego gracza do gry PvP. Wyzywający gracz (challenger) musi podać rozmiar planszy, a system sprawdza dostępność wyzwanego gracza i tworzy nową grę. Endpoint wykorzystuje PostgreSQL do sprawdzania danych gracza i tworzenia gry oraz WebSocket do powiadomień.
 
 ## 2. Szczegóły żądania
 
 - **Metoda HTTP:** POST
-- **URL:** `/api/matching/challenge/{userId}`
+- **URL:** `/api/v1/matching/challenge/{userId}`
 - **Autoryzacja:** Wymagane (JWT token)
 - **Content-Type:** `application/json`
 
@@ -82,7 +82,7 @@ Endpoint umożliwia graczowi wyzwanie konkretnego gracza do gry PvP. Wyzywający
 ## 5. Przepływ danych
 
 ```
-1. Klient wysyła żądanie POST /api/matching/challenge/{userId}
+1. Klient wysyła żądanie POST /api/v1/matching/challenge/{userId}
    ↓
 2. SecurityFilter: Walidacja JWT tokena
    ↓
@@ -239,7 +239,7 @@ log.warn("User {} attempted to challenge unavailable user {}", challengerId, use
 
 ### 9.3 Implementacja kontrolera
 7. MatchingController:
-   - `POST /api/matching/challenge/{userId}` → createDirectChallenge()
+   - `POST /api/v1/matching/challenge/{userId}` → createDirectChallenge()
 
 8. Konfiguracja Swagger:
    - @Operation, @ApiResponse dla endpointu

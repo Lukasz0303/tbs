@@ -1,8 +1,8 @@
-# API Endpoint Implementation Plan: PUT /api/users/{userId}
+# API Endpoint Implementation Plan: PUT /api/v1/users/{userId}
 
 ## 1. Przegląd punktu końcowego
 
-**PUT /api/users/{userId}** to endpoint służący do aktualizacji profilu użytkownika. Endpoint umożliwia modyfikację nazwy użytkownika (username) oraz innych publicznych danych profilowych. Endpoint jest chroniony autoryzacją - tylko właściciel profilu może dokonywać modyfikacji.
+**PUT /api/v1/users/{userId}** to endpoint służący do aktualizacji profilu użytkownika. Endpoint umożliwia modyfikację nazwy użytkownika (username) oraz innych publicznych danych profilowych. Endpoint jest chroniony autoryzacją - tylko właściciel profilu może dokonywać modyfikacji.
 
 Endpoint zwraca zaktualizowane dane profilu użytkownika: statystyki gry (punkty, rozegrane gry, wygrane), metadane (data utworzenia i aktualizacji) oraz zaktualizowaną nazwę użytkownika. Email i inne wrażliwe dane nie są modyfikowane przez ten endpoint.
 
@@ -18,7 +18,7 @@ Kluczowe zastosowania:
 
 ### Struktura URL
 ```
-PUT /api/users/{userId}
+PUT /api/v1/users/{userId}
 ```
 
 ### Nagłówki żądania
@@ -53,7 +53,7 @@ public record UpdateUserRequest(
 
 ### Przykład żądania
 ```http
-PUT /api/users/42 HTTP/1.1
+PUT /api/v1/users/42 HTTP/1.1
 Host: api.example.com
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
@@ -241,7 +241,7 @@ public record UpdateUserResponse(
 
 ### Sekwencja operacji
 
-1. **Odebranie żądania HTTP PUT /api/users/{userId}**
+1. **Odebranie żądania HTTP PUT /api/v1/users/{userId}**
    - Parsowanie `userId` z path variable
    - Parsowanie ciała żądania (JSON)
    - Walidacja formatu `userId` (Long)
@@ -309,7 +309,7 @@ public record UpdateUserResponse(
 - Weryfikacja, że `userId` odpowiada zalogowanemu użytkownikowi
 
 **Konfiguracja Security:**
-- `/api/users/{userId}` wymaga roli ROLE_USER
+- `/api/v1/users/{userId}` wymaga roli ROLE_USER
 - Wyjątki dla nieuwierzytelnionych żądań → 401
 
 ## 6. Względy bezpieczeństwa
@@ -558,10 +558,10 @@ public class GlobalExceptionHandler {
 ### Monitoring i metryki
 
 **Metryki Prometheus:**
-- `http_requests_total{method="PUT",endpoint="/api/users/{userId}",status="200"}` - liczba pomyślnych aktualizacji
-- `http_requests_total{method="PUT",endpoint="/api/users/{userId}",status="400"}` - liczba błędów walidacji
-- `http_requests_total{method="PUT",endpoint="/api/users/{userId}",status="409"}` - liczba konfliktów username
-- `http_request_duration_seconds{method="PUT",endpoint="/api/users/{userId}"}` - czas odpowiedzi
+- `http_requests_total{method="PUT",endpoint="/api/v1/users/{userId}",status="200"}` - liczba pomyślnych aktualizacji
+- `http_requests_total{method="PUT",endpoint="/api/v1/users/{userId}",status="400"}` - liczba błędów walidacji
+- `http_requests_total{method="PUT",endpoint="/api/v1/users/{userId}",status="409"}` - liczba konfliktów username
+- `http_request_duration_seconds{method="PUT",endpoint="/api/v1/users/{userId}"}` - czas odpowiedzi
 
 **Alerty:**
 - Wysoki wskaźnik błędów 409 (>10% żądań) - problem z duplikatami username
@@ -636,7 +636,7 @@ public class UserService {
 **3.1 Utworzenie UserController:**
 ```java
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/v1/users")
 public class UserController {
     private final UserService userService;
     private final AuthenticationService authenticationService;
@@ -660,7 +660,7 @@ public class UserController {
 ```
 
 **3.2 Konfiguracja Spring Security:**
-- Konfiguracja `/api/users/{userId}` wymaga uwierzytelnienia
+- Konfiguracja `/api/v1/users/{userId}` wymaga uwierzytelnienia
 - Wyjątki dla nieuwierzytelnionych żądań → 401
 - Weryfikacja roli ROLE_USER
 
@@ -762,7 +762,7 @@ public UpdateUserResponse updateUserProfile(Long userId, UpdateUserRequest reque
 
 ## 10. Podsumowanie
 
-Plan implementacji endpointu **PUT /api/users/{userId}** obejmuje kompleksowe podejście do wdrożenia z obsługą uwierzytelnienia, autoryzacji i walidacji. Kluczowe aspekty:
+Plan implementacji endpointu **PUT /api/v1/users/{userId}** obejmuje kompleksowe podejście do wdrożenia z obsługą uwierzytelnienia, autoryzacji i walidacji. Kluczowe aspekty:
 
 - **Bezpieczeństwo:** Uwierzytelnienie JWT, autoryzacja dostępu, ochrona przed nieautoryzowanymi modyfikacjami
 - **Walidacja:** Bean Validation, sprawdzanie unikalności username
