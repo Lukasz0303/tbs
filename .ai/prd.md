@@ -15,6 +15,7 @@ Projekt wykorzystuje poniższy, sprawdzony stack technologiczny:
 ### Frontend
 - **Angular 17** — nowoczesny framework SPA; Angular Animations i PrimeNG zapewniają wysokiej jakości UI z płynnymi animacjami.
 - **SCSS + CSS Transitions** — rozbudowane stylowanie i przejścia animacji.
+- **i18n (Internationalization)** — wsparcie dla wielu języków: angielski (podstawowy), polski (dodatkowy). Implementacja tylko po stronie UI (frontend), backend pozostaje bez zmian.
 - **Lintery:** ESLint + Prettier — standaryzacja, jednolity format kodu.
 - **Testowanie:** Jest, Angular Testing Library, E2E przez Cypress.
 
@@ -100,6 +101,7 @@ Gracze potrzebują platformy, która pozwoli im szybko dołączyć do gry, rywal
 - PvP z podstawowymi funkcjonalnościami
 - System punktowy i ranking
 - Profil gracza z podstawowymi informacjami
+- Wsparcie dla wielu języków (i18n): angielski (podstawowy), polski (dodatkowy) - tylko po stronie UI
 
 ### Poza zakresem MVP
 - Zaawansowane mechaniki strategiczne inne niż kółko i krzyżyk

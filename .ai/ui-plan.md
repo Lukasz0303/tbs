@@ -1,194 +1,183 @@
-# Plan Architektury UI - World at War: Turn-Based Strategy
+# Architektura UI dla World at War: Turn-Based Strategy
 
-## 1. Przegląd architektury
+## 1. Przegląd struktury UI
 
-Aplikacja wykorzystuje Angular 17 z architekturą opartą na feature modules i shared components. Interfejs użytkownika jest zaprojektowany z myślą o wysokiej jakości wizualnej, responsywności i płynnych animacjach używając Angular Animations, PrimeNG i CSS transitions.
+Architektura interfejsu użytkownika dla World at War: Turn-Based Strategy została zaprojektowana jako nowoczesna aplikacja SPA wykorzystująca Angular 17 z architekturą opartą na standalone components i feature modules. Interfejs został zaprojektowany z myślą o wysokiej jakości wizualnej, responsywności i płynnych animacjach, wykorzystując Angular Animations, PrimeNG i CSS transitions.
 
-### 1.1 Stack technologiczny UI
+Aplikacja wspiera wiele języków (i18n) z angielskim jako językiem podstawowym i polskim jako językiem dodatkowym. Implementacja i18n jest realizowana wyłącznie po stronie UI (frontend), backend pozostaje bez zmian i nie wymaga modyfikacji.
 
-- **Framework**: Angular 17 (standalone components)
-- **UI Library**: PrimeNG
-- **Animacje**: Angular Animations + CSS Transitions
-- **Styling**: SCSS + Tailwind CSS
-- **State Management**: Angular Services z BehaviorSubject/ReplaySubject
-- **Forms**: Reactive Forms
-- **Routing**: Angular Router
+Struktura UI jest zorganizowana wokół głównych funkcjonalności produktu: uwierzytelniania (goście i zarejestrowani użytkownicy), rozgrywki (vs bot i PvP), rankingu oraz profilu użytkownika. Wszystkie widoki są zintegrowane z REST API i WebSocket API zgodnie z planem API, zapewniając spójne doświadczenie użytkownika.
 
-### 1.2 Zasady projektowe
-
-- **Komponenty standalone**: Wszystkie komponenty używają standalone API
-- **Lazy loading**: Feature modules ładowane na żądanie
-- **Reaktywne formularze**: Wszystkie formularze używają Reactive Forms
-- **Type safety**: Pełne typowanie TypeScript dla wszystkich modeli danych
-- **Accessibility**: Podstawowa dostępność (ARIA labels, keyboard navigation)
-- **Responsywność**: Optymalizacja dla ekranów PC (min. 1280px szerokości)
+Główny layout aplikacji składa się z NavbarComponent (zawsze widoczny) i router outlet dla dynamicznych widoków. Nawigacja jest intuicyjna i wspiera wszystkie scenariusze użytkownika zdefiniowane w PRD, w tym natychmiastowy dostęp dla gości, rejestrację, logowanie oraz wszystkie tryby gry.
 
 ---
 
-## 2. Struktura widoków i routing
+## 2. Lista widoków
 
-### 2.1 Hierarchia widoków
+### 2.1 HomeComponent - Ekran startowy
 
-```
-/ (HomeComponent) - Ekran startowy
-├── /auth/login - Logowanie
-├── /auth/register - Rejestracja
-├── /game - Widok gry (vs_bot lub pvp)
-│   ├── /game/:gameId - Szczegóły gry
-│   └── /game/matchmaking - Oczekiwanie na przeciwnika
-├── /leaderboard - Ranking graczy
-├── /profile - Profil użytkownika
-└── /404 - Strona błędu
-```
+**Ścieżka**: `/`
 
-### 2.2 Konfiguracja routingu
+**Główny cel**: 
+Służy jako punkt wejścia do aplikacji, prezentując użytkownikowi wszystkie dostępne opcje gry i umożliwiając natychmiastowe rozpoczęcie rozgrywki.
 
-```typescript
-export const routes: Routes = [
-  {
-    path: '',
-    component: MainLayoutComponent,
-    children: [
-      { path: '', component: HomeComponent },
-      { path: 'auth/login', component: AuthLoginComponent },
-      { path: 'auth/register', component: AuthRegisterComponent },
-      { path: 'game', component: GameComponent },
-      { path: 'game/:gameId', component: GameComponent },
-      { path: 'game/matchmaking', component: MatchmakingComponent },
-      { path: 'leaderboard', component: LeaderboardComponent },
-      { path: 'profile', component: ProfileComponent },
-      { path: '404', component: NotFoundComponent },
-      { path: '**', redirectTo: '404' }
-    ]
-  }
-];
-```
+**Kluczowe informacje do wyświetlenia**:
+- Status użytkownika (gość/zalogowany)
+- Ostatnia zapisana gra (jeśli istnieje) - banner z możliwością kontynuacji
+- Karty z trybami gry:
+  - Graj jako gość (natychmiastowe utworzenie sesji gościa)
+  - Graj z botem (przekierowanie do wyboru trybu)
+  - Graj PvP (dołączenie do matchmakingu)
+- Linki do logowania/rejestracji (dla gości)
+- Podstawowe informacje o grze
 
-### 2.3 Layout główny
-
-**MainLayoutComponent** zawiera:
-- **Header** (NavbarComponent) - zawsze widoczny
-  - Logo aplikacji
-  - Menu nawigacyjne (Graj, Ranking, Profil)
-  - Wskaźnik statusu użytkownika (gość/zalogowany)
-  - Przycisk logowania/wylogowania
-- **Router outlet** - miejsce na widoki
-- **Toast container** - PrimeNG Toast dla powiadomień
-
----
-
-## 3. Szczegółowa architektura widoków
-
-### 3.1 HomeComponent - Ekran startowy
-
-**Lokalizacja**: `features/home/home.component.ts`
-
-**Funkcjonalność**:
-- Wyświetlanie podstawowych informacji o grze
-- Banner z ostatnią zapisaną grą (jeśli istnieje)
-- Przyciski akcji:
-  - "Graj jako gość" - natychmiastowe utworzenie sesji gościa
-  - "Graj z botem" - przekierowanie do wyboru trybu vs_bot
-  - "Graj PvP" - dołączenie do matchmakingu
-  - "Zaloguj się" / "Zarejestruj się"
-
-**Komponenty**:
-- `GameBannerComponent` - banner z ostatnią grą (warunkowo)
-- `GameModeCardComponent` - karty z trybami gry
+**Kluczowe komponenty widoku**:
+- `GameBannerComponent` - banner z ostatnią zapisaną grą (warunkowo wyświetlany)
+- `GameModeCardComponent` - karty z trybami gry (vs bot, PvP, gość)
+- `UserStatusIndicatorComponent` - wskaźnik statusu użytkownika
 
 **Integracja API**:
 - `GET /api/games?status=in_progress&size=1` - sprawdzenie zapisanej gry
 - `POST /api/guests` - utworzenie sesji gościa (jeśli gość)
+- `GET /api/auth/me` - sprawdzenie statusu użytkownika
 
-**Stan**:
-- Sprawdzenie statusu użytkownika (AuthService)
-- Sprawdzenie zapisanej gry przy inicjalizacji
+**UX, dostępność i względy bezpieczeństwa**:
+- **UX**: Jasne i widoczne przyciski akcji, wizualne wyróżnienie ostatniej gry, intuicyjna nawigacja
+- **Dostępność**: ARIA labels dla wszystkich przycisków, keyboard navigation, focus indicators
+- **Bezpieczeństwo**: Automatyczne tworzenie sesji gościa tylko na żądanie użytkownika, walidacja statusu przed dostępem do funkcji
+
+**Mapowanie historyjek użytkownika**:
+- US-001: Rozpoczęcie gry jako gość - przycisk "Graj jako gość"
+- US-012: Automatyczne zapisywanie gier - banner z ostatnią grą
 
 ---
 
-### 3.2 AuthLoginComponent - Logowanie
+### 2.2 AuthLoginComponent - Logowanie
 
-**Lokalizacja**: `features/auth/auth-login.component.ts`
+**Ścieżka**: `/auth/login`
 
-**Funkcjonalność**:
-- Formularz logowania (email, hasło)
-- Walidacja pól (reactive forms)
+**Główny cel**: 
+Umożliwienie zarejestrowanym użytkownikom zalogowania się do systemu w celu uzyskania dostępu do pełnego profilu i historii gier.
+
+**Kluczowe informacje do wyświetlenia**:
+- Formularz logowania z polami:
+  - Email (wymagane, format email)
+  - Hasło (wymagane, min. długość)
 - Link do rejestracji
-- Obsługa błędów (401, 404)
+- Komunikaty błędów (401, 404)
+- Informacja o możliwości gry jako gość
 
-**Komponenty**:
+**Kluczowe komponenty widoku**:
 - PrimeNG InputText (email)
 - PrimeNG Password (hasło)
 - PrimeNG Button (submit)
+- `ErrorDisplayComponent` - wyświetlanie błędów walidacji
 
 **Integracja API**:
-- `POST /api/auth/login`
+- `POST /api/auth/login` - logowanie użytkownika
 
 **Walidacja**:
-- Email: wymagany, format email
+- Email: wymagany, format email (reactive forms validators)
 - Hasło: wymagane, min. długość
 
 **Po sukcesie**:
-- Zapisanie tokenu JWT
+- Zapisanie tokenu JWT w localStorage
 - Aktualizacja stanu użytkownika (AuthService)
 - Przekierowanie do HomeComponent lub ostatniej gry
 
+**UX, dostępność i względy bezpieczeństwa**:
+- **UX**: Prosty i czytelny formularz, natychmiastowa walidacja, czytelne komunikaty błędów
+- **Dostępność**: ARIA labels, keyboard navigation, focus management, error announcements
+- **Bezpieczeństwo**: Hasło ukryte (type="password"), walidacja po stronie klienta i serwera, bezpieczne przechowywanie tokenu
+
+**Mapowanie historyjek użytkownika**:
+- US-003: Logowanie zarejestrowanego użytkownika
+
 ---
 
-### 3.3 AuthRegisterComponent - Rejestracja
+### 2.3 AuthRegisterComponent - Rejestracja
 
-**Lokalizacja**: `features/auth/auth-register.component.ts`
+**Ścieżka**: `/auth/register`
 
-**Funkcjonalność**:
-- Formularz rejestracji (nazwa użytkownika, email, hasło, potwierdzenie hasła)
-- Walidacja pól (reactive forms)
+**Główny cel**: 
+Umożliwienie nowym użytkownikom utworzenia konta w systemie w celu śledzenia postępów i stałego dostępu do profilu.
+
+**Kluczowe informacje do wyświetlenia**:
+- Formularz rejestracji z polami:
+  - Nazwa użytkownika (wymagana, 3-50 znaków, alfanumeryczne + podkreślniki)
+  - Email (wymagany, format email, unikalny)
+  - Hasło (wymagane, min. długość, wymagania bezpieczeństwa)
+  - Potwierdzenie hasła (wymagane, musi być zgodne z hasłem)
 - Link do logowania
-- Obsługa błędów (409, 422)
+- Komunikaty błędów (409, 422)
+- Wskaźniki siły hasła
 
-**Komponenty**:
+**Kluczowe komponenty widoku**:
 - PrimeNG InputText (username, email)
 - PrimeNG Password (hasło, potwierdzenie)
 - PrimeNG Button (submit)
+- `PasswordStrengthIndicatorComponent` - wskaźnik siły hasła
+- `ErrorDisplayComponent` - wyświetlanie błędów walidacji
 
 **Integracja API**:
-- `POST /api/auth/register`
+- `POST /api/auth/register` - rejestracja nowego użytkownika
 
 **Walidacja**:
-- Nazwa użytkownika: wymagana, 3-50 znaków, alfanumeryczne + podkreślniki
+- Nazwa użytkownika: wymagana, 3-50 znaków, pattern `/^[a-zA-Z0-9_]+$/`
 - Email: wymagany, format email, unikalny
 - Hasło: wymagane, min. długość, wymagania bezpieczeństwa
-- Potwierdzenie hasła: musi być zgodne z hasłem
+- Potwierdzenie hasła: wymagane, custom validator sprawdzający zgodność
 
 **Po sukcesie**:
-- Zapisanie tokenu JWT
+- Zapisanie tokenu JWT w localStorage
 - Aktualizacja stanu użytkownika (AuthService)
 - Przekierowanie do HomeComponent
+- Toast notification z potwierdzeniem rejestracji
+
+**UX, dostępność i względy bezpieczeństwa**:
+- **UX**: Krok po kroku walidacja, wizualne wskaźniki siły hasła, czytelne komunikaty błędów
+- **Dostępność**: ARIA labels, keyboard navigation, error announcements, focus management
+- **Bezpieczeństwo**: Hasła ukryte, walidacja formatu, sprawdzanie unikalności, bezpieczne przechowywanie tokenu
+
+**Mapowanie historyjek użytkownika**:
+- US-002: Rejestracja nowego użytkownika
 
 ---
 
-### 3.4 GameComponent - Widok gry
+### 2.4 GameComponent - Widok gry
 
-**Lokalizacja**: `features/game/game.component.ts`
+**Ścieżka**: `/game/:gameId`
 
-**Funkcjonalność**:
-- Wyświetlanie planszy gry (dynamiczny rozmiar)
-- Obsługa ruchów gracza
-- Wyświetlanie informacji o grze (przeciwnik, status, timer)
+**Główny cel**: 
+Wyświetlanie planszy gry i umożliwienie użytkownikowi wykonywania ruchów w grze vs bot lub PvP.
+
+**Kluczowe informacje do wyświetlenia**:
+- Plansza gry (dynamiczny rozmiar: 3x3, 4x4, 5x5)
+- Informacje o grze:
+  - Typ gry (vs_bot / PvP)
+  - Przeciwnik (bot / nazwa gracza)
+  - Status gry (waiting, in_progress, finished, draw, abandoned)
+  - Aktualny gracz (symbol X lub O)
+- Timer (dla PvP) - pozostały czas na ruch (10 sekund)
+- Liczba tur i aktualna tura
 - Przycisk poddania (dla PvP)
-- Obsługa WebSocket (dla PvP)
-- Animacje ruchów i wygranej
+- Wizualizacja linii wygranej (jeśli gra zakończona)
+- Komunikaty o wyniku (wygrana, przegrana, remis)
 
-**Komponenty**:
-- `GameBoardComponent` - plansza gry
-- `GameInfoComponent` - informacje o grze
-- `GameTimerComponent` - timer (dla PvP)
+**Kluczowe komponenty widoku**:
+- `GameBoardComponent` - plansza gry z komórkami
+- `GameInfoComponent` - informacje o grze (przeciwnik, status, tury)
+- `GameTimerComponent` - timer dla PvP (10 sekund)
 - `GameBotIndicatorComponent` - wskaźnik "Bot myśli..." (dla vs_bot)
+- `GameResultDialogComponent` - dialog z wynikiem gry
+- `SurrenderButtonComponent` - przycisk poddania (dla PvP)
 
 **Integracja API**:
 - `GET /api/games/{gameId}` - pobranie stanu gry
 - `POST /api/games/{gameId}/moves` - wykonanie ruchu
 - `PUT /api/games/{gameId}/status` - poddanie gry
 - WebSocket `/ws/game/{gameId}` - komunikacja real-time (PvP)
+- `POST /api/games/{gameId}/bot-move` - automatyczny ruch bota (wewnętrzne)
 
 **Stany gry**:
 - `waiting` - oczekiwanie na przeciwnika (PvP)
@@ -202,19 +191,37 @@ export const routes: Routes = [
 - Ruch bota: opóźnienie 200ms + animacja symbolu
 - Linia wygranej: stroke-dasharray animation, 500ms opóźnienie
 
+**UX, dostępność i względy bezpieczeństwa**:
+- **UX**: Intuicyjna plansza, wizualne feedback dla ruchów, czytelne informacje o stanie gry, animacje poprawiające doświadczenie
+- **Dostępność**: ARIA labels dla komórek, keyboard navigation (opcjonalne), focus indicators, screen reader support dla statusu
+- **Bezpieczeństwo**: Walidacja ruchów po stronie klienta i serwera, blokada podwójnych ruchów, timeout dla PvP
+
+**Mapowanie historyjek użytkownika**:
+- US-004: Rozgrywka z botem (łatwy poziom)
+- US-005: Rozgrywka z botem (średni poziom)
+- US-006: Rozgrywka z botem (trudny poziom)
+- US-007: Dołączenie do gry PvP
+- US-008: Rozgrywka PvP z funkcjonalnościami
+- US-013: Obsługa rozłączeń w PvP
+- US-014: Walidacja ruchów w grze
+
 ---
 
-### 3.5 GameBoardComponent - Plansza gry
+### 2.5 GameBoardComponent - Plansza gry
 
-**Lokalizacja**: `components/game/game-board.component.ts`
+**Lokalizacja**: `components/game/game-board.component.ts` (komponent współdzielony używany w GameComponent)
 
-**Funkcjonalność**:
-- Dynamiczne renderowanie planszy (3x3, 4x4, 5x5)
-- Obsługa kliknięć na komórki
-- Walidacja ruchów po stronie klienta
-- Wyświetlanie symboli (X, O)
-- Animacje komórek
-- Wizualizacja linii wygranej
+**Główny cel**: 
+Renderowanie planszy gry i obsługa interakcji użytkownika z komórkami planszy.
+
+**Kluczowe informacje do wyświetlenia**:
+- Dynamiczna plansza (3x3, 4x4, 5x5) z komórkami
+- Symbole X i O w komórkach
+- Wizualizacja linii wygranej (jeśli gra zakończona)
+- Stany komórek (pusta, zajęta, disabled)
+
+**Kluczowe komponenty widoku**:
+- `GameCellComponent` - pojedyncza komórka planszy (używana w *ngFor)
 
 **Implementacja**:
 - CSS Grid: `grid-template-columns: repeat(boardSize, 1fr)`
@@ -222,125 +229,393 @@ export const routes: Routes = [
 - Stan planszy z `boardState` z API
 - Blokada kliknięć na zajęte pola (disabled state)
 
-**Komponenty**:
-- `GameCellComponent` - pojedyncza komórka planszy
+**Animacje**:
+- Pojawienie się symbolu: scale (0 → 1) + fade-in, 300ms
+- Linia wygranej: stroke-dasharray animation, 500ms opóźnienie
+
+**UX, dostępność i względy bezpieczeństwa**:
+- **UX**: Wizualne wyróżnienie dostępnych komórek, animacje ruchów, czytelna plansza
+- **Dostępność**: ARIA labels dla komórek, keyboard navigation (opcjonalne), focus indicators
+- **Bezpieczeństwo**: Walidacja kliknięć, blokada podwójnych ruchów
 
 ---
 
-### 3.6 MatchmakingComponent - Oczekiwanie na przeciwnika
+### 2.6 MatchmakingComponent - Oczekiwanie na przeciwnika
 
-**Lokalizacja**: `features/game/matchmaking.component.ts`
+**Ścieżka**: `/game/matchmaking`
 
-**Funkcjonalność**:
-- Wyświetlanie animacji ładowania
+**Główny cel**: 
+Wyświetlanie stanu oczekiwania na przeciwnika w kolejce matchmakingu i umożliwienie anulowania kolejki.
+
+**Kluczowe informacje do wyświetlenia**:
+- Animacja ładowania
 - Wskaźnik postępu
 - Szacowany czas oczekiwania
+- Informacja o rozmiarze planszy
 - Przycisk anulowania kolejki
 
+**Kluczowe komponenty widoku**:
+- PrimeNG ProgressSpinner - animacja ładowania
+- `MatchmakingStatusComponent` - wskaźnik statusu i czasu oczekiwania
+- PrimeNG Button - przycisk anulowania
+
 **Integracja API**:
-- `POST /api/v1/matching/queue` - dołączenie do kolejki
+- `POST /api/v1/matching/queue` - dołączenie do kolejki (automatyczne przy wejściu)
 - `DELETE /api/v1/matching/queue` - anulowanie kolejki
-- Polling `GET /api/games/{gameId}` co 2 sekundy (alternatywa dla WebSocket)
+- Polling `GET /api/games/{gameId}` co 2 sekundy (alternatywa dla WebSocket) lub WebSocket notification
 
 **Po znalezieniu przeciwnika**:
 - Automatyczne przekierowanie do `GameComponent` z `gameId`
 - Nawiązanie połączenia WebSocket
 
+**UX, dostępność i względy bezpieczeństwa**:
+- **UX**: Wizualne wskaźniki postępu, możliwość anulowania, czytelne informacje o stanie
+- **Dostępność**: ARIA labels, screen reader announcements dla zmian statusu
+- **Bezpieczeństwo**: Automatyczne opuszczenie kolejki przy rozłączeniu, timeout dla matchmakingu
+
+**Mapowanie historyjek użytkownika**:
+- US-007: Dołączenie do gry PvP
+
 ---
 
-### 3.7 GameModeSelectionComponent - Wybór trybu vs_bot
+### 2.7 GameModeSelectionComponent - Wybór trybu vs_bot
 
-**Lokalizacja**: `features/game/game-mode-selection.component.ts`
+**Ścieżka**: `/game/mode-selection`
 
-**Funkcjonalność**:
-- Wybór rozmiaru planszy (3x3, 4x4, 5x5)
-- Wybór poziomu trudności (łatwy, średni, trudny)
-- Natychmiastowe rozpoczęcie gry po wyborze
+**Główny cel**: 
+Umożliwienie użytkownikowi wyboru rozmiaru planszy i poziomu trudności bota przed rozpoczęciem gry vs bot.
 
-**Komponenty**:
+**Kluczowe informacje do wyświetlenia**:
+- Wybór rozmiaru planszy (3x3, 4x4, 5x5) - karty z wizualizacją
+- Wybór poziomu trudności (łatwy, średni, trudny) - karty z opisem i punktacją:
+  - Łatwy: +100 pkt za wygraną
+  - Średni: +500 pkt za wygraną
+  - Trudny: +1000 pkt za wygraną
+- Przycisk rozpoczęcia gry
+- Informacje o systemie punktowym
+
+**Kluczowe komponenty widoku**:
 - `BoardSizeCardComponent` - karty z rozmiarami planszy
 - `DifficultyCardComponent` - karty z poziomami trudności
+- PrimeNG Button - przycisk rozpoczęcia gry
 
 **Integracja API**:
-- `POST /api/games` - utworzenie gry vs_bot
+- `POST /api/games` - utworzenie gry vs_bot z wybranymi parametrami
 
 **Po utworzeniu gry**:
 - Przekierowanie do `GameComponent` z `gameId`
 
+**UX, dostępność i względy bezpieczeństwa**:
+- **UX**: Wizualne karty z wyborem, czytelne informacje o punktacji, intuicyjna nawigacja
+- **Dostępność**: ARIA labels, keyboard navigation, focus indicators
+- **Bezpieczeństwo**: Walidacja wyboru przed utworzeniem gry
+
+**Mapowanie historyjek użytkownika**:
+- US-004: Rozgrywka z botem (łatwy poziom)
+- US-005: Rozgrywka z botem (średni poziom)
+- US-006: Rozgrywka z botem (trudny poziom)
+
 ---
 
-### 3.8 LeaderboardComponent - Ranking graczy
+### 2.8 LeaderboardComponent - Ranking graczy
 
-**Lokalizacja**: `features/leaderboard/leaderboard.component.ts`
+**Ścieżka**: `/leaderboard`
 
-**Funkcjonalność**:
-- Wyświetlanie pozycji użytkownika (jeśli zarejestrowany)
-- Tabela z rankingiem (paginacja)
+**Główny cel**: 
+Wyświetlanie globalnego rankingu graczy z możliwością przeglądania pozycji i wyboru przeciwnika.
+
+**Kluczowe informacje do wyświetlenia**:
+- Pozycja użytkownika w rankingu (jeśli zarejestrowany) - wyróżniona karta
+- Tabela z rankingiem (paginacja):
+  - Pozycja w rankingu
+  - Nazwa użytkownika
+  - Punkty
+  - Rozegrane gry
+  - Wygrane gry
 - Przycisk "Pokaż graczy wokół mnie" (dla zarejestrowanych)
-- Wizualne wyróżnienie pozycji użytkownika
+- Możliwość kliknięcia na gracza w rankingu (wyzwanie do gry)
+- Filtry i sortowanie (opcjonalne)
 
-**Komponenty**:
+**Kluczowe komponenty widoku**:
 - PrimeNG Table - tabela z rankingiem
 - `UserRankCardComponent` - karta z pozycją użytkownika
 - `PlayersAroundDialogComponent` - dialog z graczami wokół użytkownika
+- PrimeNG Paginator - paginacja
 
 **Integracja API**:
-- `GET /api/rankings/{userId}` - pozycja użytkownika
+- `GET /api/rankings/{userId}` - pozycja użytkownika (jeśli zarejestrowany)
 - `GET /api/rankings` - lista graczy (paginacja)
 - `GET /api/rankings/around/{userId}` - gracze wokół użytkownika
+- `POST /api/v1/matching/challenge/{userId}` - wyzwanie gracza do gry
 
-**Kolumny tabeli**:
-- Pozycja
-- Nazwa użytkownika
-- Punkty
-- Rozegrane gry
-- Wygrane gry
+**Interakcje**:
+- Kliknięcie na gracza w rankingu → sprawdzenie dostępności → wyzwanie do gry → przekierowanie do GameComponent
+
+**UX, dostępność i względy bezpieczeństwa**:
+- **UX**: Wizualne wyróżnienie pozycji użytkownika, czytelna tabela, łatwa nawigacja, możliwość wyboru przeciwnika
+- **Dostępność**: ARIA labels dla tabeli, keyboard navigation, screen reader support
+- **Bezpieczeństwo**: Sprawdzanie dostępności gracza przed wyzwaniem, walidacja uprawnień
+
+**Mapowanie historyjek użytkownika**:
+- US-009: Przeglądanie rankingu graczy
+- US-010: Wybór przeciwnika z rankingu
 
 ---
 
-### 3.9 ProfileComponent - Profil użytkownika
+### 2.9 ProfileComponent - Profil użytkownika
 
-**Lokalizacja**: `features/profile/profile.component.ts`
+**Ścieżka**: `/profile`
 
-**Funkcjonalność**:
-- Wyświetlanie podstawowych informacji (nazwa, email)
-- Statystyki (punkty, rozegrane gry, wygrane)
-- Pozycja w rankingu
-- Ostatnia zapisana gra (jeśli istnieje)
+**Główny cel**: 
+Wyświetlanie i zarządzanie profilem użytkownika z podstawowymi informacjami, statystykami i ostatnią grą.
+
+**Kluczowe informacje do wyświetlenia**:
+- Podstawowe informacje:
+  - Nazwa użytkownika (dla zarejestrowanych)
+  - Email (dla zarejestrowanych)
+  - Status (gość/zarejestrowany)
+- Statystyki:
+  - Punkty (totalPoints)
+  - Rozegrane gry (gamesPlayed)
+  - Wygrane gry (gamesWon)
+  - Pozycja w rankingu (jeśli zarejestrowany)
+- Ostatnia zapisana gra (jeśli istnieje) - karta z możliwością kontynuacji
 - Możliwość edycji nazwy użytkownika (tylko zarejestrowani)
+- Zachęta do rejestracji (dla gości)
 
-**Komponenty**:
+**Kluczowe komponenty widoku**:
 - PrimeNG Cards - karty ze statystykami
 - `LastGameCardComponent` - karta z ostatnią grą
 - `EditUsernameDialogComponent` - dialog edycji nazwy
+- `UserStatsComponent` - komponent ze statystykami
 
 **Integracja API**:
 - `GET /api/auth/me` - profil użytkownika
-- `GET /api/rankings/{userId}` - pozycja w rankingu
+- `GET /api/rankings/{userId}` - pozycja w rankingu (jeśli zarejestrowany)
 - `GET /api/games?status=in_progress&size=1` - ostatnia gra
-- `PUT /api/v1/users/{userId}` - aktualizacja nazwy
+- `PUT /api/v1/users/{userId}` - aktualizacja nazwy użytkownika
 
 **Dla gości**:
-- Ograniczone informacje
-- Zachęta do rejestracji
+- Ograniczone informacje (punkty, rozegrane gry, wygrane)
+- Zachęta do rejestracji z linkiem do `/auth/register`
+
+**UX, dostępność i względy bezpieczeństwa**:
+- **UX**: Czytelne statystyki, łatwa edycja profilu, wizualne wyróżnienie ważnych informacji
+- **Dostępność**: ARIA labels, keyboard navigation, screen reader support
+- **Bezpieczeństwo**: Walidacja edycji nazwy użytkownika, sprawdzanie uprawnień, bezpieczne wyświetlanie danych
+
+**Mapowanie historyjek użytkownika**:
+- US-011: Zarządzanie profilem gracza
+- US-012: Automatyczne zapisywanie gier - kontynuacja ostatniej gry
 
 ---
 
-## 4. Komponenty współdzielone
+### 2.10 NotFoundComponent - Strona błędu 404
 
-### 4.1 NavbarComponent - Nawigacja główna
+**Ścieżka**: `/404` lub `**` (catch-all)
+
+**Główny cel**: 
+Wyświetlanie komunikatu o błędzie, gdy użytkownik próbuje uzyskać dostęp do nieistniejącej strony.
+
+**Kluczowe informacje do wyświetlenia**:
+- Komunikat o błędzie 404
+- Informacja o nieistniejącej stronie
+- Link powrotu do strony głównej
+- Link do rankingu lub innych głównych sekcji
+
+**Kluczowe komponenty widoku**:
+- PrimeNG Message - komunikat o błędzie
+- PrimeNG Button - przycisk powrotu
+
+**UX, dostępność i względy bezpieczeństwa**:
+- **UX**: Przyjazny komunikat, łatwa nawigacja z powrotem
+- **Dostępność**: ARIA labels, keyboard navigation
+- **Bezpieczeństwo**: Brak wrażliwych informacji w komunikacie
+
+---
+
+## 3. Mapa podróży użytkownika
+
+### 3.1 Scenariusz I: Gracz gość → PvP
+
+**Kroki**:
+1. **Ekran startowy** (`/`)
+   - Użytkownik widzi opcje gry
+   - Kliknięcie "Graj jako gość" → `POST /api/guests` (automatyczne utworzenie sesji gościa)
+   - Kliknięcie "Graj PvP" → przekierowanie do `/game/matchmaking`
+
+2. **Oczekiwanie na przeciwnika** (`/game/matchmaking`)
+   - Wyświetlenie animacji ładowania
+   - `POST /api/v1/matching/queue` z boardSize (automatyczne przy wejściu)
+   - Polling lub WebSocket czeka na przeciwnika
+   - Po znalezieniu: automatyczne przekierowanie do `/game/:gameId`
+
+3. **Widok gry** (`/game/:gameId`)
+   - Nawiązanie połączenia WebSocket
+   - Wyświetlenie planszy i informacji o grze
+   - Wykonywanie ruchów przez WebSocket
+   - Timer dla każdego gracza (10 sekund)
+   - Po zakończeniu: wyświetlenie wyniku i przekierowanie do home
+
+**Mapowanie historyjek**: US-001, US-007, US-008, US-013
+
+---
+
+### 3.2 Scenariusz II: Rejestracja → Logowanie
+
+**Kroki**:
+1. **Ekran startowy** (`/`)
+   - Kliknięcie "Zarejestruj się" → `/auth/register`
+
+2. **Rejestracja** (`/auth/register`)
+   - Wypełnienie formularza (username, email, hasło, potwierdzenie hasła)
+   - Walidacja pól (reactive forms)
+   - `POST /api/auth/register`
+   - Po sukcesie: automatyczne logowanie i przekierowanie do `/`
+
+3. **Logowanie** (`/auth/login`) - opcjonalne, jeśli użytkownik chce się zalogować później
+   - Wypełnienie formularza (email, hasło)
+   - `POST /api/auth/login`
+   - Po sukcesie: przekierowanie do `/` lub ostatniej gry
+
+**Mapowanie historyjek**: US-002, US-003
+
+---
+
+### 3.3 Scenariusz III: Gracz gość → vs bot
+
+**Kroki**:
+1. **Ekran startowy** (`/`)
+   - Kliknięcie "Graj jako gość" → `POST /api/guests` (automatyczne utworzenie sesji gościa)
+   - Kliknięcie "Graj z botem" → `/game/mode-selection`
+
+2. **Wybór trybu** (`/game/mode-selection`)
+   - Wybór rozmiaru planszy (3x3, 4x4, 5x5)
+   - Wybór poziomu trudności (łatwy, średni, trudny)
+   - `POST /api/games` z parametrami
+   - Przekierowanie do `/game/:gameId`
+
+3. **Widok gry** (`/game/:gameId`)
+   - Wyświetlenie planszy
+   - Wykonywanie ruchów przez REST API (`POST /api/games/{gameId}/moves`)
+   - Po ruchu gracza: automatyczny ruch bota (wewnętrzne wywołanie)
+   - Po zakończeniu: wyświetlenie wyniku i przekierowanie do home
+
+**Mapowanie historyjek**: US-001, US-004, US-005, US-006
+
+---
+
+### 3.4 Scenariusz IV: Przegląd rankingu → Wybór przeciwnika
+
+**Kroki**:
+1. **Ekran startowy** (`/`)
+   - Kliknięcie "Ranking" w menu → `/leaderboard`
+
+2. **Ranking** (`/leaderboard`)
+   - Wyświetlenie tabeli z rankingiem
+   - `GET /api/rankings` z paginacją
+   - Kliknięcie na gracza → sprawdzenie dostępności
+   - `POST /api/v1/matching/challenge/{userId}` z boardSize
+   - Przekierowanie do `/game/:gameId`
+
+3. **Widok gry** (`/game/:gameId`)
+   - Standardowa rozgrywka PvP
+
+**Mapowanie historyjek**: US-009, US-010
+
+---
+
+### 3.5 Scenariusz V: Kontynuacja zapisanej gry
+
+**Kroki**:
+1. **Ekran startowy** (`/`)
+   - Sprawdzenie zapisanej gry (`GET /api/games?status=in_progress&size=1`)
+   - Wyświetlenie bannera z ostatnią grą (jeśli istnieje)
+   - Kliknięcie "Kontynuuj grę" → `/game/:gameId`
+
+2. **Widok gry** (`/game/:gameId`)
+   - Załadowanie stanu gry
+   - Kontynuacja rozgrywki
+
+**Mapowanie historyjek**: US-012
+
+---
+
+## 4. Układ i struktura nawigacji
+
+### 4.1 Główny layout
+
+**MainLayoutComponent** zawiera:
+- **Header** (NavbarComponent) - zawsze widoczny na górze
+  - Logo aplikacji (link do `/`)
+  - Menu nawigacyjne:
+    - Graj (dropdown: vs bot, PvP)
+    - Ranking (link do `/leaderboard`)
+    - Profil (link do `/profile`)
+  - Wskaźnik statusu użytkownika:
+    - "Gość" (dla gości)
+    - Nazwa użytkownika (dla zarejestrowanych)
+  - Przycisk logowania/wylogowania
+- **Router outlet** - miejsce na widoki (zawsze widoczne)
+- **Toast container** - PrimeNG Toast dla powiadomień (globalny)
+
+### 4.2 NavbarComponent - Nawigacja główna
+
+**Funkcjonalność**:
+- Logo aplikacji (link do `/`)
+- Menu nawigacyjne:
+  - **Graj** (dropdown menu):
+    - "Graj z botem" → `/game/mode-selection`
+    - "Graj PvP" → `/game/matchmaking`
+  - **Ranking** → `/leaderboard`
+  - **Profil** → `/profile`
+- Wskaźnik statusu użytkownika:
+  - Dla gości: "Gość" + przycisk "Zaloguj się"
+  - Dla zarejestrowanych: nazwa użytkownika + przycisk "Wyloguj się"
+- Responsywność: collapse do hamburger menu dla mniejszych ekranów
+
+**Komponenty**:
+- PrimeNG Menu - menu nawigacyjne
+- PrimeNG Avatar - avatar użytkownika (opcjonalne)
+- PrimeNG Button - przyciski logowania/wylogowania
+
+**Integracja**:
+- AuthService - status użytkownika
+- Router - nawigacja
+
+### 4.3 Nawigacja między widokami
+
+**Przepływy nawigacji**:
+1. **Home → Game**: Przekierowanie przez router z parametrem `gameId`
+2. **Home → Auth**: Przekierowanie do `/auth/login` lub `/auth/register`
+3. **Game → Home**: Po zakończeniu gry lub anulowaniu
+4. **Matchmaking → Game**: Automatyczne przekierowanie po znalezieniu przeciwnika
+5. **Leaderboard → Game**: Przekierowanie po wyzwaniu gracza
+6. **Profile → Game**: Przekierowanie po kliknięciu "Kontynuuj grę"
+
+**Guardy routingu**:
+- `AuthGuard` - ochrona widoków wymagających uwierzytelnienia (opcjonalne dla MVP)
+- `GuestGuard` - automatyczne utworzenie sesji gościa dla widoków publicznych
+
+### 4.4 Breadcrumbs (opcjonalne)
+
+Dla lepszej nawigacji można dodać breadcrumbs:
+- Home → Game Mode Selection → Game
+- Home → Leaderboard → Game
+- Home → Profile
+
+---
+
+## 5. Kluczowe komponenty
+
+### 5.1 NavbarComponent - Nawigacja główna
 
 **Lokalizacja**: `components/navigation/navbar/navbar.component.ts`
 
 **Funkcjonalność**:
 - Logo aplikacji (link do home)
-- Menu nawigacyjne:
-  - Graj (dropdown: vs bot, PvP)
-  - Ranking
-  - Profil
-- Wskaźnik statusu użytkownika:
-  - "Gość" (dla gości)
-  - Nazwa użytkownika (dla zarejestrowanych)
+- Menu nawigacyjne (Graj, Ranking, Profil)
+- Wskaźnik statusu użytkownika (gość/zarejestrowany)
 - Przycisk logowania/wylogowania
 
 **Komponenty**:
@@ -353,7 +628,7 @@ export const routes: Routes = [
 
 ---
 
-### 4.2 GameBannerComponent - Banner z ostatnią grą
+### 5.2 GameBannerComponent - Banner z ostatnią grą
 
 **Lokalizacja**: `components/game/game-banner.component.ts`
 
@@ -368,9 +643,12 @@ export const routes: Routes = [
 - Data rozpoczęcia
 - Status (in_progress)
 
+**Integracja**:
+- GameService - pobranie ostatniej gry
+
 ---
 
-### 4.3 LoaderComponent - Wskaźnik ładowania
+### 5.3 LoaderComponent - Wskaźnik ładowania
 
 **Lokalizacja**: `components/ui/loader/loader.component.ts`
 
@@ -379,9 +657,12 @@ export const routes: Routes = [
 - Używany podczas żądań API
 - Animacja spinner (PrimeNG ProgressSpinner)
 
+**Integracja**:
+- LoaderService - zarządzanie stanem ładowania
+
 ---
 
-### 4.4 ButtonComponent - Przycisk
+### 5.4 ButtonComponent - Przycisk
 
 **Lokalizacja**: `components/ui/button/button.component.ts`
 
@@ -393,709 +674,289 @@ export const routes: Routes = [
 
 ---
 
-## 5. Serwisy i zarządzanie stanem
+### 5.5 GameCellComponent - Komórka planszy
 
-### 5.1 AuthService - Uwierzytelnianie
-
-**Lokalizacja**: `services/auth.service.ts`
+**Lokalizacja**: `components/game/game-cell.component.ts`
 
 **Funkcjonalność**:
-- Zarządzanie sesją użytkownika
-- Przechowywanie tokenu JWT
-- Obsługa logowania/rejestracji/wylogowania
-- Sprawdzanie statusu użytkownika (gość/zarejestrowany)
+- Pojedyncza komórka planszy
+- Wyświetlanie symbolu (X, O) lub pustej
+- Obsługa kliknięć
+- Stany (disabled, selected, winning)
 
-**State**:
-```typescript
-private currentUser$ = new BehaviorSubject<User | null>(null);
-private isGuest$ = new BehaviorSubject<boolean>(false);
-```
-
-**Metody**:
-- `login(email, password): Observable<User>`
-- `register(username, email, password): Observable<User>`
-- `logout(): void`
-- `getCurrentUser(): Observable<User | null>`
-- `isAuthenticated(): Observable<boolean>`
-- `isGuest(): Observable<boolean>`
-- `createGuestSession(): Observable<GuestUser>`
+**Animacje**:
+- Pojawienie się symbolu: scale (0 → 1) + fade-in
 
 ---
 
-### 5.2 GameService - Zarządzanie grami
+### 5.6 ErrorDisplayComponent - Wyświetlanie błędów
 
-**Lokalizacja**: `services/game.service.ts`
+**Lokalizacja**: `components/ui/error-display.component.ts`
 
 **Funkcjonalność**:
-- Tworzenie gier (vs_bot, pvp)
-- Pobieranie stanu gry
-- Wykonywanie ruchów
-- Pobieranie zapisanych gier
-- Zarządzanie stanem aktualnej gry
+- Wyświetlanie błędów walidacji formularzy
+- Komunikaty błędów API
+- Toast notifications
 
-**State**:
-```typescript
-private currentGame$ = new BehaviorSubject<Game | null>(null);
-private savedGame$ = new BehaviorSubject<Game | null>(null);
-```
-
-**Metody**:
-- `createGame(gameType, boardSize, botDifficulty?): Observable<Game>`
-- `getGame(gameId): Observable<Game>`
-- `makeMove(gameId, row, col, playerSymbol): Observable<MoveResponse>`
-- `surrenderGame(gameId): Observable<void>`
-- `getSavedGame(): Observable<Game | null>`
-- `getCurrentGame(): Observable<Game | null>`
+**Integracja**:
+- ErrorService - centralna obsługa błędów
 
 ---
 
-### 5.3 WebSocketService - Komunikacja WebSocket
+### 5.7 GameTimerComponent - Timer w grze PvP
 
-**Lokalizacja**: `services/websocket.service.ts`
+**Lokalizacja**: `components/game/game-timer.component.ts`
 
 **Funkcjonalność**:
-- Nawiązywanie połączenia WebSocket
-- Obsługa reconnect (max 20 sekund)
-- Wysyłanie wiadomości (MOVE, SURRENDER, PING)
-- Odbieranie wiadomości (MOVE_ACCEPTED, OPPONENT_MOVE, TIMER_UPDATE, etc.)
-- Zarządzanie stanem połączenia
+- Wyświetlanie pozostałego czasu na ruch (10 sekund)
+- Wizualne ostrzeżenia (warning, danger)
+- Animacja pulse dla małej ilości czasu
 
-**State**:
-```typescript
-private connectionStatus$ = new BehaviorSubject<'connected' | 'disconnected' | 'connecting'>('disconnected');
-private messages$ = new Subject<WebSocketMessage>();
-```
-
-**Metody**:
-- `connect(gameId, token): Observable<void>`
-- `disconnect(): void`
-- `sendMove(row, col, playerSymbol): void`
-- `surrender(): void`
-- `getMessages(): Observable<WebSocketMessage>`
-- `getConnectionStatus(): Observable<string>`
-- `reconnect(): Observable<void>`
+**Stany**:
+- Normal (10-4 sekundy)
+- Warning (3-2 sekundy)
+- Danger (1 sekunda)
 
 ---
 
-### 5.4 RankingService - Ranking
+### 5.8 GameResultDialogComponent - Dialog z wynikiem gry
 
-**Lokalizacja**: `services/ranking.service.ts`
+**Lokalizacja**: `components/game/game-result-dialog.component.ts`
 
 **Funkcjonalność**:
-- Pobieranie rankingu (paginacja)
-- Pobieranie pozycji użytkownika
-- Pobieranie graczy wokół użytkownika
+- Wyświetlanie wyniku gry (wygrana, przegrana, remis)
+- Informacje o zdobytych punktach
+- Przycisk powrotu do home
 
-**Metody**:
-- `getRanking(page, size): Observable<RankingPage>`
-- `getUserRanking(userId): Observable<Ranking>`
-- `getPlayersAround(userId, range): Observable<Ranking[]>`
+**Komponenty**:
+- PrimeNG Dialog
 
 ---
 
-### 5.5 MatchmakingService - Matchmaking
+## 6. Mapowanie historyjek użytkownika do widoków
 
-**Lokalizacja**: `services/matchmaking.service.ts`
+### US-001: Rozpoczęcie gry jako gość
+- **Widok**: HomeComponent
+- **Komponent**: Przycisk "Graj jako gość"
+- **API**: `POST /api/guests`
 
-**Funkcjonalność**:
-- Dołączanie do kolejki matchmakingu
-- Opuszczanie kolejki
-- Wyzwanie konkretnego gracza
-- Sprawdzanie statusu matchmakingu
+### US-002: Rejestracja nowego użytkownika
+- **Widok**: AuthRegisterComponent
+- **Komponent**: Formularz rejestracji
+- **API**: `POST /api/auth/register`
 
-**Metody**:
-- `joinQueue(boardSize): Observable<MatchmakingResponse>`
-- `leaveQueue(): Observable<void>`
-- `challengePlayer(userId, boardSize): Observable<Game>`
-- `getEstimatedWaitTime(): Observable<number>`
+### US-003: Logowanie zarejestrowanego użytkownika
+- **Widok**: AuthLoginComponent
+- **Komponent**: Formularz logowania
+- **API**: `POST /api/auth/login`
 
----
+### US-004: Rozgrywka z botem (łatwy poziom)
+- **Widok**: GameModeSelectionComponent → GameComponent
+- **Komponent**: Wybór trybu, plansza gry
+- **API**: `POST /api/games`, `POST /api/games/{gameId}/moves`
 
-### 5.6 ErrorService - Obsługa błędów
+### US-005: Rozgrywka z botem (średni poziom)
+- **Widok**: GameModeSelectionComponent → GameComponent
+- **Komponent**: Wybór trybu, plansza gry
+- **API**: `POST /api/games`, `POST /api/games/{gameId}/moves`
 
-**Lokalizacja**: `services/error.service.ts`
+### US-006: Rozgrywka z botem (trudny poziom)
+- **Widok**: GameModeSelectionComponent → GameComponent
+- **Komponent**: Wybór trybu, plansza gry
+- **API**: `POST /api/games`, `POST /api/games/{gameId}/moves`
 
-**Funkcjonalność**:
-- Centralna obsługa błędów API
-- Wyświetlanie toast notifications
-- Przekierowania dla błędów autoryzacji
-- Logowanie błędów (tryb deweloperski)
+### US-007: Dołączenie do gry PvP
+- **Widok**: MatchmakingComponent → GameComponent
+- **Komponent**: Oczekiwanie na przeciwnika, plansza gry
+- **API**: `POST /api/v1/matching/queue`, WebSocket `/ws/game/{gameId}`
 
-**Metody**:
-- `handleError(error: HttpErrorResponse): void`
-- `showErrorToast(message: string): void`
-- `handleAuthError(): void`
+### US-008: Rozgrywka PvP z funkcjonalnościami
+- **Widok**: GameComponent
+- **Komponent**: Plansza gry, timer, przycisk poddania
+- **API**: WebSocket `/ws/game/{gameId}`, `PUT /api/games/{gameId}/status`
 
----
+### US-009: Przeglądanie rankingu graczy
+- **Widok**: LeaderboardComponent
+- **Komponent**: Tabela rankingu
+- **API**: `GET /api/rankings`
 
-## 6. Modele danych
+### US-010: Wybór przeciwnika z rankingu
+- **Widok**: LeaderboardComponent → GameComponent
+- **Komponent**: Tabela rankingu, wyzwanie gracza
+- **API**: `POST /api/v1/matching/challenge/{userId}`
 
-### 6.1 User
+### US-011: Zarządzanie profilem gracza
+- **Widok**: ProfileComponent
+- **Komponent**: Profil użytkownika, statystyki
+- **API**: `GET /api/auth/me`, `PUT /api/v1/users/{userId}`
 
-```typescript
-interface User {
-  userId: number;
-  username: string | null;
-  email: string;
-  isGuest: boolean;
-  totalPoints: number;
-  gamesPlayed: number;
-  gamesWon: number;
-  createdAt: string;
-  lastSeenAt: string | null;
-}
-```
+### US-012: Automatyczne zapisywanie gier
+- **Widok**: HomeComponent, ProfileComponent
+- **Komponent**: GameBannerComponent, LastGameCardComponent
+- **API**: `GET /api/games?status=in_progress&size=1`
 
-### 6.2 Game
+### US-013: Obsługa rozłączeń w PvP
+- **Widok**: GameComponent
+- **Komponent**: WebSocket reconnect, komunikaty o rozłączeniu
+- **API**: WebSocket `/ws/game/{gameId}`
 
-```typescript
-interface Game {
-  gameId: number;
-  gameType: 'vs_bot' | 'pvp';
-  boardSize: 3 | 4 | 5;
-  player1Id: number;
-  player2Id: number | null;
-  botDifficulty: 'easy' | 'medium' | 'hard' | null;
-  status: 'waiting' | 'in_progress' | 'finished' | 'abandoned' | 'draw';
-  currentPlayerSymbol: 'x' | 'o' | null;
-  winnerId: number | null;
-  lastMoveAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  finishedAt: string | null;
-  boardState: string[][];
-  totalMoves: number;
-}
-```
+### US-014: Walidacja ruchów w grze
+- **Widok**: GameComponent
+- **Komponent**: GameBoardComponent, walidacja po stronie klienta
+- **API**: `POST /api/games/{gameId}/moves`
 
-### 6.3 Move
-
-```typescript
-interface Move {
-  moveId: number;
-  gameId: number;
-  row: number;
-  col: number;
-  playerSymbol: 'x' | 'o';
-  moveOrder: number;
-  playerId: number | null;
-  createdAt: string;
-}
-```
-
-### 6.4 MoveResponse
-
-```typescript
-interface MoveResponse {
-  moveId: number;
-  gameId: number;
-  row: number;
-  col: number;
-  playerSymbol: 'x' | 'o';
-  moveOrder: number;
-  createdAt: string;
-  boardState: string[][];
-  gameStatus: 'in_progress' | 'finished' | 'draw';
-  winner: {
-    userId: number;
-    username: string;
-  } | null;
-}
-```
-
-### 6.5 Ranking
-
-```typescript
-interface Ranking {
-  rankPosition: number;
-  userId: number;
-  username: string;
-  totalPoints: number;
-  gamesPlayed: number;
-  gamesWon: number;
-  createdAt: string;
-}
-```
-
-### 6.6 WebSocketMessage
-
-```typescript
-interface WebSocketMessage {
-  type: 'MOVE_ACCEPTED' | 'MOVE_REJECTED' | 'OPPONENT_MOVE' | 'GAME_UPDATE' | 'TIMER_UPDATE' | 'GAME_ENDED' | 'PONG';
-  payload: any;
-}
-```
+### US-015: Responsywność interfejsu
+- **Wszystkie widoki**: Responsywność na poziomie komponentów
+- **Komponenty**: Adaptacja layoutu dla różnych rozdzielczości
 
 ---
 
-## 7. Mapy podróży użytkownika
+## 7. Obsługa błędów i przypadki brzegowe
 
-### 7.1 Scenariusz I: Gracz gość → PvP
+### 7.1 Stany błędów
 
-1. **Ekran startowy** (`/`)
-   - Użytkownik widzi opcje gry
-   - Kliknięcie "Graj jako gość" → `POST /api/guests`
-   - Kliknięcie "Graj PvP" → przekierowanie do `/game/matchmaking`
+**Błędy API**:
+- 400 Bad Request: Toast notification z komunikatem
+- 401 Unauthorized: Przekierowanie do `/auth/login`
+- 403 Forbidden: Toast notification z komunikatem
+- 404 Not Found: Toast notification lub przekierowanie do 404
+- 409 Conflict: Toast notification z komunikatem (np. nazwa użytkownika już istnieje)
+- 422 Unprocessable Entity: Wyświetlenie błędów walidacji w formularzu
+- 500 Internal Server Error: Toast notification z komunikatem
 
-2. **Oczekiwanie na przeciwnika** (`/game/matchmaking`)
-   - Wyświetlenie animacji ładowania
-   - `POST /api/v1/matching/queue` z boardSize
-   - Polling lub WebSocket czeka na przeciwnika
-   - Po znalezieniu: przekierowanie do `/game/:gameId`
+**Błędy WebSocket**:
+- Rozłączenie: Automatyczna próba reconnect (max 20 sekund)
+- Timeout: Komunikat o timeout i przekierowanie do home
+- Błąd połączenia: Toast notification z komunikatem
 
-3. **Widok gry** (`/game/:gameId`)
-   - Nawiązanie połączenia WebSocket
-   - Wyświetlenie planszy i informacji o grze
-   - Wykonywanie ruchów przez WebSocket
-   - Timer dla każdego gracza (10 sekund)
-   - Po zakończeniu: wyświetlenie wyniku i przekierowanie do home
+### 7.2 Przypadki brzegowe
 
-### 7.2 Scenariusz II: Rejestracja → Logowanie
+**Brak zapisanej gry**:
+- GameBannerComponent nie jest wyświetlany
+- Brak komunikatu błędu
 
-1. **Ekran startowy** (`/`)
-   - Kliknięcie "Zarejestruj się" → `/auth/register`
+**Brak przeciwników w matchmakingu**:
+- Wyświetlenie komunikatu o braku przeciwników
+- Możliwość anulowania kolejki
 
-2. **Rejestracja** (`/auth/register`)
-   - Wypełnienie formularza (username, email, hasło)
-   - Walidacja pól
-   - `POST /api/auth/register`
-   - Po sukcesie: automatyczne logowanie i przekierowanie do `/`
+**Gra zakończona przed wejściem**:
+- Sprawdzenie statusu gry przy wejściu
+- Przekierowanie do home z komunikatem
 
-3. **Logowanie** (`/auth/login`)
-   - Wypełnienie formularza (email, hasło)
-   - `POST /api/auth/login`
-   - Po sukcesie: przekierowanie do `/` lub ostatniej gry
+**Timeout w grze PvP**:
+- Automatyczne zakończenie gry po 20 sekundach nieaktywności
+- Komunikat o timeout i przekierowanie do home
 
-### 7.3 Scenariusz III: Gracz gość → vs bot
-
-1. **Ekran startowy** (`/`)
-   - Kliknięcie "Graj jako gość" → `POST /api/guests`
-   - Kliknięcie "Graj z botem" → `/game/mode-selection`
-
-2. **Wybór trybu** (`/game/mode-selection`)
-   - Wybór rozmiaru planszy (3x3, 4x4, 5x5)
-   - Wybór poziomu trudności (łatwy, średni, trudny)
-   - `POST /api/games` z parametrami
-   - Przekierowanie do `/game/:gameId`
-
-3. **Widok gry** (`/game/:gameId`)
-   - Wyświetlenie planszy
-   - Wykonywanie ruchów przez REST API
-   - Po ruchu gracza: automatyczny ruch bota
-   - Po zakończeniu: wyświetlenie wyniku i przekierowanie do home
-
-### 7.4 Scenariusz IV: Przegląd rankingu → Wybór przeciwnika
-
-1. **Ekran startowy** (`/`)
-   - Kliknięcie "Ranking" w menu → `/leaderboard`
-
-2. **Ranking** (`/leaderboard`)
-   - Wyświetlenie tabeli z rankingiem
-   - `GET /api/rankings` z paginacją
-   - Kliknięcie na gracza → sprawdzenie dostępności
-   - `POST /api/v1/matching/challenge/{userId}` z boardSize
-   - Przekierowanie do `/game/:gameId`
-
-3. **Widok gry** (`/game/:gameId`)
-   - Standardowa rozgrywka PvP
+**Brak uprawnień**:
+- Toast notification z komunikatem
+- Przekierowanie do odpowiedniego widoku
 
 ---
 
-## 8. Szczegóły implementacji
+## 8. Dostępność i UX
 
-### 8.1 Plansza gry - implementacja
+### 8.1 Dostępność
 
-**GameBoardComponent**:
-
-```typescript
-@Component({
-  selector: 'app-game-board',
-  standalone: true,
-  template: `
-    <div class="game-board" [style.grid-template-columns]="'repeat(' + boardSize + ', 1fr)'">
-      <app-game-cell
-        *ngFor="let cell of cells; let i = index"
-        [row]="getRow(i)"
-        [col]="getCol(i)"
-        [symbol]="getSymbol(i)"
-        [disabled]="isCellDisabled(i)"
-        (cellClick)="onCellClick($event)"
-        [@cellAnimation]="getAnimationState(i)">
-      </app-game-cell>
-    </div>
-  `,
-  styles: [`
-    .game-board {
-      display: grid;
-      gap: 8px;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-  `],
-  animations: [
-    trigger('cellAnimation', [
-      transition(':enter', [
-        style({ transform: 'scale(0)', opacity: 0 }),
-        animate('300ms', style({ transform: 'scale(1)', opacity: 1 }))
-      ])
-    ])
-  ]
-})
-export class GameBoardComponent {
-  @Input() boardSize: 3 | 4 | 5 = 3;
-  @Input() boardState: string[][] = [];
-  @Input() currentPlayerSymbol: 'x' | 'o' | null = null;
-  @Input() disabled: boolean = false;
-  
-  @Output() move = new EventEmitter<{row: number, col: number}>();
-  
-  get cells(): number[] {
-    return Array(this.boardSize * this.boardSize).fill(0);
-  }
-  
-  getRow(index: number): number {
-    return Math.floor(index / this.boardSize);
-  }
-  
-  getCol(index: number): number {
-    return index % this.boardSize;
-  }
-  
-  getSymbol(index: number): string | null {
-    const row = this.getRow(index);
-    const col = this.getCol(index);
-    return this.boardState[row]?.[col] || null;
-  }
-  
-  isCellDisabled(index: number): boolean {
-    return this.disabled || this.getSymbol(index) !== null;
-  }
-  
-  onCellClick(event: {row: number, col: number}): void {
-    if (!this.isCellDisabled(this.getRowIndex(event.row, event.col))) {
-      this.move.emit(event);
-    }
-  }
-}
-```
-
-### 8.2 Timer w grze PvP
-
-**GameTimerComponent**:
-
-```typescript
-@Component({
-  selector: 'app-game-timer',
-  standalone: true,
-  template: `
-    <div class="timer" [class.warning]="remainingSeconds <= 3" [class.danger]="remainingSeconds <= 1">
-      <span class="timer-text">{{ remainingSeconds }}s</span>
-      <div class="timer-progress" [style.width.%]="(remainingSeconds / 10) * 100"></div>
-    </div>
-  `,
-  styles: [`
-    .timer {
-      position: relative;
-      padding: 8px 16px;
-      border-radius: 8px;
-      background: #f0f0f0;
-      transition: background-color 0.3s;
-    }
-    .timer.warning {
-      background: #ffa500;
-      animation: pulse 1s infinite;
-    }
-    .timer.danger {
-      background: #ff0000;
-      animation: pulse 0.5s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
-  `]
-})
-export class GameTimerComponent {
-  @Input() remainingSeconds: number = 10;
-}
-```
-
-### 8.3 Obsługa WebSocket - reconnect
-
-**WebSocketService** (fragment):
-
-```typescript
-reconnect(maxAttempts: number = 20, interval: number = 1000): Observable<void> {
-  return new Observable(observer => {
-    let attempts = 0;
-    const reconnectInterval = setInterval(() => {
-      attempts++;
-      if (attempts > maxAttempts) {
-        clearInterval(reconnectInterval);
-        observer.error(new Error('Max reconnection attempts reached'));
-        return;
-      }
-      
-      this.connect(this.currentGameId!, this.currentToken!).subscribe({
-        next: () => {
-          clearInterval(reconnectInterval);
-          observer.next();
-          observer.complete();
-        },
-        error: () => {
-          // Kontynuuj próby
-        }
-      });
-    }, interval);
-  });
-}
-```
-
-### 8.4 Walidacja formularzy
-
-**AuthRegisterComponent** (fragment):
-
-```typescript
-this.registerForm = this.fb.group({
-  username: ['', [
-    Validators.required,
-    Validators.minLength(3),
-    Validators.maxLength(50),
-    Validators.pattern(/^[a-zA-Z0-9_]+$/)
-  ]],
-  email: ['', [Validators.required, Validators.email]],
-  password: ['', [Validators.required, Validators.minLength(8)]],
-  confirmPassword: ['', [Validators.required]]
-}, {
-  validators: this.passwordMatchValidator
-});
-
-passwordMatchValidator(form: AbstractControl): ValidationErrors | null {
-  const password = form.get('password');
-  const confirmPassword = form.get('confirmPassword');
-  return password && confirmPassword && password.value !== confirmPassword.value
-    ? { passwordMismatch: true }
-    : null;
-}
-```
-
----
-
-## 9. Obsługa błędów
-
-### 9.1 Strategia obsługi błędów
-
-**ErrorService**:
-
-```typescript
-handleError(error: HttpErrorResponse): void {
-  switch (error.status) {
-    case 400:
-    case 422:
-      this.showErrorToast(error.error?.message || 'Nieprawidłowe dane');
-      break;
-    case 401:
-    case 403:
-      this.handleAuthError();
-      break;
-    case 404:
-      this.showErrorToast('Zasób nie został znaleziony');
-      break;
-    case 409:
-      this.showErrorToast(error.error?.message || 'Konflikt danych');
-      break;
-    case 500:
-    case 503:
-      this.showErrorToast('Błąd serwera. Spróbuj ponownie później.');
-      break;
-    default:
-      this.showErrorToast('Wystąpił nieoczekiwany błąd');
-  }
-  
-  if (environment.production === false) {
-    console.error('Error details:', error);
-  }
-}
-```
-
-### 9.2 Toast notifications
-
-Użycie PrimeNG Toast dla wszystkich błędów walidacji i konfliktów:
-
-```typescript
-this.messageService.add({
-  severity: 'error',
-  summary: 'Błąd',
-  detail: message,
-  life: 5000
-});
-```
-
----
-
-## 10. Animacje i przejścia
-
-### 10.1 Animacje komórek planszy
-
-- **Pojawienie się symbolu**: scale (0 → 1) + fade-in, 300ms
-- **Ruch bota**: opóźnienie 200ms + animacja symbolu
-- **Linia wygranej**: stroke-dasharray animation, 500ms opóźnienie
-
-### 10.2 Przejścia między widokami
-
-- Użycie Angular Router transitions
-- Fade-in/fade-out dla głównych widoków
-- Slide-in dla modali i dialogów
-
-### 10.3 Animacje ładowania
-
-- PrimeNG ProgressSpinner dla globalnego ładowania
-- Skeleton loaders dla danych asynchronicznych
-- Pulse animation dla timerów
-
----
-
-## 11. Responsywność
-
-### 11.1 Breakpoints
-
-- **Desktop**: min. 1280px szerokości
-- **Tablet**: 768px - 1279px (opcjonalne dla MVP)
-- **Mobile**: < 768px (poza zakresem MVP)
-
-### 11.2 Adaptacja layoutu
-
-- Plansza gry: maksymalna szerokość 600px, wyśrodkowana
-- Tabela rankingu: scroll poziomy dla mniejszych ekranów
-- Menu nawigacyjne: collapse do hamburger menu dla tabletów
-
----
-
-## 12. Dostępność
-
-### 12.1 Podstawowe wymagania
-
+**Podstawowe wymagania**:
 - ARIA labels dla wszystkich interaktywnych elementów
-- Keyboard navigation dla formularzy
+- Keyboard navigation dla formularzy i nawigacji
 - Focus indicators dla wszystkich przycisków
 - Alt text dla ikon i obrazów
 - Semantic HTML (header, nav, main, footer)
+- Screen reader support dla statusu gry i komunikatów
 
-### 12.2 Kontrast i czytelność
-
+**Kontrast i czytelność**:
 - Minimalny kontrast 4.5:1 dla tekstu
 - Wizualne wskaźniki focus
 - Czytelne czcionki (min. 14px)
 
----
+### 8.2 UX
 
-## 13. Optymalizacja wydajności
+**Zasady projektowe**:
+- Spójność wizualna we wszystkich widokach
+- Natychmiastowy feedback dla akcji użytkownika
+- Czytelne komunikaty błędów i sukcesu
+- Płynne animacje poprawiające doświadczenie
+- Intuicyjna nawigacja
 
-### 13.1 Lazy loading
-
-- Feature modules ładowane na żądanie
-- Komponenty PrimeNG importowane selektywnie
-
-### 13.2 Change detection
-
-- OnPush change detection strategy dla komponentów
-- TrackBy functions dla *ngFor
-
-### 13.3 Cache'owanie
-
-- Cache'owanie odpowiedzi API dla rankingów (5-15 minut)
-- LocalStorage dla tokenu JWT
-- SessionStorage dla stanu tymczasowego
+**Optymalizacja wydajności**:
+- Lazy loading dla feature modules
+- OnPush change detection strategy
+- Cache'owanie odpowiedzi API
+- Optymalizacja animacji
 
 ---
 
-## 14. Testowanie
+## 9. Bezpieczeństwo
 
-### 14.1 Testy jednostkowe
+### 9.1 Uwierzytelnianie
 
-- Komponenty: Angular Testing Library
-- Serwisy: Mockowanie HTTP requests
-- Walidacja formularzy
+- Tokeny JWT przechowywane w localStorage
+- Automatyczne odświeżanie tokenów (jeśli wymagane)
+- Wylogowanie przy wygaśnięciu tokenu
 
-### 14.2 Testy E2E (Cypress)
+### 9.2 Walidacja
 
-- Scenariusze użytkownika (US-001 do US-015)
-- Przepływy uwierzytelniania
-- Rozgrywki (vs_bot, PvP)
-- Aktualizacje rankingu
+- Walidacja po stronie klienta (reactive forms)
+- Walidacja po stronie serwera (API)
+- Sanityzacja danych wejściowych
 
----
+### 9.3 Ochrona danych
 
-## 15. Checklist implementacji
-
-### 15.1 Faza 1: Podstawowa struktura
-
-- [ ] Konfiguracja routingu
-- [ ] MainLayoutComponent z NavbarComponent
-- [ ] HomeComponent z bannerem ostatniej gry
-- [ ] Podstawowe serwisy (AuthService, GameService)
-
-### 15.2 Faza 2: Uwierzytelnianie
-
-- [ ] AuthLoginComponent
-- [ ] AuthRegisterComponent
-- [ ] Integracja z API auth
-- [ ] Obsługa sesji gościa
-
-### 15.3 Faza 3: Gry vs bot
-
-- [ ] GameModeSelectionComponent
-- [ ] GameComponent
-- [ ] GameBoardComponent
-- [ ] GameCellComponent
-- [ ] Integracja z API gier
-- [ ] Animacje ruchów
-
-### 15.4 Faza 4: PvP i WebSocket
-
-- [ ] MatchmakingComponent
-- [ ] WebSocketService
-- [ ] GameTimerComponent
-- [ ] Obsługa reconnect
-- [ ] Integracja z WebSocket API
-
-### 15.5 Faza 5: Ranking i profil
-
-- [ ] LeaderboardComponent
-- [ ] ProfileComponent
-- [ ] RankingService
-- [ ] Integracja z API rankingów
-
-### 15.6 Faza 6: Polishing
-
-- [ ] Obsługa błędów
-- [ ] Toast notifications
-- [ ] Animacje i przejścia
-- [ ] Responsywność
-- [ ] Dostępność
-- [ ] Testy E2E
+- Brak wrażliwych danych w URL
+- Bezpieczne przechowywanie tokenów
+- HTTPS dla wszystkich żądań
 
 ---
 
-## 16. Uwagi końcowe
+## 10. Wsparcie dla wielu języków (i18n)
 
-### 16.1 Priorytety MVP
+### 10.1 Przegląd
 
-1. **Krytyczne**: Uwierzytelnianie, gry vs_bot, podstawowy ranking
-2. **Ważne**: PvP z WebSocket, matchmaking, profil użytkownika
-3. **Nice to have**: Zaawansowane animacje, optymalizacje wydajności
+Aplikacja wspiera wiele języków (i18n) z angielskim jako językiem podstawowym i polskim jako językiem dodatkowym. Implementacja i18n jest realizowana wyłącznie po stronie UI (frontend) przy użyciu Angular i18n, backend pozostaje bez zmian i nie wymaga modyfikacji.
 
-### 16.2 Rozszerzenia po MVP
+### 10.2 Języki wspierane
 
-- Tryb obserwatora dla gier PvP
-- Powiadomienia push
-- Funkcje społecznościowe
-- Zaawansowane animacje
-- Wsparcie mobilne
+- **Angielski (en)** - język podstawowy, domyślny
+- **Polski (pl)** - język dodatkowy
 
----
+### 10.3 Implementacja
 
-**Dokument utworzony**: 2024-11-XX
-**Wersja**: 1.0
-**Status**: Planowanie MVP
+- **Angular i18n** - wykorzystanie wbudowanego systemu i18n Angular 17
+- **Pliki tłumaczeń** - pliki JSON z tłumaczeniami dla każdego języka
+- **Lokalizacja** - automatyczne wykrywanie języka przeglądarki lub wybór przez użytkownika
+- **Przełącznik języka** - komponent w NavbarComponent umożliwiający zmianę języka
 
+### 10.4 Zakres tłumaczeń
+
+Wszystkie teksty w interfejsie użytkownika są tłumaczone:
+- Etykiety przycisków
+- Komunikaty błędów i sukcesu
+- Teksty formularzy
+- Komunikaty toast notifications
+- Komunikaty WebSocket
+- Teksty w komponentach
+
+### 10.5 Backend
+
+Backend pozostaje bez zmian - wszystkie komunikaty błędów i odpowiedzi API są w języku angielskim. Tłumaczenie komunikatów z backendu na język użytkownika odbywa się po stronie frontendu.
+
+### 10.6 Opcjonalne endpointy API
+
+Niektóre endpointy zdefiniowane w API Plan nie są używane w widokach MVP, ale są dostępne do użycia w przyszłości:
+
+- `POST /api/auth/logout` - wylogowanie użytkownika (można dodać do NavbarComponent)
+- `GET /api/v1/users/{userId}` - pobranie profilu użytkownika po ID (można użyć do wyświetlania profili innych graczy)
+- `POST /api/v1/users/{userId}/last-seen` - aktualizacja ostatniej aktywności (można wywoływać automatycznie dla matchmakingu)
+- `GET /api/games/{gameId}/moves` - pobranie historii ruchów (można użyć do wyświetlania historii)
+- `GET /api/games/{gameId}/board` - pobranie stanu planszy (specjalizowany endpoint, alternatywa dla `GET /api/games/{gameId}`)
+
+Te endpointy są zdefiniowane w API Plan i gotowe do użycia, ale nie są wymagane dla MVP.
+
+## 11. Podsumowanie
+
+Architektura UI dla World at War: Turn-Based Strategy została zaprojektowana jako kompleksowe rozwiązanie spełniające wszystkie wymagania z PRD, zintegrowane z planem API i uwzględniające najlepsze praktyki UX, dostępności i bezpieczeństwa. Wszystkie historyjki użytkownika (US-001 do US-015) są zmapowane do odpowiednich widoków i komponentów, zapewniając spójne i intuicyjne doświadczenie użytkownika.
+
+Struktura jest skalowalna i gotowa do implementacji, z jasno zdefiniowanymi komponentami, integracjami API i przepływami użytkownika. Wszystkie widoki są zaprojektowane z myślą o responsywności, dostępności i bezpieczeństwie, zapewniając wysokiej jakości interfejs użytkownika dla aplikacji produkcyjnej.
+
+Aplikacja wspiera wiele języków (i18n) z angielskim jako językiem podstawowym i polskim jako językiem dodatkowym, co umożliwia dostępność dla szerszej grupy użytkowników.
