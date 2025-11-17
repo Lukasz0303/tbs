@@ -1,0 +1,82 @@
+:host {
+  display: block;
+}
+
+.game-mode-card {
+  cursor: pointer;
+  border-radius: 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--surface-border) 65%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--surface-card) 90%, transparent),
+    color-mix(in srgb, var(--primary-50, #f0f5ff) 55%, transparent)
+  );
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  box-shadow: 0 20px 50px -35px rgba(15, 23, 42, 0.55);
+}
+
+.game-mode-card:hover,
+.game-mode-card:focus-within {
+  transform: translateY(-6px);
+  border-color: color-mix(in srgb, var(--primary-color) 30%, transparent);
+  box-shadow: 0 28px 65px -40px rgba(15, 23, 42, 0.55);
+}
+
+.game-mode-card--disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+  box-shadow: none;
+}
+
+.card-body {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.mode-icon {
+  width: 3.25rem;
+  height: 3.25rem;
+  display: grid;
+  place-items: center;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--primary-color) 16%, transparent);
+  color: var(--primary-color);
+  font-size: 1.6rem;
+}
+
+.mode-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-color);
+}
+
+.mode-description {
+  margin: 0;
+  color: var(--text-color-secondary);
+  line-height: 1.6;
+}
+
+.mode-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.mode-access {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.mode-access--allowed {
+  color: var(--green-500);
+}
+
+.mode-access--blocked {
+  color: var(--red-400);
+}
+

@@ -1,3 +1,47 @@
+@import url('https://verona.primeng.org/styles-RWLY2R7Q.css');
+@import 'primeng/resources/primeng.min.css';
+@import 'primeicons/primeicons.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html,
+body {
+  margin: 0;
+  background: #020518 url('/assets/space.jpeg') center / cover no-repeat fixed;
+  color: #f5f9ff;
+  min-height: 100%;
+}
+
+body {
+  position: relative;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(188deg, rgba(2, 6, 20, 0.46) 0%, rgba(4, 12, 30, 0.4) 55%, rgba(5, 12, 28, 0.52) 100%);
+  z-index: -1;
+}
+
+.dark body {
+  background: #010313;
+  color: #f8fbff;
+}
+
+.dark body::after {
+  background: radial-gradient(
+      circle at 20% 18%,
+      rgba(86, 151, 255, 0.32),
+      transparent 45%
+    ),
+    radial-gradient(circle at 75% 32%, rgba(126, 183, 255, 0.25), transparent 52%),
+    linear-gradient(
+      200deg,
+      rgba(1, 4, 15, 0.8) 0%,
+      rgba(3, 12, 30, 0.78) 48%,
+      rgba(2, 6, 18, 0.9) 100%
+    );
+}

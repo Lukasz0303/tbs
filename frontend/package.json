@@ -23,7 +23,10 @@
     "@ngrx/router-store": "^17.2.0",
     "@ngrx/store": "^17.2.0",
     "@ngrx/store-devtools": "^17.2.0",
+    "@primeng/themes": "^19.1.4",
     "@supabase/supabase-js": "^2.78.0",
+    "primeicons": "^7.0.0",
+    "primeng": "^17.18.4",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.14.3"

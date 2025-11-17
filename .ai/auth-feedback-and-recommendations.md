@@ -4,6 +4,8 @@
 
 **Ogólna ocena: 9/10** ⬆️ - Solidna implementacja z dobrymi praktykami. Zaimplementowano token blacklist, dodano 34 testy (100% passing), zoptymalizowano logout, dodano CORS, zabezpieczono Actuator, dodano JWT secret rotation.
 
+> **Konwencja UI:** Każda zmiana związana z przepływami autoryzacji musi zachować stylistykę motywu PrimeNG Verona (`https://verona.primeng.org/`) we wszystkich ekranach i komponentach.
+
 ---
 
 ## ✅ Mocne strony

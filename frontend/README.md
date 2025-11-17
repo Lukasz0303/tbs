@@ -2,6 +2,10 @@
 
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 17.3.17.
 
+## UI Theme Policy
+
+The frontend must use the PrimeNG Verona theme (`https://verona.primeng.org/`) as the exclusive styling baseline. When adding or updating components, verify that styles, tokens and layout remain aligned with Verona in every view.
+
 ## Development server
 
 Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.

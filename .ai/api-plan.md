@@ -1,5 +1,7 @@
 # Plan REST API
 
+> **Uwaga dot. UI:** Całe środowisko frontendowe korzysta z motywu PrimeNG Verona (`https://verona.primeng.org/`). Każdy endpoint, przykład payloadu i scenariusz integracyjny zakłada spójność wizualną i interakcji z tym motywem w każdym widoku.
+
 ## 1. Zasoby
 
 ### 1.1 Zasób Users

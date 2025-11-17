@@ -1,0 +1,33 @@
+<section
+  *ngIf="visible"
+  class="fixed inset-0 z-40 flex items-center justify-center overflow-auto bg-black/60 backdrop-blur-sm p-4 sm:p-6 md:p-8"
+  (click)="close.emit()">
+  <div
+    class="mx-auto max-w-md w-full rounded-2xl border border-white/10 bg-slate-900/80 text-slate-100 shadow-2xl"
+    (click)="$event.stopPropagation()">
+    <div class="flex items-center justify-between gap-4 border-b border-white/10 px-6 py-4">
+      <h1 class="text-xl sm:text-2xl font-semibold" *ngIf="game">
+        <span *ngIf="game.status === 'draw'">Remis</span>
+        <span *ngIf="game.status === 'finished'">Gra zakończona</span>
+        <span *ngIf="game.status === 'abandoned'">Gra porzucona</span>
+      </h1>
+      <button
+        type="button"
+        class="rounded-md border border-white/20 bg-white/10 px-3 py-1 text-sm text-slate-100 hover:bg-white/20"
+        (click)="close.emit()">
+        Zamknij
+      </button>
+    </div>
+    <div class="px-6 py-6 space-y-4 leading-relaxed" *ngIf="game">
+      <p class="text-slate-200" *ngIf="game.status === 'finished'">
+        <span *ngIf="isPlayerWinner()" class="text-green-400 font-semibold">Wygrałeś!</span>
+        <span *ngIf="isPlayerLoser()" class="text-red-400 font-semibold">Przegrałeś</span>
+        <span *ngIf="!isPlayerWinner() && !isPlayerLoser()">Gra zakończona</span>
+      </p>
+      <p class="text-slate-200" *ngIf="game.status === 'draw'">Gra zakończona remisem</p>
+      <p class="text-slate-200" *ngIf="game.status === 'abandoned'">Gra została porzucona</p>
+    </div>
+  </div>
+</section>
+
+

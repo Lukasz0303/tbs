@@ -73,22 +73,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         if (!jwtTokenProvider.validateToken(token)) {
-            log.warn("Invalid JWT token");
+            log.warn("Invalid JWT token. Token length: {}, Token preview: {}...", token.length(), token.length() > 20 ? token.substring(0, 20) : token);
             return false;
         }
 
         try {
             String tokenId = jwtTokenProvider.getTokenId(token);
             if (tokenBlacklistService.isBlacklisted(tokenId)) {
-                log.warn("Attempted access with blacklisted token");
+                log.warn("Attempted access with blacklisted token: {}", tokenId);
                 return false;
             }
 
             Long userId = jwtTokenProvider.getUserIdFromToken(token);
+            log.debug("Successfully authenticated user: {}", userId);
             setAuthentication(userId);
             return true;
         } catch (Exception e) {
-            log.warn("Failed to process JWT token: {}", e.getMessage());
+            log.warn("Failed to process JWT token: {}", e.getMessage(), e);
             return false;
         }
     }

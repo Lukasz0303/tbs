@@ -1,0 +1,60 @@
+<p-card class="game-banner" data-testid="game-banner">
+  <div class="banner-body">
+    <div class="banner-content">
+      <span class="banner-caption">{{
+        'home.banner.caption' | translate
+      }}</span>
+      <div class="banner-tags" role="list">
+        <p-tag
+          severity="info"
+          [value]="gameTypeKey | translate"
+          role="listitem"
+        ></p-tag>
+        <p-tag
+          [severity]="statusSeverity"
+          [value]="statusKey | translate"
+          role="listitem"
+        ></p-tag>
+        @if (difficultyKey) {
+          <p-tag
+            severity="secondary"
+            [value]="difficultyKey | translate"
+            role="listitem"
+          ></p-tag>
+        }
+      </div>
+      <dl class="banner-meta">
+        <div class="meta-item">
+          <dt>{{ 'home.banner.lastActivity' | translate }}</dt>
+          <dd>
+            {{
+              game.lastMoveAt
+                ? (game.lastMoveAt | date : 'medium')
+                : (game.updatedAt | date : 'medium')
+            }}
+          </dd>
+        </div>
+        <div class="meta-item">
+          <dt>{{ 'home.banner.boardSize' | translate }}</dt>
+          <dd>{{ game.boardSize }} × {{ game.boardSize }}</dd>
+        </div>
+        @if (game.totalMoves > 0) {
+          <div class="meta-item">
+            <dt>{{ 'home.banner.moves' | translate }}</dt>
+            <dd>{{ game.totalMoves }}</dd>
+          </div>
+        }
+      </dl>
+    </div>
+    <button
+      pButton
+      type="button"
+      class="continue-button"
+      icon="pi pi-play"
+      [label]="'home.banner.continue' | translate"
+      (click)="onContinue()"
+      [attr.aria-label]="'home.banner.continue' | translate"
+    ></button>
+  </div>
+</p-card>
+

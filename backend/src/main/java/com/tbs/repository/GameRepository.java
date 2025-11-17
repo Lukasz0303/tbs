@@ -25,11 +25,11 @@ public interface GameRepository extends JpaRepository<Game, Long> {
            "LEFT JOIN FETCH g.player2 p2 " +
            "LEFT JOIN FETCH g.winner w " +
            "WHERE (g.player1.id = :userId OR g.player2.id = :userId) " +
-           "AND (:status IS NULL OR g.status = :status) " +
+           "AND (:status IS NULL OR g.status IN :status) " +
            "AND (:gameType IS NULL OR g.gameType = :gameType)")
     Page<Game> findByUserIdAndFilters(
         @Param("userId") Long userId,
-        @Param("status") com.tbs.enums.GameStatus status,
+        @Param("status") java.util.List<com.tbs.enums.GameStatus> status,
         @Param("gameType") com.tbs.enums.GameType gameType,
         Pageable pageable
     );

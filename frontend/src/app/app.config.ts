@@ -4,7 +4,9 @@ import { provideStore } from '@ngrx/store';
 import { provideEffects } from '@ngrx/effects';
 import { provideStoreDevtools } from '@ngrx/store-devtools';
 import { provideRouterStore } from '@ngrx/router-store';
-import { counterReducer } from './features/counter/counter.reducer';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideAnimations } from '@angular/platform-browser/animations';
+import { authInterceptor } from './interceptors/auth.interceptor';
 
 import { routes } from './app.routes';
 
@@ -12,7 +14,9 @@ export const appConfig: ApplicationConfig = {
   providers: [
     importProvidersFrom(),
     provideRouter(routes),
-    provideStore({ counter: counterReducer }),
+    provideHttpClient(withInterceptors([authInterceptor])),
+    provideAnimations(),
+    provideStore({}),
     provideEffects([]),
     provideRouterStore(),
     provideStoreDevtools({ maxAge: 25 })

@@ -20,6 +20,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/games")
@@ -63,7 +64,7 @@ public class GameController {
     })
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<GameListResponse> getGames(
-            @RequestParam(required = false) GameStatus status,
+            @RequestParam(required = false) List<GameStatus> status,
             @RequestParam(required = false) GameType gameType,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {

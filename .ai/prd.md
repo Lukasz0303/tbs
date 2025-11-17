@@ -8,6 +8,8 @@ Aplikacja umożliwia graczom rywalizację z botem AI na trzech poziomach trudno�
 
 Platforma została zaprojektowana z myślą o wysokiej jakości wizualnej i responsywności, wykorzystując Angular Animations i CSS transitions dla płynnych animacji. Architektura monolityczna z przygotowaniem na przyszłą skalowalność zapewnia stabilność i wydajność dla 100-500 jednoczesnych użytkowników.
 
+**Polityka motywu UI:** cały interfejs użytkownika musi korzystać wyłącznie z motywu PrimeNG Verona (`https://verona.primeng.org/`). Każdy widok, komponent i iteracja styli powinny być projektowane, implementowane oraz testowane właśnie z tym motywem jako źródłem prawdy.
+
 ## Technologie
 
 Projekt wykorzystuje poniższy, sprawdzony stack technologiczny:

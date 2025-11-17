@@ -1,0 +1,43 @@
+<p-card
+  class="game-mode-card"
+  [ngClass]="{ 'game-mode-card--disabled': !isAvailable }"
+  (click)="onCardClick()"
+  role="button"
+  [attr.tabindex]="isAvailable ? 0 : -1"
+  [attr.aria-disabled]="!isAvailable"
+>
+  <div class="card-body" pRipple>
+    <span class="mode-icon" [ngClass]="iconClass" aria-hidden="true"></span>
+    <h3 class="mode-title">{{ mode.labelKey | translate }}</h3>
+    <p class="mode-description">{{ mode.descriptionKey | translate }}</p>
+    <div class="mode-footer">
+      <span
+        class="mode-access"
+        [ngClass]="{
+          'mode-access--allowed': isAvailable,
+          'mode-access--blocked': !isAvailable
+        }"
+      >
+        @if (isAvailable) {
+          {{ 'home.gameModes.access.available' | translate }}
+        } @else {
+          {{ 'home.gameModes.access.unavailable' | translate }}
+        }
+      </span>
+      <button
+        pButton
+        type="button"
+        icon="pi pi-arrow-right"
+        [label]="'home.gameModes.select' | translate"
+        [disabled]="!isAvailable"
+        (click)="onButtonClick($event)"
+        [attr.aria-label]="
+          ('home.gameModes.selectAria' | translate) +
+          ' ' +
+          (mode.labelKey | translate)
+        "
+      ></button>
+    </div>
+  </div>
+</p-card>
+
