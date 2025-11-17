@@ -16,6 +16,18 @@ interface AuthUserResponse {
   gamesWon: number;
   createdAt: string;
   lastSeenAt: string | null;
+  authToken?: string;
+}
+
+interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+interface RegisterRequest {
+  username: string;
+  email: string;
+  password: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -109,6 +121,59 @@ export class AuthService {
 
   updateCurrentUser(user: User | null): void {
     this.currentUserSignal.set(user);
+  }
+
+  isAuthenticated(): boolean {
+    return !!this.getAuthToken() && !!this.currentUserSignal() && !this.currentUserSignal()?.isGuest;
+  }
+
+  login(email: string, password: string): Observable<User> {
+    const request: LoginRequest = { email, password };
+    return this.http.post<AuthUserResponse>(`${this.apiUrl}/v1/auth/login`, request).pipe(
+      tap((response) => {
+        if (response.authToken) {
+          localStorage.setItem('wow-auth-token', response.authToken);
+        }
+        const user = this.mapToUser(response);
+        if (user) {
+          this.currentUserSignal.set(user);
+        }
+      }),
+      map((response) => {
+        const user = this.mapToUser(response);
+        if (!user) {
+          throw new Error('Failed to map user from login response');
+        }
+        return user;
+      })
+    );
+  }
+
+  register(username: string, email: string, password: string): Observable<User> {
+    const request: RegisterRequest = { username, email, password };
+    return this.http.post<AuthUserResponse>(`${this.apiUrl}/v1/auth/register`, request).pipe(
+      tap((response) => {
+        if (response.authToken) {
+          localStorage.setItem('wow-auth-token', response.authToken);
+        }
+        const user = this.mapToUser(response);
+        if (user) {
+          this.currentUserSignal.set(user);
+        }
+      }),
+      map((response) => {
+        const user = this.mapToUser(response);
+        if (!user) {
+          throw new Error('Failed to map user from register response');
+        }
+        return user;
+      })
+    );
+  }
+
+  logout(): void {
+    this.currentUserSignal.set(null);
+    this.clearAuthToken();
   }
 
   private mapToUser(response: AuthUserResponse | null): User | null {

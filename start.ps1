@@ -66,6 +66,38 @@ function Start-Backend {
         return $false
     }
     
+    if (Test-Port -Port 8080) {
+        $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Port 8080 jest juz zajety. Czekam na zwolnienie portu (max 10 sekund)..."
+        $portWaitTimeout = 10
+        $portWaitElapsed = 0
+        $portFreed = $false
+        $lastPortMessage = 0
+        
+        while ($portWaitElapsed -lt $portWaitTimeout) {
+            if (-not (Test-Port -Port 8080)) {
+                $portFreed = $true
+                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Port 8080 zwolniony"
+                Start-Sleep -Seconds 1
+                break
+            }
+            
+            if (($portWaitElapsed - $lastPortMessage) -ge 2) {
+                $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Port 8080 nadal zajety, czekam... ($portWaitElapsed/$portWaitTimeout sekund)"
+                $lastPortMessage = $portWaitElapsed
+            }
+            
+            Start-Sleep -Seconds 1
+            $portWaitElapsed += 1
+        }
+        
+        if (-not $portFreed) {
+            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Port 8080 nadal jest zajety po 10 sekundach"
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz procesy Java: Get-Process -Name java"
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Lub zatrzymaj recznie: .\start.ps1 stop"
+            return $false
+        }
+    }
+    
     try {
         Push-Location $BackendDir
         $backendProcess = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "run-backend.ps1", "start" -PassThru -WindowStyle Hidden
@@ -80,6 +112,7 @@ function Start-Backend {
             $timeout = 15
             $elapsed = 0
             $portOpen = $false
+            $lastStatusMessage = 0
             
             while ($elapsed -lt $timeout) {
                 try {
@@ -92,6 +125,11 @@ function Start-Backend {
                         $null = Write-ColorOutput -ForegroundColor Yellow "  - Problem z konfiguracja (application.properties)"
                         $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi: Get-Content backend\application.log -Tail 50"
                         break
+                    } else {
+                        if ($elapsed -gt 0 -and ($elapsed - $lastStatusMessage) -ge 3) {
+                            $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Proces backendu dziala (PID: $processId), czekam na otwarcie portu 8080... ($elapsed/$timeout sekund)"
+                            $lastStatusMessage = $elapsed
+                        }
                     }
                 } catch {
                     $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Nie mozna sprawdzic statusu procesu backendu"
@@ -100,34 +138,40 @@ function Start-Backend {
                 }
                 
                 if (Test-Port -Port 8080) {
-                    $portOpen = $true
-                    if ($elapsed -gt 5) {
-                        $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Port 8080 otwarty, sprawdzam health check..."
+                    if (-not $portOpen) {
+                        $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Port 8080 otwarty, sprawdzam health check..."
+                        $portOpen = $true
                     }
                     
                     Start-Sleep -Seconds 2
                     
                     if (Test-BackendHealth) {
                         $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Backend uruchomiony i odpowiada poprawnie"
+                        
+                        try {
+                            $swaggerCheck = Invoke-WebRequest -Uri "http://localhost:8080/swagger-ui/index.html" -Method Get -TimeoutSec 3 -UseBasicParsing -ErrorAction SilentlyContinue
+                            if ($swaggerCheck.StatusCode -eq 200) {
+                                $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Swagger UI dostepny: http://localhost:8080/swagger-ui/index.html"
+                            }
+                        } catch {
+                        }
+                        
                         return $true
                     } else {
-                        if ($elapsed % 10 -eq 0) {
-                            $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Port otwarty, ale health check nie odpowiada, czekam dalej..."
+                        if (($elapsed - $lastStatusMessage) -ge 3) {
+                            $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Port otwarty, ale health check nie odpowiada, czekam dalej... ($elapsed/$timeout sekund)"
+                            $lastStatusMessage = $elapsed
                         }
                     }
-                }
-                
-                if ($elapsed -gt 0 -and $elapsed % 10 -eq 0 -and -not $portOpen) {
-                    Write-Host ""
-                    $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Czekam na otwarcie portu 8080..."
+                } else {
+                    if ($elapsed -gt 0 -and ($elapsed - $lastStatusMessage) -ge 3) {
+                        $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Czekam na otwarcie portu 8080... ($elapsed/$timeout sekund)"
+                        $lastStatusMessage = $elapsed
+                    }
                 }
                 
                 Start-Sleep -Seconds 1
                 $elapsed += 1
-                
-                if (-not $portOpen -and $elapsed % 5 -ne 0) {
-                    Write-Host -NoNewline "."
-                }
             }
             Write-Host ""
             
@@ -204,6 +248,7 @@ function Start-Frontend {
             $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Oczekiwanie na uruchomienie frontendu (max 15 sekund)..."
             $timeout = 15
             $elapsed = 0
+            $lastStatusMessage = 0
             
             while ($elapsed -lt $timeout) {
                 try {
@@ -216,6 +261,11 @@ function Start-Frontend {
                         $null = Write-ColorOutput -ForegroundColor Yellow "  - Problem z konfiguracja Angular"
                         $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi: Get-Content frontend\start.log -Tail 50"
                         break
+                    } else {
+                        if ($elapsed -gt 0 -and ($elapsed - $lastStatusMessage) -ge 3) {
+                            $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Proces frontendu dziala (PID: $($frontendProcess.Id)), czekam na otwarcie portu 4200... ($elapsed/$timeout sekund)"
+                            $lastStatusMessage = $elapsed
+                        }
                     }
                 } catch {
                     $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Nie mozna sprawdzic statusu procesu frontendu"
@@ -224,19 +274,15 @@ function Start-Frontend {
                 if (Test-Port -Port 4200) {
                     $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Frontend uruchomiony na porcie 4200"
                     return $true
-                }
-                
-                if ($elapsed -gt 0 -and $elapsed % 10 -eq 0) {
-                    Write-Host ""
-                    $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Czekam na otwarcie portu 4200..."
+                } else {
+                    if ($elapsed -gt 0 -and ($elapsed - $lastStatusMessage) -ge 3) {
+                        $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Czekam na otwarcie portu 4200... ($elapsed/$timeout sekund)"
+                        $lastStatusMessage = $elapsed
+                    }
                 }
                 
                 Start-Sleep -Seconds 1
                 $elapsed += 1
-                
-                if ($elapsed % 5 -ne 0) {
-                    Write-Host -NoNewline "."
-                }
             }
             Write-Host ""
             $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Frontend nie uruchomil sie w czasie 15 sekund"
@@ -264,7 +310,7 @@ function Start-Frontend {
                 $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy proces Node.js dziala: Get-Process -Name node"
             }
             
-            return $true
+            return $false
         } else {
             $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Nie udalo sie uruchomic procesu frontendu"
             $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy npm jest zainstalowane: npm --version"
@@ -305,14 +351,42 @@ function Stop-Backend {
         Pop-Location
         
         $javaProcesses = Get-Process -Name "java" -ErrorAction SilentlyContinue
+        $stoppedCount = 0
         foreach ($proc in $javaProcesses) {
             try {
                 $commandLine = (Get-CimInstance Win32_Process -Filter "ProcessId = $($proc.Id)").CommandLine
                 if ($commandLine -and ($commandLine -like "*bootRun*" -or $commandLine -like "*tbs*" -or $commandLine -like "*$BackendDir*")) {
                     Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
                     $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Proces Java zatrzymany (PID: $($proc.Id))"
+                    $stoppedCount++
                 }
             } catch {
+            }
+        }
+        
+        if ($stoppedCount -gt 0 -or (Test-Port -Port 8080)) {
+            $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Czekam na zwolnienie portu 8080 (max 10 sekund)..."
+            $portWaitTimeout = 10
+            $portWaitElapsed = 0
+            $lastPortMessage = 0
+            
+            while ($portWaitElapsed -lt $portWaitTimeout) {
+                if (-not (Test-Port -Port 8080)) {
+                    $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Port 8080 zwolniony"
+                    break
+                }
+                
+                if (($portWaitElapsed - $lastPortMessage) -ge 2) {
+                    $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Port 8080 nadal zajety, czekam... ($portWaitElapsed/$portWaitTimeout sekund)"
+                    $lastPortMessage = $portWaitElapsed
+                }
+                
+                Start-Sleep -Seconds 1
+                $portWaitElapsed += 1
+            }
+            
+            if (Test-Port -Port 8080) {
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Port 8080 nadal jest zajety. Proces moze potrzebowac wiecej czasu na zamkniecie."
             }
         }
         
@@ -342,12 +416,14 @@ function Stop-Frontend {
         }
         
         $nodeProcesses = Get-Process -Name "node" -ErrorAction SilentlyContinue
+        $stoppedCount = 0
         foreach ($proc in $nodeProcesses) {
             try {
                 $commandLine = (Get-CimInstance Win32_Process -Filter "ProcessId = $($proc.Id)").CommandLine
                 if ($commandLine -and ($commandLine -like "*ng serve*" -or $commandLine -like "*$FrontendDir*" -or $commandLine -like "*angular*")) {
                     Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
                     $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Proces Node.js zatrzymany (PID: $($proc.Id))"
+                    $stoppedCount++
                 }
             } catch {
             }
@@ -360,8 +436,35 @@ function Stop-Frontend {
                 if ($commandLine -and ($commandLine -like "*npm start*" -or $commandLine -like "*$FrontendDir*")) {
                     Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
                     $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Proces PowerShell zatrzymany (PID: $($proc.Id))"
+                    $stoppedCount++
                 }
             } catch {
+            }
+        }
+        
+        if ($stoppedCount -gt 0 -or (Test-Port -Port 4200)) {
+            $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Czekam na zwolnienie portu 4200 (max 10 sekund)..."
+            $portWaitTimeout = 10
+            $portWaitElapsed = 0
+            $lastPortMessage = 0
+            
+            while ($portWaitElapsed -lt $portWaitTimeout) {
+                if (-not (Test-Port -Port 4200)) {
+                    $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Port 4200 zwolniony"
+                    break
+                }
+                
+                if (($portWaitElapsed - $lastPortMessage) -ge 2) {
+                    $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Port 4200 nadal zajety, czekam... ($portWaitElapsed/$portWaitTimeout sekund)"
+                    $lastPortMessage = $portWaitElapsed
+                }
+                
+                Start-Sleep -Seconds 1
+                $portWaitElapsed += 1
+            }
+            
+            if (Test-Port -Port 4200) {
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Port 4200 nadal jest zajety. Proces moze potrzebowac wiecej czasu na zamkniecie."
             }
         }
         
@@ -507,11 +610,30 @@ switch ($Action) {
         Stop-Backend
         
         Write-Host ""
-        Start-Sleep -Seconds 2
+        $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Czekam 3 sekundy przed uruchomieniem nowych procesow..."
+        for ($i = 3; $i -gt 0; $i--) {
+            $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Restart za $i sekund..."
+            Start-Sleep -Seconds 1
+        }
+        $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Rozpoczynam restart serwisow"
+        Write-Host ""
+        
+        if (Test-Port -Port 8080) {
+            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Port 8080 nadal jest zajety. Backend nie zostal poprawnie zatrzymany."
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Zatrzymaj procesy recznie: .\start.ps1 stop"
+            exit 1
+        }
+        
+        if (Test-Port -Port 4200) {
+            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Port 4200 nadal jest zajety. Frontend nie zostal poprawnie zatrzymany."
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Zatrzymaj procesy recznie: .\start.ps1 stop"
+            exit 1
+        }
         
         $backendStarted = Start-Backend
         if (-not $backendStarted) {
             Write-ColorOutput -ForegroundColor Red "`[ERROR`] Nie udalo sie uruchomic backendu"
+            Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy port 8080 jest wolny: Test-NetConnection -ComputerName localhost -Port 8080"
             exit 1
         }
         
@@ -520,7 +642,9 @@ switch ($Action) {
         
         $frontendStarted = Start-Frontend
         if (-not $frontendStarted) {
-            Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Nie udalo sie uruchomic frontendu"
+            Write-ColorOutput -ForegroundColor Red "`[ERROR`] Nie udalo sie uruchomic frontendu"
+            Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy port 4200 jest wolny: Test-NetConnection -ComputerName localhost -Port 4200"
+            exit 1
         }
         
         Write-Host ""

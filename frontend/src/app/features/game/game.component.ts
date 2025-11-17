@@ -2,7 +2,7 @@ import { AsyncPipe, CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { interval, Subscription, BehaviorSubject, EMPTY, switchMap, map, catchError, of, take, filter, timer } from 'rxjs';
+import { interval, BehaviorSubject, EMPTY, switchMap, map, catchError, of, take, filter, timer } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { ToastModule } from 'primeng/toast';
@@ -17,7 +17,6 @@ import { AuthService } from '../../services/auth.service';
 import { WebSocketService } from '../../services/websocket.service';
 import { GameBotIndicatorComponent } from '../../components/game/game-bot-indicator.component';
 import { GameResultDialogComponent } from '../../components/game/game-result-dialog.component';
-import { LoggerService } from '../../services/logger.service';
 import { WebSocketDTOs } from '../../models/websocket.model';
 
 @Component({
@@ -49,7 +48,6 @@ export class GameComponent implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
   private readonly authService = inject(AuthService);
   private readonly websocketService = inject(WebSocketService);
-  private readonly logger = inject(LoggerService);
 
   readonly isBotThinking = signal<boolean>(false);
   readonly showResult = signal<boolean>(false);
@@ -60,10 +58,6 @@ export class GameComponent implements OnInit, OnDestroy {
   private readonly currentUserSignal = toSignal(this.authService.getCurrentUser(), { initialValue: null });
 
   private gameId: number | null = null;
-  private gameSubscription?: Subscription;
-  private timerSubscription?: Subscription;
-  private websocketSubscription?: Subscription;
-  private pollSubscription?: Subscription;
 
   private readonly gameState$ = new BehaviorSubject<{ loading: boolean; game: Game | null }>({
     loading: true,
@@ -81,7 +75,34 @@ export class GameComponent implements OnInit, OnDestroy {
           this.gameId = gameId;
           this.loadGame();
           this.setupGameUpdates();
+          this.checkBotTurnAfterUserLoad();
         }
+      });
+  }
+
+  private checkBotTurnAfterUserLoad(): void {
+    this.authService
+      .getCurrentUser()
+      .pipe(
+        filter((user) => user !== null),
+        take(1),
+        switchMap((user) => {
+          if (!this.gameId) {
+            return EMPTY;
+          }
+          return this.gameService.getGame(this.gameId);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: (game) => {
+          if (game.gameType === 'vs_bot' && (game.status === 'in_progress' || game.status === 'waiting')) {
+            if (game.currentPlayerSymbol === 'o' && !this.isBotThinking()) {
+              this.makeBotMove();
+            }
+          }
+        },
+        error: () => {},
       });
   }
 
@@ -96,22 +117,27 @@ export class GameComponent implements OnInit, OnDestroy {
 
     this.gameService
       .getGame(this.gameId)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (game) => {
+      .pipe(
+        switchMap((game) => {
           this.updateLocalGame(game);
           this.updateTurnLock(game);
           this.updateWinningCells(game);
 
           if (game.gameType === 'vs_bot' && game.status === 'waiting') {
             this.updateTurnLock(game);
-            return;
+            return of(game);
           }
 
           if (game.gameType === 'vs_bot' && game.status === 'in_progress' && game.totalMoves === 0) {
             this.updateTurnLock(game);
           }
 
+          return of(game);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: (game) => {
           if (game.gameType === 'pvp' && game.status === 'in_progress') {
             this.connectWebSocket();
             this.startTimer();
@@ -132,7 +158,7 @@ export class GameComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.gameSubscription = interval(2000)
+    interval(2000)
       .pipe(
         switchMap(() => {
           if (!this.gameId) {
@@ -156,10 +182,19 @@ export class GameComponent implements OnInit, OnDestroy {
           this.updateTurnLock(game);
           this.updateWinningCells(game);
           this.handleGameStatusChange(game);
+
+          if (game.gameType === 'vs_bot' && (game.status === 'in_progress' || game.status === 'waiting')) {
+            this.authService
+              .getCurrentUser()
+              .pipe(take(1), takeUntilDestroyed(this.destroyRef))
+              .subscribe((user) => {
+                if (user && game.currentPlayerSymbol === 'o' && !this.isBotThinking()) {
+                  this.makeBotMove();
+                }
+              });
+          }
         },
-        error: (error) => {
-          this.logger.error('Error polling game:', error);
-        },
+        error: () => {},
       });
   }
 
@@ -183,7 +218,7 @@ export class GameComponent implements OnInit, OnDestroy {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.websocketSubscription = this.websocketService
+          this.websocketService
             .getMessages()
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe({
@@ -198,7 +233,7 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   private startTimer(): void {
-    this.timerSubscription = interval(1000)
+    interval(1000)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         const state = this.vm();
@@ -228,13 +263,9 @@ export class GameComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.pollSubscription) {
-      this.pollSubscription.unsubscribe();
-    }
-
     const maxPolls = 10;
 
-    this.pollSubscription = interval(1000)
+    interval(1000)
       .pipe(
         take(maxPolls),
         switchMap(() => {
@@ -262,9 +293,7 @@ export class GameComponent implements OnInit, OnDestroy {
             this.showResult.set(true);
           }
         },
-        error: (error) => {
-          this.logger.error('Error polling game start:', error);
-        },
+        error: () => {},
         complete: () => {
           const state = this.vm();
           const game = state?.game;
@@ -357,8 +386,7 @@ export class GameComponent implements OnInit, OnDestroy {
       .subscribe({
         next: ({ updated, user }) => {
           if (user && updated.gameType === 'vs_bot' && updated.status === 'in_progress') {
-            const playerSymbol = updated.player1Id === user.userId ? 'x' : 'o';
-            if (updated.currentPlayerSymbol && updated.currentPlayerSymbol !== playerSymbol) {
+            if (updated.currentPlayerSymbol && updated.currentPlayerSymbol === 'o' && !this.isBotThinking()) {
               this.makeBotMove();
             }
           }
@@ -387,6 +415,10 @@ export class GameComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (this.isBotThinking()) {
+      return;
+    }
+
     this.isBotThinking.set(true);
 
     timer(200)
@@ -409,7 +441,6 @@ export class GameComponent implements OnInit, OnDestroy {
           this.isBotThinking.set(false);
         },
         error: (error) => {
-          this.logger.error('Bot move error', error);
           this.isBotThinking.set(false);
           this.handleError(error);
         },
@@ -650,14 +681,10 @@ export class GameComponent implements OnInit, OnDestroy {
 
   onResultDialogClose(): void {
     this.showResult.set(false);
-    this.router.navigate(['/']);
+    this.router.navigate(['/game-options']);
   }
 
   ngOnDestroy(): void {
-    this.pollSubscription?.unsubscribe();
-    this.gameSubscription?.unsubscribe();
-    this.timerSubscription?.unsubscribe();
-    this.websocketSubscription?.unsubscribe();
     this.websocketService.disconnect();
   }
 
@@ -680,7 +707,6 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   private handleWebSocketError(error: unknown): void {
-    this.logger.error('WebSocket error:', error);
     this.messageService.add({
       severity: 'warn',
       summary: this.translate.translate('game.error.title'),
@@ -718,6 +744,12 @@ export class GameComponent implements OnInit, OnDestroy {
 
     if (game.status !== 'in_progress' || !game.currentPlayerSymbol) {
       this.isPlayerTurn.set(false);
+      return;
+    }
+
+    if (game.gameType === 'vs_bot') {
+      const isPlayerTurn = game.currentPlayerSymbol === 'x';
+      this.isPlayerTurn.set(isPlayerTurn);
       return;
     }
 
