@@ -1,0 +1,59 @@
+<p-toast key="game" position="top-right"></p-toast>
+<div class="game-container" *ngIf="vm() as state">
+  <div class="loading-container" *ngIf="state.loading">
+    <p-progressSpinner></p-progressSpinner>
+  </div>
+
+  <div class="game-content" *ngIf="!state.loading && state.game as game">
+    <div class="game-header">
+      <h2>{{ getGameTitle(game) }}</h2>
+      <button
+        *ngIf="game.gameType === 'pvp' && game.status === 'in_progress'"
+        pButton
+        type="button"
+        label="{{ translate.translate('game.action.surrender') }}"
+        severity="danger"
+        (click)="surrender(game.gameId)">
+      </button>
+    </div>
+
+    <div class="game-info">
+      <app-game-info
+        [game]="game"
+        [currentUser]="currentUser$ | async">
+      </app-game-info>
+
+      <app-game-timer
+        *ngIf="game.gameType === 'pvp' && game.status === 'in_progress'"
+        [remainingSeconds]="remainingSeconds()"
+        [currentPlayerSymbol]="game.currentPlayerSymbol">
+      </app-game-timer>
+
+      <app-game-bot-indicator
+        *ngIf="game.gameType === 'vs_bot' && isBotThinking()">
+      </app-game-bot-indicator>
+    </div>
+
+    <div class="game-board-container">
+      <app-game-board
+        [boardSize]="game.boardSize"
+        [boardState]="game.boardState"
+        [currentPlayerSymbol]="game.currentPlayerSymbol"
+        [disabled]="isMoveDisabled(game)"
+        [gameStatus]="game.status"
+        [gameType]="game.gameType"
+        [winningCells]="winningCells()"
+        (move)="onMove($event, game)">
+      </app-game-board>
+    </div>
+
+    <app-game-result-dialog
+      [visible]="showResult()"
+      [game]="game"
+      [currentUser]="currentUser$ | async"
+      (close)="onResultDialogClose()">
+    </app-game-result-dialog>
+  </div>
+</div>
+
+

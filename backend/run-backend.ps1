@@ -1557,6 +1557,13 @@ switch ($Action) {
             exit 1
         }
         
+        Write-Host "[DEBUG] ====== WYWOŁYWANIE Apply-Migrations =====" -ForegroundColor Magenta
+        $applyMigrations = Apply-Migrations
+        Write-Host "[DEBUG] ====== PO Apply-Migrations, wynik: $applyMigrations =====" -ForegroundColor Magenta
+        if (-not $applyMigrations) {
+            Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Problemy z migracjami, kontynuuje..."
+        }
+        
         Write-Host "[DEBUG] ====== WYWOŁYWANIE Start-Redis =====" -ForegroundColor Magenta
         $redisStarted = Start-Redis
         Write-Host "[DEBUG] ====== PO Start-Redis, wynik: $redisStarted =====" -ForegroundColor Magenta

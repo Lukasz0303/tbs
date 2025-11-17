@@ -8,6 +8,8 @@ Aplikacja wspiera wiele języków (i18n) z angielskim jako językiem podstawowym
 
 Struktura UI jest zorganizowana wokół głównych funkcjonalności produktu: uwierzytelniania (goście i zarejestrowani użytkownicy), rozgrywki (vs bot i PvP), rankingu oraz profilu użytkownika. Wszystkie widoki są zintegrowane z REST API i WebSocket API zgodnie z planem API, zapewniając spójne doświadczenie użytkownika.
 
+**Wymóg motywu UI:** wszystkie elementy interfejsu muszą bazować na motywie PrimeNG Verona (`https://verona.primeng.org/`). Projektowanie, implementacja i walidacja widoków odbywa się z uwzględnieniem tokenów, przestrzeni i komponentów tego motywu bez wprowadzania alternatywnych skórek.
+
 Główny layout aplikacji składa się z NavbarComponent (zawsze widoczny) i router outlet dla dynamicznych widoków. Nawigacja jest intuicyjna i wspiera wszystkie scenariusze użytkownika zdefiniowane w PRD, w tym natychmiastowy dostęp dla gości, rejestrację, logowanie oraz wszystkie tryby gry.
 
 ---

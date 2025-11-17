@@ -20,6 +20,8 @@ World at War is a modern, production‑grade web application for competitive, tu
 
 Key gameplay features for MVP focus on Tic‑Tac‑Toe boards (3x3, 4x4, 5x5), automated win/draw detection, validated moves, and a persistent global ranking with a clear scoring system.
 
+**UI theming policy:** całe środowisko frontendowe korzysta wyłącznie z motywu PrimeNG Verona (`https://verona.primeng.org/`). Każdy nowy widok, komponent oraz poprawka stylów musi być projektowana i weryfikowana pod kątem zgodności z tym motywem.
+
 For full product requirements, see the PRD: `.ai/prd.md`. For detailed technology choices and rationale, see the Tech Stack: `.ai/tech-stack.md`.
 
 ## Tech stack

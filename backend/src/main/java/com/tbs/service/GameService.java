@@ -126,7 +126,7 @@ public class GameService {
     }
 
     @Transactional(readOnly = true)
-    public GameListResponse getGames(Long userId, GameStatus status, GameType gameType, Pageable pageable) {
+    public GameListResponse getGames(Long userId, List<GameStatus> status, GameType gameType, Pageable pageable) {
         log.debug("Retrieving games list: userId={}, status={}, gameType={}, page={}", userId, status, gameType, pageable.isPaged() ? pageable.getPageNumber() : "unpaged");
         Page<Game> games = gameRepository.findByUserIdAndFilters(userId, status, gameType, pageable);
 

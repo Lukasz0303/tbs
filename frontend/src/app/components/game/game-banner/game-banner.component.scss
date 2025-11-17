@@ -1,0 +1,76 @@
+:host {
+  display: block;
+}
+
+.game-banner {
+  border-radius: 1.5rem;
+  overflow: hidden;
+  background: var(--surface-card);
+  box-shadow: 0 20px 45px -30px rgba(15, 23, 42, 0.45);
+}
+
+.banner-body {
+  display: grid;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.banner-content {
+  display: grid;
+  gap: 1rem;
+}
+
+.banner-caption {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary-color);
+}
+
+.banner-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.banner-meta {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.meta-item {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.meta-item dt {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-color-secondary) 90%, black 10%);
+}
+
+.meta-item dd {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.continue-button {
+  justify-self: end;
+  padding-inline: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .banner-body {
+    grid-template-columns: 1fr;
+  }
+
+  .continue-button {
+    justify-self: stretch;
+  }
+}
+

@@ -5,6 +5,8 @@
   - Nowoczesny framework SPA, zapewniający szybkie i zgodne z obecnymi standardami tworzenie rozbudowanych interfejsów użytkownika.
 - **Styling:** SCSS, CSS Transitions
   - SCSS pozwala na organizację i skalowanie stylów, transitions zapewniają płynne animacje.
+- **Motyw UI:** PrimeNG Verona (`https://verona.primeng.org/`)
+  - Jedyny dopuszczalny motyw wizualny; wszystkie komponenty i widoki muszą być z nim spójne.
 - **UI/UX:** Angular Animations, PrimeNG
   - Gotowe komponenty + narzędzia do tworzenia wysokiej jakości interfejsów i animacji.
 - **Linter:** ESLint + Prettier

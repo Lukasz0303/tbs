@@ -11,10 +11,33 @@ export const routes: Routes = [
     path: '',
     component: MainLayoutComponent,
     children: [
-      { path: '', component: HomeComponent },
+      { path: '', pathMatch: 'full', component: HomeComponent },
       { path: 'auth', component: AuthComponent },
       { path: 'game', component: GameDashboardComponent },
+      {
+        path: 'game/:gameId',
+        loadComponent: () =>
+          import('./features/game/game.component').then(
+            (m) => m.GameComponent,
+          ),
+      },
       { path: 'leaderboard', component: LeaderboardComponent },
+      {
+        path: 'polityka-prywatnosci',
+        outlet: 'modal',
+        loadComponent: () =>
+          import('./features/legal/privacy-policy.component').then(
+            (m) => m.PrivacyPolicyComponent,
+          ),
+      },
+      {
+        path: 'regulamin',
+        outlet: 'modal',
+        loadComponent: () =>
+          import('./features/legal/terms-of-service.component').then(
+            (m) => m.TermsOfServiceComponent,
+          ),
+      },
       { path: '**', component: NotFoundComponent },
     ],
   },

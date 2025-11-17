@@ -1,0 +1,60 @@
+.game-timer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: var(--p-surface-ground);
+  border-radius: var(--p-border-radius);
+  border: 2px solid var(--p-surface-border);
+  transition: all 0.3s ease;
+
+  &--normal {
+    border-color: var(--p-primary-color);
+  }
+
+  &--warning {
+    border-color: var(--p-warning-color);
+    background: var(--p-warning-50);
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  &--danger {
+    border-color: var(--p-danger-color);
+    background: var(--p-danger-50);
+    animation: pulse 0.5s ease-in-out infinite;
+  }
+
+  &__content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  &__label {
+    font-weight: 500;
+    color: var(--p-text-color-secondary);
+  }
+
+  &__value {
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: var(--p-text-color);
+  }
+
+  &__player {
+    font-size: 0.875rem;
+    color: var(--p-text-color-secondary);
+    text-align: center;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+

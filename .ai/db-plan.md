@@ -7,6 +7,7 @@ Baza danych PostgreSQL została zaprojektowana dla aplikacji World at War: Turn-
 ### Kluczowe założenia projektowe:
 - Tabela `users` obsługująca zarówno gości (identyfikacja przez IP) jak i zarejestrowanych użytkowników
 - **Zarządzanie użytkownikami zarejestrowanymi przez Supabase Auth** (`auth.users`)
+- Spójność danych wspiera jednolity motyw PrimeNG Verona na froncie (`https://verona.primeng.org/`), który jest jedynym dopuszczalnym źródłem stylów w aplikacji
 - Ujednolicony model gier w tabeli `games` dla vs_bot i pvp
 - Stan planszy generowany dynamicznie z historii ruchów w tabeli `moves`
 - Automatyczna aktualizacja punktów i statystyk przez triggery

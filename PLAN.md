@@ -3,6 +3,7 @@
 1. Grupa docelowa: użytkownicy w wieku 18-35 lat
 2. Platforma: Web dla PC z wysoką jakością wizualną, responsywność na najwyższym poziomie
 3. Animacje/UI: Angular Animations + CSS transitions + PrimeNG
+   - Wszystkie widoki obowiązkowo korzystają z motywu PrimeNG Verona (`https://verona.primeng.org/`)
 4. Opóźnienia: nie krytyczne dla gry turowej, limit 10 sekund na ruch
 5. Powiadomienia: po MVP (email)
 6. Skalowalność: 100-500 jednoczesnych użytkowników

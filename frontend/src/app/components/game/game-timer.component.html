@@ -1,0 +1,10 @@
+<div class="game-timer" [ngClass]="getTimerClass()">
+  <div class="game-timer__content">
+    <span class="game-timer__label">{{ translate.translate('game.timer.label') }}:</span>
+    <span class="game-timer__value">{{ getTimerLabel() }}</span>
+  </div>
+  <div class="game-timer__player" *ngIf="currentPlayerSymbol">
+    {{ translate.translate('game.timer.currentPlayer') }}: {{ currentPlayerSymbol.toUpperCase() }}
+  </div>
+</div>
+

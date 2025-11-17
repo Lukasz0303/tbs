@@ -1,0 +1,130 @@
+.board {
+  --size: 3;
+  display: grid;
+  grid-template-columns: repeat(var(--size), 1fr);
+  grid-template-rows: repeat(var(--size), 1fr);
+  gap: 6px;
+  width: min(92vw, 480px);
+  aspect-ratio: 1 / 1;
+}
+
+.cell {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.1s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  display: grid;
+  place-items: center;
+  user-select: none;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.cell:hover:not(.cell--disabled) {
+  transform: scale(1.03);
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.cell--disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.cell--win {
+  outline: 3px solid #ffd43b;
+  background: rgba(255, 212, 59, 0.12);
+}
+
+.symbol {
+  font-size: clamp(3.5rem, 18vw, 6rem);
+  line-height: 1;
+  font-weight: 900;
+  text-transform: uppercase;
+  user-select: none;
+  opacity: 0;
+  transform: scale(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  animation: symbolAppear 0.3s ease forwards;
+  letter-spacing: -0.02em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.symbol--x {
+  color: #ff1744;
+  text-shadow: 
+    0 0 20px rgba(255, 23, 68, 0.8),
+    0 0 40px rgba(255, 23, 68, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.8),
+    0 2px 8px rgba(0, 0, 0, 0.6),
+    2px 2px 4px rgba(0, 0, 0, 0.5);
+  filter: drop-shadow(0 0 12px rgba(255, 23, 68, 0.7)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6));
+  position: relative;
+}
+
+.symbol--x::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  background: radial-gradient(circle, rgba(255, 23, 68, 0.3) 0%, transparent 70%);
+  border-radius: 50%;
+  z-index: -1;
+  opacity: 0.6;
+}
+
+.symbol--o {
+  color: #2962ff;
+  text-shadow: 
+    0 0 20px rgba(41, 98, 255, 0.8),
+    0 0 40px rgba(41, 98, 255, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.8),
+    0 2px 8px rgba(0, 0, 0, 0.6),
+    2px 2px 4px rgba(0, 0, 0, 0.5);
+  filter: drop-shadow(0 0 12px rgba(41, 98, 255, 0.7)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6));
+  position: relative;
+}
+
+.symbol--o::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  background: radial-gradient(circle, rgba(41, 98, 255, 0.3) 0%, transparent 70%);
+  border-radius: 50%;
+  z-index: -1;
+  opacity: 0.6;
+}
+
+.cell .symbol:not(:empty) {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.cell--win {
+  animation: winPulse 0.5s ease 0.5s;
+}
+
+@keyframes symbolAppear {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes winPulse {
+  0%, 100% {
+    outline-color: #ffd43b;
+  }
+  50% {
+    outline-color: #ffc107;
+    outline-width: 4px;
+  }
+}
+
+

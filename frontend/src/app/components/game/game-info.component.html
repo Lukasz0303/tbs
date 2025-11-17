@@ -1,0 +1,29 @@
+<div class="game-info" *ngIf="game">
+  <div class="game-info__item">
+    <span class="game-info__label">{{ translate.translate('game.info.type') }}:</span>
+    <span class="game-info__value">
+      {{ game.gameType === 'vs_bot' ? translate.translate('game.type.bot') : translate.translate('game.type.pvp') }}
+    </span>
+  </div>
+
+  <div class="game-info__item">
+    <span class="game-info__label">{{ translate.translate('game.info.opponent') }}:</span>
+    <span class="game-info__value">{{ opponentName() }}</span>
+  </div>
+
+  <div class="game-info__item">
+    <span class="game-info__label">{{ translate.translate('game.info.status') }}:</span>
+    <span class="game-info__value">{{ statusLabel() }}</span>
+  </div>
+
+  <div class="game-info__item" *ngIf="game.currentPlayerSymbol">
+    <span class="game-info__label">{{ translate.translate('game.info.currentPlayer') }}:</span>
+    <span class="game-info__value">{{ currentPlayerLabel() }}</span>
+  </div>
+
+  <div class="game-info__item">
+    <span class="game-info__label">{{ translate.translate('game.info.moves') }}:</span>
+    <span class="game-info__value">{{ game.totalMoves }}</span>
+  </div>
+</div>
+

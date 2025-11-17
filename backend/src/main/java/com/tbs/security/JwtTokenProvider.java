@@ -68,6 +68,7 @@ public class JwtTokenProvider {
             parseClaims(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
+            log.warn("Token validation failed: {}", e.getMessage());
             return false;
         }
     }
@@ -105,14 +106,22 @@ public class JwtTokenProvider {
             return cachedClaims;
         }
         
-        Claims claims = Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-        
-        claimsCache.put(token, claims);
-        return claims;
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            
+            claimsCache.put(token, claims);
+            return claims;
+        } catch (ExpiredJwtException e) {
+            log.warn("Token expired: {}", e.getMessage());
+            throw e;
+        } catch (JwtException e) {
+            log.warn("JWT parsing failed: {}", e.getMessage());
+            throw e;
+        }
     }
 
     public void clearClaimsCache() {
