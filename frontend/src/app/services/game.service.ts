@@ -5,13 +5,11 @@ import { environment } from '../../environments/environment';
 import { Game, PlayerSymbol, BotDifficulty, GameType } from '../models/game.model';
 import { SavedGameResponse } from '../models/api.model';
 import { GameResponse, CreateGameRequest, MakeMoveRequest, MakeMoveResponse } from '../models/api-response.model';
-import { LoggerService } from './logger.service';
 
 @Injectable({ providedIn: 'root' })
 export class GameService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = environment.apiBaseUrl;
-  private readonly logger = inject(LoggerService);
 
   getSavedGame(): Observable<Game | null> {
     const params = new HttpParams()
@@ -34,11 +32,6 @@ export class GameService {
           if (error.status === 404) {
             return of(null);
           }
-          if (error.status === 0) {
-            this.logger.error('Connection error in getSavedGame', error);
-            return throwError(() => error);
-          }
-          this.logger.error('Error in getSavedGame', error);
           return throwError(() => error);
         })
       );
@@ -52,7 +45,6 @@ export class GameService {
     return this.http.get<GameResponse>(`${this.apiUrl}/v1/games/${gameId}`).pipe(
       map((response) => this.mapToGame(response)),
       catchError((error) => {
-        this.logger.error('Error getting game', error);
         return throwError(() => error);
       })
     );
@@ -96,7 +88,6 @@ export class GameService {
 
   private normalizeBoardState(boardState: unknown): (PlayerSymbol | null)[][] {
     if (!Array.isArray(boardState)) {
-      this.logger.warn('Board state is not an array, returning empty board');
       return [];
     }
 
@@ -106,7 +97,6 @@ export class GameService {
 
     return boardState.map((row: unknown, rowIndex: number) => {
       if (!Array.isArray(row)) {
-        this.logger.warn(`Row ${rowIndex} is not an array, returning empty row`);
         return [];
       }
       return row.map((cell: unknown, colIndex: number) => {
@@ -116,7 +106,6 @@ export class GameService {
         if (cell === 'x' || cell === 'o') {
           return cell as PlayerSymbol;
         }
-        this.logger.warn(`Invalid cell value at [${rowIndex}][${colIndex}]: ${cell}`);
         return null;
       });
     });
@@ -142,7 +131,6 @@ export class GameService {
         return this.mapToGame(response);
       }),
       catchError((error) => {
-        this.logger.error('Error creating bot game', error);
         return throwError(() => error);
       })
     );
@@ -163,7 +151,6 @@ export class GameService {
         return this.mapToGame(response);
       }),
       catchError((error) => {
-        this.logger.error('Error creating PvP game', error);
         return throwError(() => error);
       })
     );
@@ -197,7 +184,6 @@ export class GameService {
         return this.getGame(gameId);
       }),
       catchError((error) => {
-        this.logger.error('Error making move', error);
         return throwError(() => error);
       })
     );
@@ -212,7 +198,6 @@ export class GameService {
       status: 'abandoned',
     }).pipe(
       catchError((error) => {
-        this.logger.error('Error surrendering game', error);
         return throwError(() => error);
       })
     );
@@ -228,7 +213,6 @@ export class GameService {
         return this.getGame(gameId);
       }),
       catchError((error) => {
-        this.logger.error('Error making bot move', error);
         return throwError(() => error);
       })
     );

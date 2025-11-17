@@ -1,0 +1,141 @@
+<p-toast position="top-right"></p-toast>
+<div class="auth-container">
+  <div class="auth-card">
+    <h2>{{ translateService.translate('auth.register.title') }}</h2>
+
+    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+      <div class="flex flex-col gap-2">
+        <label for="username">{{ translateService.translate('auth.register.username') }}</label>
+        <input
+          id="username"
+          type="text"
+          pInputText
+          formControlName="username"
+          [class.p-invalid]="isFieldInvalid('username')"
+          fluid
+          aria-describedby="username-error"
+          aria-required="true"
+        />
+        @if (isFieldInvalid('username')) {
+          <p-message
+            id="username-error"
+            severity="error"
+            size="small"
+            variant="simple"
+            [text]="getFieldError('username')"
+          ></p-message>
+        }
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="email">{{ translateService.translate('auth.register.email') }}</label>
+        <input
+          id="email"
+          type="email"
+          pInputText
+          formControlName="email"
+          [class.p-invalid]="isFieldInvalid('email')"
+          fluid
+          aria-describedby="email-error"
+          aria-required="true"
+        />
+        @if (isFieldInvalid('email')) {
+          <p-message
+            id="email-error"
+            severity="error"
+            size="small"
+            variant="simple"
+            [text]="getFieldError('email')"
+          ></p-message>
+        }
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <div class="label-with-icon">
+          <label for="password">{{ translateService.translate('auth.register.password') }}</label>
+          <button
+            type="button"
+            class="password-toggle"
+            (click)="togglePasswordVisibility()"
+            [attr.aria-label]="translateService.translate('auth.register.togglePassword')"
+          >
+            <i [class]="showPassword() ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
+          </button>
+        </div>
+        <input
+          id="password"
+          [type]="showPassword() ? 'text' : 'password'"
+          pInputText
+          formControlName="password"
+          [class.p-invalid]="isFieldInvalid('password')"
+          fluid
+          aria-describedby="password-error"
+          aria-required="true"
+        />
+        @if (isFieldInvalid('password')) {
+          <p-message
+            id="password-error"
+            severity="error"
+            size="small"
+            variant="simple"
+            [text]="getFieldError('password')"
+          ></p-message>
+        }
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <div class="label-with-icon">
+          <label for="confirmPassword">{{
+            translateService.translate('auth.register.confirmPassword')
+          }}</label>
+          <button
+            type="button"
+            class="password-toggle"
+            (click)="toggleConfirmPasswordVisibility()"
+            [attr.aria-label]="translateService.translate('auth.register.togglePassword')"
+          >
+            <i [class]="showConfirmPassword() ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
+          </button>
+        </div>
+        <input
+          id="confirmPassword"
+          [type]="showConfirmPassword() ? 'text' : 'password'"
+          pInputText
+          formControlName="confirmPassword"
+          [class.p-invalid]="isFieldInvalid('confirmPassword')"
+          fluid
+          aria-describedby="confirmPassword-error"
+          aria-required="true"
+        />
+        @if (isFieldInvalid('confirmPassword')) {
+          <p-message
+            id="confirmPassword-error"
+            severity="error"
+            size="small"
+            variant="simple"
+            [text]="getFieldError('confirmPassword')"
+          ></p-message>
+        }
+      </div>
+
+      <p-button
+        type="submit"
+        [label]="translateService.translate('auth.register.submit')"
+        [disabled]="registerForm.invalid || isLoading()"
+        [loading]="isLoading()"
+      ></p-button>
+    </form>
+
+    <div class="auth-links">
+      <p>
+        {{ translateService.translate('auth.register.hasAccount') }}
+        <a routerLink="/auth/login">{{ translateService.translate('auth.register.loginLink') }}</a>
+      </p>
+      <p>
+        {{ translateService.translate('auth.register.or') }}
+        <a routerLink="/">{{ translateService.translate('auth.register.playAsGuest') }}</a>
+      </p>
+    </div>
+  </div>
+</div>
+

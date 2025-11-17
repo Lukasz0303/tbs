@@ -1,0 +1,107 @@
+<p-toast key="game-options" position="top-right"></p-toast>
+<section class="game-options">
+  <div class="game-options-card">
+    <h1>{{ translateService.translate('home.gameOptions.title') }}</h1>
+    
+    <div class="game-options-content">
+      <div class="options-section">
+        <h3>{{ translateService.translate('home.gameOptions.modeTitle') }}</h3>
+        <div class="game-mode-selection">
+          <button
+            type="button"
+            class="game-mode-btn"
+            [class.selected]="isGameModeSelected('easy')"
+            [attr.aria-label]="translateService.translate('home.gameMode.easy')"
+            [attr.aria-pressed]="isGameModeSelected('easy')"
+            (click)="selectGameMode('easy')"
+          >
+            {{ translateService.translate('home.gameMode.easy') }}
+          </button>
+          <button
+            type="button"
+            class="game-mode-btn"
+            [class.selected]="isGameModeSelected('medium')"
+            [attr.aria-label]="translateService.translate('home.gameMode.medium')"
+            [attr.aria-pressed]="isGameModeSelected('medium')"
+            (click)="selectGameMode('medium')"
+          >
+            {{ translateService.translate('home.gameMode.medium') }}
+          </button>
+          <button
+            type="button"
+            class="game-mode-btn"
+            [class.selected]="isGameModeSelected('hard')"
+            [attr.aria-label]="translateService.translate('home.gameMode.hard')"
+            [attr.aria-pressed]="isGameModeSelected('hard')"
+            (click)="selectGameMode('hard')"
+          >
+            {{ translateService.translate('home.gameMode.hard') }}
+          </button>
+          <button
+            type="button"
+            class="game-mode-btn"
+            [class.selected]="isGameModeSelected('pvp')"
+            [attr.aria-label]="translateService.translate('home.gameMode.pvp')"
+            [attr.aria-pressed]="isGameModeSelected('pvp')"
+            (click)="selectGameMode('pvp')"
+          >
+            {{ translateService.translate('home.gameMode.pvp') }}
+          </button>
+        </div>
+      </div>
+
+      <div class="options-section">
+        <h3>{{ translateService.translate('home.gameOptions.boardSizeTitle') }}</h3>
+        <div class="board-size-selection">
+          <button
+            type="button"
+            class="board-size-btn"
+            [class.selected]="isBoardSizeSelected(3)"
+            [attr.aria-label]="translateService.translate('home.boardSize.3x3')"
+            [attr.aria-pressed]="isBoardSizeSelected(3)"
+            (click)="selectBoardSize(3)"
+          >
+            {{ translateService.translate('home.boardSize.3x3') }}
+          </button>
+          <button
+            type="button"
+            class="board-size-btn"
+            [class.selected]="isBoardSizeSelected(4)"
+            [attr.aria-label]="translateService.translate('home.boardSize.4x4')"
+            [attr.aria-pressed]="isBoardSizeSelected(4)"
+            (click)="selectBoardSize(4)"
+          >
+            {{ translateService.translate('home.boardSize.4x4') }}
+          </button>
+          <button
+            type="button"
+            class="board-size-btn"
+            [class.selected]="isBoardSizeSelected(5)"
+            [attr.aria-label]="translateService.translate('home.boardSize.5x5')"
+            [attr.aria-pressed]="isBoardSizeSelected(5)"
+            (click)="selectBoardSize(5)"
+          >
+            {{ translateService.translate('home.boardSize.5x5') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="game-options-actions">
+      <p-button
+        [label]="translateService.translate('home.gameOptions.cancel')"
+        [text]="true"
+        severity="secondary"
+        (onClick)="onCancel()"
+        [disabled]="isStartingGame() || isCreatingGuestSession()"
+      ></p-button>
+      <p-button
+        [label]="translateService.translate('home.gameOptions.start')"
+        (onClick)="onStartGame()"
+        [loading]="isStartingGame() || isCreatingGuestSession()"
+        [disabled]="isStartingGame() || isCreatingGuestSession()"
+      ></p-button>
+    </div>
+  </div>
+</section>
+

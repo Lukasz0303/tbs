@@ -3,7 +3,6 @@ import { Observable, Subject, BehaviorSubject, throwError, EMPTY } from 'rxjs';
 import { catchError, filter, map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { WebSocketDTOs } from '../models/websocket.model';
-import { LoggerService } from './logger.service';
 
 @Injectable({ providedIn: 'root' })
 export class WebSocketService {
@@ -14,7 +13,6 @@ export class WebSocketService {
   private readonly maxReconnectAttempts = 20;
   private reconnectTimeout: number | null = null;
   private gameId: number | null = null;
-  private readonly logger = inject(LoggerService);
 
   readonly isConnected$ = this.connectionStatus$.asObservable();
 
@@ -48,7 +46,6 @@ export class WebSocketService {
 
         timeoutId = window.setTimeout(() => {
           if (this.ws?.readyState !== WebSocket.OPEN) {
-            this.logger.error('WebSocket connection timeout');
             if (this.ws) {
               this.ws.close();
             }
@@ -68,10 +65,14 @@ export class WebSocketService {
 
         this.ws.onmessage = (event) => {
           try {
-            const message = JSON.parse(event.data) as WebSocketDTOs.WebSocketMessage;
-            this.messages$.next(message);
+            const parsed = JSON.parse(event.data);
+            if (this.isValidWebSocketMessage(parsed)) {
+              this.messages$.next(parsed);
+            } else {
+              console.warn('Invalid WebSocket message format:', parsed);
+            }
           } catch (error) {
-            this.logger.error('Error parsing WebSocket message:', error);
+            console.error('Failed to parse WebSocket message:', error);
           }
         };
 
@@ -79,7 +80,6 @@ export class WebSocketService {
           if (timeoutId !== null) {
             clearTimeout(timeoutId);
           }
-          this.logger.error('WebSocket error:', error);
           observer.error(error);
         };
 
@@ -114,6 +114,16 @@ export class WebSocketService {
     this.connectionStatus$.next(false);
   }
 
+  private isValidWebSocketMessage(data: unknown): data is WebSocketDTOs.WebSocketMessage {
+    return (
+      typeof data === 'object' &&
+      data !== null &&
+      'type' in data &&
+      'payload' in data &&
+      typeof (data as { type: unknown }).type === 'string'
+    );
+  }
+
   sendMove(row: number, col: number, playerSymbol: 'x' | 'o'): Observable<void> {
     return new Observable((observer) => {
       if (this.ws?.readyState !== WebSocket.OPEN) {
@@ -134,7 +144,6 @@ export class WebSocketService {
         observer.next();
         observer.complete();
       } catch (error) {
-        this.logger.error('Error sending move via WebSocket:', error);
         observer.error(error);
       }
     });
@@ -156,7 +165,6 @@ export class WebSocketService {
         observer.next();
         observer.complete();
       } catch (error) {
-        this.logger.error('Error sending surrender via WebSocket:', error);
         observer.error(error);
       }
     });
@@ -168,7 +176,6 @@ export class WebSocketService {
 
   private handleReconnect(gameId: number, token: string): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      this.logger.error('Max reconnect attempts reached');
       this.messages$.error(new Error('Max reconnect attempts reached'));
       return;
     }
@@ -179,8 +186,7 @@ export class WebSocketService {
     this.reconnectTimeout = window.setTimeout(() => {
       this.connect(gameId, token)
         .pipe(
-          catchError((error) => {
-            this.logger.error('Reconnect failed:', error);
+          catchError(() => {
             this.handleReconnect(gameId, token);
             return EMPTY;
           })
