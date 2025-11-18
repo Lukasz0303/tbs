@@ -15,8 +15,9 @@ import { AuthService } from '../../../services/auth.service';
         </a>
         <nav class="flex items-center gap-4 text-sm">
           <a routerLink="/" class="text-white/90 hover:text-white">Menu</a>
-          <a [routerLink]="[{ outlets: { modal: ['polityka-prywatnosci'] } }]" class="text-white/80 hover:text-white">Polityka</a>
-          <a [routerLink]="[{ outlets: { modal: ['regulamin'] } }]" class="text-white/80 hover:text-white">Regulamin</a>
+          <a routerLink="/leaderboard" class="text-white/80 hover:text-white">Ranking</a>
+          <a routerLink="/polityka-prywatnosci" class="text-white/80 hover:text-white">Polityka</a>
+          <a routerLink="/regulamin" class="text-white/80 hover:text-white">Regulamin</a>
           @if (currentUser$ | async; as user) {
             <div class="flex items-center gap-2 ml-4 pl-4 border-l border-white/20">
               <span class="text-white/90">{{ user.isGuest ? 'Gość' : (user.username || user.email) }}</span>

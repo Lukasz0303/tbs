@@ -80,6 +80,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/login", "/api/v1/auth/register").permitAll()
                         .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/guests").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/rankings/**").permitAll()
                         .requestMatchers("/api/websocket/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-resources/**", "/webjars/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()

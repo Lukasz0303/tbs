@@ -26,6 +26,7 @@ import { MessageModule } from 'primeng/message';
 import { MessageService } from 'primeng/api';
 import { AuthService } from '../../services/auth.service';
 import { TranslateService } from '../../services/translate.service';
+import { LoggerService } from '../../services/logger.service';
 
 @Component({
   selector: 'app-auth-register',
@@ -50,6 +51,7 @@ export class AuthRegisterComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly messageService = inject(MessageService);
   readonly translateService = inject(TranslateService);
+  private readonly logger = inject(LoggerService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly cdr = inject(ChangeDetectorRef);
 
@@ -165,12 +167,13 @@ export class AuthRegisterComponent implements OnInit {
     });
   }
 
-  private handleValidationErrors(errors: any): void {
-    if (errors?.errors) {
-      Object.keys(errors.errors).forEach((key) => {
+  private handleValidationErrors(errors: unknown): void {
+    if (errors && typeof errors === 'object' && 'errors' in errors) {
+      const validationErrors = errors as { errors: Record<string, string> };
+      Object.keys(validationErrors.errors).forEach((key) => {
         const control = this.registerForm.get(key);
         if (control) {
-          control.setErrors({ serverError: errors.errors[key] });
+          control.setErrors({ serverError: validationErrors.errors[key] });
           control.markAsTouched();
         }
       });
