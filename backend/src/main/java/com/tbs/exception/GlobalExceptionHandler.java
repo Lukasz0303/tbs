@@ -5,10 +5,10 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -16,6 +16,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -23,8 +24,11 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
     
-    @Autowired(required = false)
-    private Environment environment;
+    private final Environment environment;
+
+    public GlobalExceptionHandler(Environment environment) {
+        this.environment = environment;
+    }
 
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ApiErrorResponse> handleUnauthorized(UnauthorizedException e) {
@@ -162,24 +166,70 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(RedisConnectionFailureException.class)
+    public ResponseEntity<ApiErrorResponse> handleRedisConnectionFailure(RedisConnectionFailureException e) {
+        log.warn("Redis connection failure: {}", e.getMessage());
+        boolean isProduction = isProductionEnvironment();
+        String errorMessage = isProduction 
+                ? "Cache service temporarily unavailable" 
+                : "Redis connection failure: " + e.getMessage();
+        
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ApiErrorResponse(
+                        new ApiErrorResponse.ErrorDetails(
+                                "CACHE_UNAVAILABLE",
+                                errorMessage,
+                                null
+                        )
+                ));
+    }
+
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ApiErrorResponse> handleDataAccessException(DataAccessException e) {
+        if (e instanceof RedisConnectionFailureException) {
+            return handleRedisConnectionFailure((RedisConnectionFailureException) e);
+        }
+        
         log.error("Database error occurred: {}", e.getMessage(), e);
+        
         Throwable cause = e.getCause();
+        String detailedMessage = e.getMessage();
+        boolean isRedisError = false;
         
         while (cause != null) {
             log.error("Root cause: {}", cause.getMessage(), cause);
             if (cause instanceof org.postgresql.util.PSQLException) {
+                org.postgresql.util.PSQLException psqlEx = (org.postgresql.util.PSQLException) cause;
+                if (psqlEx.getServerErrorMessage() != null) {
+                    detailedMessage = psqlEx.getServerErrorMessage().getMessage();
+                    String detail = psqlEx.getServerErrorMessage().getDetail();
+                    if (detail != null) {
+                        detailedMessage += " - " + detail;
+                    }
+                }
+                break;
+            }
+            if (cause instanceof io.lettuce.core.RedisConnectionException || 
+                cause.getClass().getName().contains("redis")) {
+                isRedisError = true;
                 break;
             }
             cause = cause.getCause();
         }
         
+        if (isRedisError) {
+            String message = Objects.requireNonNullElse(e.getMessage(), "Redis connection failure");
+            return handleRedisConnectionFailure(new RedisConnectionFailureException(message, e));
+        }
+        
+        boolean isProduction = isProductionEnvironment();
+        String errorMessage = isProduction ? "A database error occurred" : detailedMessage;
+        
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ApiErrorResponse(
                         new ApiErrorResponse.ErrorDetails(
                                 "INTERNAL_SERVER_ERROR",
-                                "A database error occurred",
+                                errorMessage,
                                 null
                         )
                 ));

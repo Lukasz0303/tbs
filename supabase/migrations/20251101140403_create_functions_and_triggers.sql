@@ -350,9 +350,12 @@ WHERE is_guest = false;
 comment on materialized view public.player_rankings is 'ranking graczy (tylko zarejestrowani) - pre-obliczona pozycja';
 
 -- indeksy dla materialized view
-create unique index idx_player_rankings_id on public.player_rankings (id);
-create index idx_player_rankings_points on public.player_rankings (total_points desc);
-create index idx_player_rankings_rank on public.player_rankings (rank_position);
+create unique index if not exists idx_player_rankings_id on public.player_rankings (id);
+create index if not exists idx_player_rankings_points on public.player_rankings (total_points desc);
+create index if not exists idx_player_rankings_rank on public.player_rankings (rank_position);
+
+-- początkowe odświeżenie materialized view (wymagane przed użyciem CONCURRENTLY)
+refresh materialized view public.player_rankings;
 
 -- refresh_player_rankings: odświeża materialized view (concurrently dla dostępności)
 create or replace function public.refresh_player_rankings()
@@ -361,7 +364,10 @@ language plpgsql
 as $$
 begin
     REFRESH MATERIALIZED VIEW CONCURRENTLY public.player_rankings;
-END;
+exception when others then
+    -- jeśli concurrent refresh nie działa (np. brak unikalnego indeksu), użyj normalnego refresh
+    REFRESH MATERIALIZED VIEW public.player_rankings;
+end;
 $$;
 
 comment on function public.refresh_player_rankings() is 'odświeża materialized view player_rankings (concurrently) - powinna być wywoływana co 5-15min przez spring scheduled job';

@@ -1,0 +1,61 @@
+<p-card class="user-rank-card">
+  <div class="user-rank-content">
+    <div class="user-rank-header">
+      <h3>{{ 'leaderboard.userRank.title' | translate }}</h3>
+      <span class="rank-badge">#{{ ranking().rankPosition }}</span>
+    </div>
+    
+    <div class="user-rank-stats">
+      <div class="stat-item">
+        <span class="stat-label">{{ 'leaderboard.userRank.points' | translate }}</span>
+        <span class="stat-value">{{ ranking().totalPoints }}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">{{ 'leaderboard.userRank.gamesPlayed' | translate }}</span>
+        <span class="stat-value">{{ ranking().gamesPlayed }}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">{{ 'leaderboard.userRank.gamesWon' | translate }}</span>
+        <span class="stat-value">{{ ranking().gamesWon }}</span>
+      </div>
+    </div>
+
+    <p-button
+      [label]="'leaderboard.userRank.showPlayersAround' | translate"
+      (onClick)="onShowPlayersAround()">
+    </p-button>
+
+    @if (showPlayersAround()) {
+      <div class="players-around-section">
+        @if (isLoading()) {
+          <div class="loading-container">
+            <p>{{ 'leaderboard.playersAround.loading' | translate }}</p>
+          </div>
+        } @else if (players().length === 0) {
+          <div class="empty-container">
+            <p>{{ 'leaderboard.playersAround.empty' | translate }}</p>
+          </div>
+        } @else {
+          <div class="players-list">
+            <h4 class="players-list-title">{{ 'leaderboard.playersAround.title' | translate }}</h4>
+            @for (player of players(); track player.userId) {
+              <div class="player-item">
+                <div class="player-info">
+                  <span class="player-rank">#{{ player.rankPosition }}</span>
+                  <span class="player-username">{{ player.username }}</span>
+                  <span class="player-points">{{ player.totalPoints }} {{ 'leaderboard.playersAround.points' | translate }}</span>
+                </div>
+                <p-button
+                  [label]="'leaderboard.challenge.button' | translate"
+                  size="small"
+                  (onClick)="onChallenge(player.userId)">
+                </p-button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+</p-card>
+

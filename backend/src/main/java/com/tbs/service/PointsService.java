@@ -14,36 +14,39 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class PointsService {
 
     private static final Logger log = LoggerFactory.getLogger(PointsService.class);
 
-    @Value("${app.points.easy-bot:100}")
-    private long pointsEasyBot;
-
-    @Value("${app.points.medium-bot:500}")
-    private long pointsMediumBot;
-
-    @Value("${app.points.hard-bot:1000}")
-    private long pointsHardBot;
-
-    @Value("${app.points.pvp:1000}")
-    private long pointsPvp;
-
-    @Value("${app.points.draw:100}")
-    private long pointsDraw;
+    private final long pointsEasyBot;
+    private final long pointsMediumBot;
+    private final long pointsHardBot;
+    private final long pointsPvp;
+    private final long pointsDraw;
 
     private final UserRepository userRepository;
     private final RankingService rankingService;
+    private final AtomicBoolean isRefreshing = new AtomicBoolean(false);
 
     public PointsService(
             UserRepository userRepository,
-            RankingService rankingService
+            RankingService rankingService,
+            @Value("${app.points.easy-bot:100}") long pointsEasyBot,
+            @Value("${app.points.medium-bot:500}") long pointsMediumBot,
+            @Value("${app.points.hard-bot:1000}") long pointsHardBot,
+            @Value("${app.points.pvp:1000}") long pointsPvp,
+            @Value("${app.points.draw:100}") long pointsDraw
     ) {
         this.userRepository = Objects.requireNonNull(userRepository, "UserRepository cannot be null");
         this.rankingService = Objects.requireNonNull(rankingService, "RankingService cannot be null");
+        this.pointsEasyBot = pointsEasyBot;
+        this.pointsMediumBot = pointsMediumBot;
+        this.pointsHardBot = pointsHardBot;
+        this.pointsPvp = pointsPvp;
+        this.pointsDraw = pointsDraw;
     }
 
     @Transactional
@@ -240,11 +243,18 @@ public class PointsService {
     @Async("rankingRefreshExecutor")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void refreshRankingsAsync() {
+        if (!isRefreshing.compareAndSet(false, true)) {
+            log.debug("Ranking refresh already in progress, skipping");
+            return;
+        }
+
         try {
             rankingService.refreshPlayerRankings();
             log.debug("Refreshed player_rankings materialized view asynchronously");
         } catch (Exception e) {
             log.error("Error refreshing player_rankings materialized view asynchronously", e);
+        } finally {
+            isRefreshing.set(false);
         }
     }
 }

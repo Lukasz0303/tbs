@@ -21,6 +21,18 @@
     font-size: 1rem !important;
     transition: border-color 0.2s ease !important;
   }
+
+  .p-paginator-rpp-options .p-inputtext,
+  .p-paginator-rpp-options .p-dropdown-label,
+  .p-paginator-rpp-options span.p-inputtext,
+  .p-paginator-rpp-options span.p-dropdown-label {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: #eaf2ff !important;
+    border: none !important;
+    width: auto !important;
+    display: inline-block !important;
+  }
   
   input[pInputText]:focus,
   .p-inputtext:focus {

@@ -1,0 +1,68 @@
+<div class="leaderboard-container">
+  <div class="leaderboard-header">
+    <h2>{{ 'leaderboard.title' | translate }}</h2>
+    <p>{{ 'leaderboard.subtitle' | translate }}</p>
+  </div>
+
+  @if (userRanking(); as ranking) {
+    <app-user-rank-card
+      [ranking]="ranking"
+      (challenge)="onChallengePlayer($event)">
+    </app-user-rank-card>
+  }
+
+  <div class="leaderboard-table-container">
+    <p-table
+      [value]="rankings()"
+      [paginator]="true"
+      [rows]="pageSize"
+      [totalRecords]="totalRecords()"
+      [lazy]="true"
+      (onLazyLoad)="onLazyLoad($event)"
+      [loading]="isLoading()"
+      [rowsPerPageOptions]="[25, 50, 100]"
+      styleClass="leaderboard-table">
+      
+      <ng-template pTemplate="header">
+        <tr>
+          <th>{{ 'leaderboard.table.position' | translate }}</th>
+          <th>{{ 'leaderboard.table.username' | translate }}</th>
+          <th>{{ 'leaderboard.table.points' | translate }}</th>
+          <th>{{ 'leaderboard.table.gamesPlayed' | translate }}</th>
+          <th>{{ 'leaderboard.table.gamesWon' | translate }}</th>
+          <th>{{ 'leaderboard.table.actions' | translate }}</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-ranking>
+        <tr [class.current-user]="isCurrentUser(ranking.userId)">
+          <td>{{ ranking.rankPosition }}</td>
+          <td>{{ ranking.username }}</td>
+          <td>{{ ranking.totalPoints }}</td>
+          <td>{{ ranking.gamesPlayed }}</td>
+          <td>{{ ranking.gamesWon }}</td>
+          <td>
+            <p-button
+              [label]="'leaderboard.challenge.button' | translate"
+              size="small"
+              (onClick)="onChallengePlayer(ranking.userId)"
+              [disabled]="isCurrentUser(ranking.userId) || isChallenging()">
+            </p-button>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="6" class="text-center">
+            {{ 'leaderboard.table.empty' | translate }}
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+</div>
+
+<p-toast></p-toast>
+

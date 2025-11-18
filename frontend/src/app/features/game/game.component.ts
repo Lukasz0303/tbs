@@ -449,7 +449,9 @@ export class GameComponent implements OnInit, OnDestroy {
 
   private handleMoveResponse(game: Game): void {
     if (game.status === 'finished' || game.status === 'draw') {
-      this.showResult.set(true);
+      setTimeout(() => {
+        this.showResult.set(true);
+      }, 400);
       
       let detail = '';
       let summary = '';
@@ -509,7 +511,9 @@ export class GameComponent implements OnInit, OnDestroy {
       case 'GAME_ENDED':
         if (this.isGameEndedPayload(message.payload)) {
           this.updateGameFromPayload(message.payload);
-          this.showResult.set(true);
+          setTimeout(() => {
+            this.showResult.set(true);
+          }, 400);
         }
         break;
     }
@@ -608,7 +612,9 @@ export class GameComponent implements OnInit, OnDestroy {
 
   private handleGameStatusChange(game: Game): void {
     if (game.status === 'finished' || game.status === 'draw' || game.status === 'abandoned') {
-      this.showResult.set(true);
+      setTimeout(() => {
+        this.showResult.set(true);
+      }, 400);
     }
   }
 

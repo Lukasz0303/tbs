@@ -1,0 +1,42 @@
+.loading-container,
+.empty-container {
+  text-align: center;
+  padding: 2rem;
+}
+
+.players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  .player-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border: 1px solid var(--surface-border);
+    border-radius: var(--border-radius);
+
+    .player-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+
+      .player-rank {
+        font-weight: bold;
+        color: var(--primary-color);
+        min-width: 3rem;
+      }
+
+      .player-username {
+        font-weight: 500;
+        min-width: 10rem;
+      }
+
+      .player-points {
+        color: var(--text-color-secondary);
+      }
+    }
+  }
+}
+

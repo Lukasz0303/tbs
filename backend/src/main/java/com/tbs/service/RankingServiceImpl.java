@@ -14,14 +14,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,9 +43,21 @@ public class RankingServiceImpl implements RankingService {
     }
 
     @Override
-    @Cacheable(value = "rankings", key = "'rankings_' + #pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#startRank != null ? #startRank : 'null')")
+    @Cacheable(value = "rankings", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + (#startRank != null ? #startRank : 'null')", unless = "#result == null")
     public RankingListResponse getRankings(Pageable pageable, Integer startRank) {
-        log.debug("Fetching rankings with pageable: {}, startRank: {}", pageable, startRank);
+        try {
+            log.debug("Fetching rankings with pageable: {}, startRank: {}", pageable, startRank);
+            return getRankingsInternal(pageable, startRank);
+        } catch (DataAccessException e) {
+            log.error("Database error while fetching rankings: {}", e.getMessage(), e);
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error while fetching rankings: {}", e.getMessage(), e);
+            throw new IllegalStateException("Failed to fetch rankings: " + e.getMessage(), e);
+        }
+    }
+
+    private RankingListResponse getRankingsInternal(Pageable pageable, Integer startRank) {
 
         if (pageable.getPageSize() <= 0 || pageable.getPageSize() > MAX_PAGE_SIZE) {
             throw new IllegalArgumentException(
@@ -54,7 +67,19 @@ public class RankingServiceImpl implements RankingService {
 
         List<RankingItem> items;
         long totalCount = rankingRepository.countAll();
-        int totalPages = (int) Math.ceil((double) totalCount / pageable.getPageSize());
+        int totalPages = totalCount > 0 ? (int) Math.ceil((double) totalCount / pageable.getPageSize()) : 0;
+
+        if (totalCount == 0) {
+            return new RankingListResponse(
+                    List.of(),
+                    0L,
+                    0,
+                    pageable.getPageSize(),
+                    pageable.getPageNumber(),
+                    true,
+                    true
+            );
+        }
 
         if (startRank != null && startRank > 0) {
             if (startRank > totalCount) {
@@ -84,10 +109,25 @@ public class RankingServiceImpl implements RankingService {
     }
 
     @Override
-    @Cacheable(value = "rankingDetail", key = "#userId")
+    @Cacheable(value = "rankingDetail", key = "#userId", unless = "#result == null")
     public RankingDetailResponse getUserRanking(Long userId) {
-        log.debug("Fetching ranking details for userId: {}", userId);
+        try {
+            log.debug("Fetching ranking details for userId: {}", userId);
+            return getUserRankingInternal(userId);
+        } catch (DataAccessException e) {
+            log.error("Database error while fetching user ranking for userId {}: {}", userId, e.getMessage(), e);
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error while fetching user ranking for userId {}: {}", userId, e.getMessage(), e);
+            throw new IllegalStateException("Failed to fetch user ranking: " + e.getMessage(), e);
+        }
+    }
 
+    private RankingDetailResponse getUserRankingInternal(Long userId) {
+
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
 
@@ -107,10 +147,32 @@ public class RankingServiceImpl implements RankingService {
     }
 
     @Override
-    @Cacheable(value = "rankingsAround", key = "#userId + '_' + #range")
+    @Cacheable(value = "rankingsAround", key = "#userId + '_' + #range", unless = "#result == null")
     public RankingAroundResponse getRankingsAround(Long userId, Integer range) {
-        log.debug("Fetching rankings around userId: {} with range: {}", userId, range);
+        try {
+            log.debug("Fetching rankings around userId: {} with range: {}", userId, range);
+            return getRankingsAroundInternal(userId, range);
+        } catch (DataAccessException e) {
+            log.error("Database error while fetching rankings around userId {}: {}", userId, e.getMessage(), e);
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error while fetching rankings around userId {}: {}", userId, e.getMessage(), e);
+            throw new IllegalStateException("Failed to fetch rankings around user: " + e.getMessage(), e);
+        }
+    }
 
+    private RankingAroundResponse getRankingsAroundInternal(Long userId, Integer range) {
+
+        if (range == null) {
+            range = 5;
+        }
+        if (range < 1 || range > 10) {
+            throw new IllegalArgumentException("Range must be between 1 and 10");
+        }
+
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
 
@@ -119,22 +181,21 @@ public class RankingServiceImpl implements RankingService {
             throw new UserNotInRankingException("Guest users are not included in rankings");
         }
 
-        List<Object[]> results = rankingRepository.findRankingsAroundUserRaw(userId, range);
-        if (results.isEmpty()) {
-            log.warn("Rankings around user not found for userId: {}", userId);
-            throw new UserNotInRankingException("Ranking not found for user with id: " + userId);
+        List<Object[]> userRanking = rankingRepository.findByUserIdRaw(userId);
+        if (userRanking.isEmpty()) {
+            throw new UserNotInRankingException("User is not in ranking");
         }
 
+        List<Object[]> results = rankingRepository.findRankingsAroundUserRaw(userId, range);
+        
         List<RankingAroundItem> items = results.stream()
                 .map(this::mapToRankingAroundItem)
                 .collect(Collectors.toUnmodifiableList());
 
-        boolean userFound = items.stream()
-                .anyMatch(item -> Objects.equals(item.userId(), userId));
-
-        if (!userFound) {
-            log.warn("User rank position not found in results for userId: {}", userId);
-            throw new UserNotInRankingException("Ranking position not found for user with id: " + userId);
+        if (items.isEmpty()) {
+            log.debug("No players found around user for userId: {} with range: {}", userId, range);
+        } else {
+            log.debug("Found {} players around user for userId: {} with range: {}", items.size(), userId, range);
         }
 
         return new RankingAroundResponse(items);
@@ -142,40 +203,55 @@ public class RankingServiceImpl implements RankingService {
 
     private RankingItem mapToRankingItem(Object[] row) {
         validateRow(row, RANKING_ITEM_COLUMNS, "RankingItem");
-        return new RankingItem(
-                getLongValue(row[0], "rankPosition"),
-                getLongValue(row[1], "userId"),
-                getStringValue(row[2], "username"),
-                getLongValue(row[3], "totalPoints"),
-                getIntValue(row[4], "gamesPlayed"),
-                getIntValue(row[5], "gamesWon"),
-                mapTimestampToInstant(row[6])
-        );
+        try {
+            return new RankingItem(
+                    getLongValue(row[0], "rankPosition"),
+                    getLongValue(row[1], "userId"),
+                    getStringValue(row[2], "username"),
+                    getLongValue(row[3], "totalPoints"),
+                    getIntValue(row[4], "gamesPlayed"),
+                    getIntValue(row[5], "gamesWon"),
+                    mapTimestampToInstant(row[6])
+            );
+        } catch (IllegalStateException e) {
+            log.error("Failed to map ranking item. Row data: {}", Arrays.toString(row), e);
+            throw e;
+        }
     }
 
     private RankingDetailResponse mapToRankingDetailResponse(Object[] row) {
         validateRow(row, RANKING_ITEM_COLUMNS, "RankingDetailResponse");
-        return new RankingDetailResponse(
-                getLongValue(row[0], "rankPosition"),
-                getLongValue(row[1], "userId"),
-                getStringValue(row[2], "username"),
-                getLongValue(row[3], "totalPoints"),
-                getIntValue(row[4], "gamesPlayed"),
-                getIntValue(row[5], "gamesWon"),
-                mapTimestampToInstant(row[6])
-        );
+        try {
+            return new RankingDetailResponse(
+                    getLongValue(row[0], "rankPosition"),
+                    getLongValue(row[1], "userId"),
+                    getStringValue(row[2], "username"),
+                    getLongValue(row[3], "totalPoints"),
+                    getIntValue(row[4], "gamesPlayed"),
+                    getIntValue(row[5], "gamesWon"),
+                    mapTimestampToInstant(row[6])
+            );
+        } catch (IllegalStateException e) {
+            log.error("Failed to map ranking detail response. Row data: {}", Arrays.toString(row), e);
+            throw e;
+        }
     }
 
     private RankingAroundItem mapToRankingAroundItem(Object[] row) {
         validateRow(row, RANKING_AROUND_ITEM_COLUMNS, "RankingAroundItem");
-        return new RankingAroundItem(
-                getLongValue(row[0], "rankPosition"),
-                getLongValue(row[1], "userId"),
-                getStringValue(row[2], "username"),
-                getLongValue(row[3], "totalPoints"),
-                getIntValue(row[4], "gamesPlayed"),
-                getIntValue(row[5], "gamesWon")
-        );
+        try {
+            return new RankingAroundItem(
+                    getLongValue(row[0], "rankPosition"),
+                    getLongValue(row[1], "userId"),
+                    getStringValue(row[2], "username"),
+                    getLongValue(row[3], "totalPoints"),
+                    getIntValue(row[4], "gamesPlayed"),
+                    getIntValue(row[5], "gamesWon")
+            );
+        } catch (IllegalStateException e) {
+            log.error("Failed to map ranking around item. Row data: {}", Arrays.toString(row), e);
+            throw e;
+        }
     }
 
     private void validateRow(Object[] row, int expectedLength, String context) {
@@ -223,15 +299,53 @@ public class RankingServiceImpl implements RankingService {
     @Transactional
     @CacheEvict(value = {"rankings", "rankingDetail", "rankingsAround"}, allEntries = true)
     public void refreshPlayerRankings() {
-        log.debug("Refreshing player_rankings materialized view");
-        rankingRepository.refreshPlayerRankings();
-        log.info("Successfully refreshed player_rankings materialized view");
+        try {
+            log.debug("Refreshing player_rankings materialized view");
+            rankingRepository.refreshPlayerRankings();
+            log.info("Successfully refreshed player_rankings materialized view");
+        } catch (DataAccessException e) {
+            log.error("Database error while refreshing player_rankings materialized view: {}", e.getMessage(), e);
+            Throwable cause = e.getCause();
+            while (cause != null) {
+                if (cause instanceof org.postgresql.util.PSQLException) {
+                    org.postgresql.util.PSQLException psqlEx = (org.postgresql.util.PSQLException) cause;
+                    String errorMessage = psqlEx.getServerErrorMessage() != null 
+                            ? psqlEx.getServerErrorMessage().getMessage() 
+                            : psqlEx.getMessage();
+                    log.error("PostgreSQL error: {}", errorMessage);
+                    throw new IllegalStateException("Failed to refresh player_rankings materialized view: " + errorMessage, e);
+                }
+                cause = cause.getCause();
+            }
+            throw new IllegalStateException("Failed to refresh player_rankings materialized view: " + e.getMessage(), e);
+        } catch (org.springframework.data.redis.RedisConnectionFailureException e) {
+            log.warn("Redis unavailable during cache evict, continuing without cache: {}", e.getMessage());
+        } catch (Exception e) {
+            if (e.getCause() instanceof org.springframework.data.redis.RedisConnectionFailureException ||
+                e.getCause() != null && e.getCause().getClass().getName().contains("redis")) {
+                log.warn("Redis unavailable during cache evict, continuing without cache: {}", e.getMessage());
+                return;
+            }
+            log.error("Unexpected error while refreshing player_rankings materialized view: {}", e.getMessage(), e);
+            throw new IllegalStateException("Failed to refresh player_rankings materialized view: " + e.getMessage(), e);
+        }
     }
 
     @Override
     @CacheEvict(value = {"rankings", "rankingDetail", "rankingsAround"}, allEntries = true)
     public void clearRankingsCache() {
-        log.info("Clearing all rankings cache");
+        try {
+            log.info("Clearing all rankings cache");
+        } catch (org.springframework.data.redis.RedisConnectionFailureException e) {
+            log.warn("Redis unavailable during cache evict, continuing without cache: {}", e.getMessage());
+        } catch (Exception e) {
+            if (e.getCause() instanceof org.springframework.data.redis.RedisConnectionFailureException ||
+                e.getCause() != null && e.getCause().getClass().getName().contains("redis")) {
+                log.warn("Redis unavailable during cache evict, continuing without cache: {}", e.getMessage());
+            } else {
+                log.warn("Error clearing cache (non-critical): {}", e.getMessage());
+            }
+        }
     }
 
     private Instant mapTimestampToInstant(Object timestamp) {

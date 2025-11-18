@@ -7,6 +7,7 @@ import { MessageService } from 'primeng/api';
 import { TranslateService } from '../../services/translate.service';
 import { AuthService } from '../../services/auth.service';
 import { GameService } from '../../services/game.service';
+import { LoggerService } from '../../services/logger.service';
 import { Game } from '../../models/game.model';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DestroyRef } from '@angular/core';
@@ -27,6 +28,7 @@ export class HomeComponent implements OnInit {
   private readonly gameService = inject(GameService);
   readonly translateService = inject(TranslateService);
   private readonly messageService = inject(MessageService);
+  private readonly logger = inject(LoggerService);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly currentUser$ = this.authService.getCurrentUser();
@@ -79,7 +81,7 @@ export class HomeComponent implements OnInit {
   }
 
   startNewGame(): void {
-    this.router.navigate(['/game-options']).catch((error) => {
+    this.router.navigate(['/game-options'], { queryParams: { new: true } }).catch((error) => {
       this.notifyError('home.error.navigation');
       this.handleError(error);
     });
@@ -115,7 +117,7 @@ export class HomeComponent implements OnInit {
   }
 
   private handleError(error: unknown): void {
-    console.error('Error in HomeComponent:', error);
+    this.logger.error('Error in HomeComponent:', error);
   }
 
   private notifyError(messageKey: string): void {

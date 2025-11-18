@@ -43,7 +43,6 @@ export const routes: Routes = [
       { path: 'leaderboard', component: LeaderboardComponent },
       {
         path: 'polityka-prywatnosci',
-        outlet: 'modal',
         loadComponent: () =>
           import('./features/legal/privacy-policy.component').then(
             (m) => m.PrivacyPolicyComponent,
@@ -51,7 +50,6 @@ export const routes: Routes = [
       },
       {
         path: 'regulamin',
-        outlet: 'modal',
         loadComponent: () =>
           import('./features/legal/terms-of-service.component').then(
             (m) => m.TermsOfServiceComponent,

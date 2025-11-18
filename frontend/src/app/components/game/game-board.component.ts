@@ -29,7 +29,7 @@ export class GameBoardComponent {
   constructor() {
     this.clickSubject
       .pipe(
-        debounceTime(300),
+        debounceTime(50),
         distinctUntilChanged(),
         takeUntilDestroyed(this.destroyRef)
       )

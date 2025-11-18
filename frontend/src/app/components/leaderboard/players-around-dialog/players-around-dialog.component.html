@@ -1,0 +1,39 @@
+<p-dialog
+  [visible]="visible()"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [header]="'leaderboard.playersAround.title' | translate"
+  (onHide)="onClose()"
+  [style]="{ width: '90vw', maxWidth: '600px' }"
+  [styleClass]="'players-around-dialog'">
+  
+  @if (isLoading()) {
+    <div class="loading-container">
+      <p>{{ 'leaderboard.playersAround.loading' | translate }}</p>
+    </div>
+  } @else if (players().length === 0) {
+    <div class="empty-container">
+      <p>{{ 'leaderboard.playersAround.empty' | translate }}</p>
+    </div>
+  } @else {
+    <div class="players-list">
+      @for (player of players(); track player.userId) {
+        <div class="player-item">
+          <div class="player-info">
+            <span class="player-rank">#{{ player.rankPosition }}</span>
+            <span class="player-username">{{ player.username }}</span>
+            <span class="player-points">{{ player.totalPoints }} {{ 'leaderboard.playersAround.points' | translate }}</span>
+          </div>
+          <p-button
+            [label]="'leaderboard.challenge.button' | translate"
+            size="small"
+            (onClick)="onChallenge(player.userId)">
+          </p-button>
+        </div>
+      }
+    </div>
+  }
+</p-dialog>
+

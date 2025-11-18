@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { take, switchMap, of, throwError, delay, EMPTY, tap, catchError, finalize, Observable } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -10,6 +10,7 @@ import { MessageService } from 'primeng/api';
 import { AuthService } from '../../services/auth.service';
 import { TranslateService } from '../../services/translate.service';
 import { GameService } from '../../services/game.service';
+import { LoggerService } from '../../services/logger.service';
 import { BotDifficulty, Game } from '../../models/game.model';
 
 type GameMode = BotDifficulty | 'pvp';
@@ -30,8 +31,10 @@ const VALID_BOARD_SIZES: readonly BoardSize[] = [3, 4, 5] as const;
 export class GameOptionsComponent {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   readonly translateService = inject(TranslateService);
   private readonly messageService = inject(MessageService);
+  private readonly logger = inject(LoggerService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly gameService = inject(GameService);
 
@@ -141,6 +144,18 @@ export class GameOptionsComponent {
       return;
     }
     
+    const shouldCreateNew = this.route.snapshot.queryParams['new'] === 'true';
+    
+    if (shouldCreateNew) {
+      this.createGame(selectedMode, selectedSize)
+        .pipe(
+          catchError((error) => this.handleGameCreationError(error, selectedMode, selectedSize)),
+          takeUntilDestroyed(this.destroyRef)
+        )
+        .subscribe();
+      return;
+    }
+    
     this.gameService
       .getSavedGame()
       .pipe(
@@ -172,7 +187,7 @@ export class GameOptionsComponent {
     );
   }
 
-  private handleGameCreationError(error: unknown, selectedMode: GameMode, selectedSize: BoardSize): Observable<never> {
+  private handleGameCreationError(error: unknown, selectedMode: GameMode, selectedSize: BoardSize): Observable<Game> {
     this.isStartingGame.set(false);
     
     if (this.isConnectionError(error)) {
@@ -220,7 +235,7 @@ export class GameOptionsComponent {
   }
 
   private handleError(error: unknown): void {
-    console.error('Error in GameOptionsComponent:', error);
+    this.logger.error('Error in GameOptionsComponent:', error);
   }
 
   private notifyError(messageKey: string): void {

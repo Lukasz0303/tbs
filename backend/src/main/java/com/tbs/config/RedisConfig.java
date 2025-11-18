@@ -3,6 +3,7 @@ package com.tbs.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,7 +19,12 @@ import java.time.Duration;
 
 @Configuration
 @EnableCaching
-public class RedisConfig {
+public class RedisConfig implements CachingConfigurer {
+
+    @Override
+    public org.springframework.cache.interceptor.CacheErrorHandler errorHandler() {
+        return new com.tbs.config.CacheErrorHandler();
+    }
 
     @Bean
     public RedisTemplate<String, String> redisTemplate(RedisConnectionFactory connectionFactory) {
@@ -37,6 +43,11 @@ public class RedisConfig {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        objectMapper.activateDefaultTyping(
+                objectMapper.getPolymorphicTypeValidator(),
+                com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping.JAVA_LANG_OBJECT,
+                com.fasterxml.jackson.annotation.JsonTypeInfo.As.PROPERTY
+        );
         return new GenericJackson2JsonRedisSerializer(objectMapper);
     }
 
@@ -71,6 +82,7 @@ public class RedisConfig {
                 .withCacheConfiguration("rankings", rankingsConfig)
                 .withCacheConfiguration("rankingDetail", rankingsConfig)
                 .withCacheConfiguration("rankingsAround", rankingsConfig)
+                .transactionAware()
                 .build();
     }
 }

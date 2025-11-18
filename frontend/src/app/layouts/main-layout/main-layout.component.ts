@@ -13,7 +13,6 @@ import { LoaderComponent } from '../../components/ui/loader/loader.component';
     <main class="mx-auto max-w-5xl px-4 py-6">
       <router-outlet />
     </main>
-    <router-outlet name="modal"></router-outlet>
     <footer class="mt-8">
       <div class="w-full border-t border-white/20 bg-slate-900/40 text-white/90 backdrop-blur supports-[backdrop-filter]:backdrop-blur">
         <div class="mx-auto max-w-7xl px-4 py-5">
@@ -22,9 +21,9 @@ import { LoaderComponent } from '../../components/ui/loader/loader.component';
               © {{ currentYear }} World at War
             </div>
             <div class="order-1 flex items-center gap-4">
-              <a class="transition-colors hover:text-white" [routerLink]="[{ outlets: { modal: ['polityka-prywatnosci'] } }]">Polityka prywatności</a>
+              <a class="transition-colors hover:text-white" routerLink="/polityka-prywatnosci">Polityka prywatności</a>
               <span class="h-3 w-px bg-white/30"></span>
-              <a class="transition-colors hover:text-white" [routerLink]="[{ outlets: { modal: ['regulamin'] } }]">Regulamin</a>
+              <a class="transition-colors hover:text-white" routerLink="/regulamin">Regulamin</a>
             </div>
           </div>
         </div>

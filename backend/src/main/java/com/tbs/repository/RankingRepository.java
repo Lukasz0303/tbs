@@ -9,5 +9,6 @@ public interface RankingRepository {
     List<Object[]> findByUserIdRaw(Long userId);
     List<Object[]> findRankingsAroundUserRaw(Long userId, int range);
     long countAll();
+    long getMaxRankPosition();
     void refreshPlayerRankings();
 }

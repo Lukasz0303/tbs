@@ -1,11 +1,10 @@
 package com.tbs.service;
 
-import com.tbs.dto.ranking.RankingAroundItem;
 import com.tbs.dto.ranking.RankingAroundResponse;
 import com.tbs.dto.ranking.RankingDetailResponse;
-import com.tbs.dto.ranking.RankingItem;
 import com.tbs.dto.ranking.RankingListResponse;
 import com.tbs.exception.UserNotFoundException;
+import com.tbs.exception.UserNotInRankingException;
 import com.tbs.model.User;
 import com.tbs.repository.RankingRepository;
 import com.tbs.repository.UserRepository;
@@ -118,7 +117,7 @@ class RankingServiceImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(guestUser));
 
         assertThatThrownBy(() -> rankingService.getUserRanking(userId))
-                .isInstanceOf(UserNotFoundException.class)
+                .isInstanceOf(UserNotInRankingException.class)
                 .hasMessageContaining("Guest users are not included in rankings");
         
         verify(userRepository, times(1)).findById(userId);
@@ -147,7 +146,7 @@ class RankingServiceImplTest {
         when(rankingRepository.findByUserIdRaw(userId)).thenReturn(new ArrayList<>());
 
         assertThatThrownBy(() -> rankingService.getUserRanking(userId))
-                .isInstanceOf(UserNotFoundException.class)
+                .isInstanceOf(UserNotInRankingException.class)
                 .hasMessageContaining("Ranking not found for user with id: " + userId);
         
         verify(rankingRepository, times(1)).findByUserIdRaw(userId);
@@ -160,16 +159,15 @@ class RankingServiceImplTest {
         List<Object[]> mockResults = createMockRankingsAroundResults(userId, range);
         
         when(userRepository.findById(userId)).thenReturn(Optional.of(registeredUser));
+        when(rankingRepository.findByUserIdRaw(userId)).thenReturn(createMockRankingDetailResult(userId));
         when(rankingRepository.findRankingsAroundUserRaw(userId, range)).thenReturn(mockResults);
 
         RankingAroundResponse response = rankingService.getRankingsAround(userId, range);
 
         assertThat(response).isNotNull();
         assertThat(response.items()).isNotEmpty();
-        boolean userFound = response.items().stream()
-                .anyMatch(item -> item.userId() == userId);
-        assertThat(userFound).isTrue();
         verify(userRepository, times(1)).findById(userId);
+        verify(rankingRepository, times(1)).findByUserIdRaw(userId);
         verify(rankingRepository, times(1)).findRankingsAroundUserRaw(userId, range);
     }
 
@@ -181,7 +179,7 @@ class RankingServiceImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(guestUser));
 
         assertThatThrownBy(() -> rankingService.getRankingsAround(userId, range))
-                .isInstanceOf(UserNotFoundException.class)
+                .isInstanceOf(UserNotInRankingException.class)
                 .hasMessageContaining("Guest users are not included in rankings");
         
         verify(userRepository, times(1)).findById(userId);
@@ -204,32 +202,37 @@ class RankingServiceImplTest {
     }
 
     @Test
-    void getRankingsAround_shouldThrowExceptionWhenRankingsNotFound() {
+    void getRankingsAround_shouldReturnEmptyListWhenNoPlayersAround() {
         Long userId = 1L;
         Integer range = 5;
         
         when(userRepository.findById(userId)).thenReturn(Optional.of(registeredUser));
+        when(rankingRepository.findByUserIdRaw(userId)).thenReturn(createMockRankingDetailResult(userId));
         when(rankingRepository.findRankingsAroundUserRaw(userId, range)).thenReturn(new ArrayList<>());
 
-        assertThatThrownBy(() -> rankingService.getRankingsAround(userId, range))
-                .isInstanceOf(UserNotFoundException.class)
-                .hasMessageContaining("Ranking not found for user with id: " + userId);
+        RankingAroundResponse response = rankingService.getRankingsAround(userId, range);
         
+        assertThat(response).isNotNull();
+        assertThat(response.items()).isEmpty();
+        
+        verify(rankingRepository, times(1)).findByUserIdRaw(userId);
         verify(rankingRepository, times(1)).findRankingsAroundUserRaw(userId, range);
     }
 
     @Test
-    void getRankingsAround_shouldThrowExceptionWhenUserNotInResults() {
+    void getRankingsAround_shouldThrowExceptionWhenUserNotInRanking() {
         Long userId = 1L;
         Integer range = 5;
-        List<Object[]> mockResults = createMockRankingsAroundResults(999L, range);
         
         when(userRepository.findById(userId)).thenReturn(Optional.of(registeredUser));
-        when(rankingRepository.findRankingsAroundUserRaw(userId, range)).thenReturn(mockResults);
+        when(rankingRepository.findByUserIdRaw(userId)).thenReturn(new ArrayList<>());
 
         assertThatThrownBy(() -> rankingService.getRankingsAround(userId, range))
-                .isInstanceOf(UserNotFoundException.class)
-                .hasMessageContaining("Ranking position not found for user with id: " + userId);
+                .isInstanceOf(UserNotInRankingException.class)
+                .hasMessageContaining("User is not in ranking");
+        
+        verify(rankingRepository, times(1)).findByUserIdRaw(userId);
+        verify(rankingRepository, never()).findRankingsAroundUserRaw(anyLong(), anyInt());
     }
 
     private List<Object[]> createMockRankingResults(int count) {
