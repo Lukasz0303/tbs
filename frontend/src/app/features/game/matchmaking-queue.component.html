@@ -1,0 +1,98 @@
+<p-toast position="top-right"></p-toast>
+
+<div class="matchmaking-queue-wrapper">
+  <div class="matchmaking-queue-card">
+    <div class="matchmaking-queue-container">
+      <div class="matchmaking-queue-header">
+        <h1>{{ translateService.translate('queue.title') }}</h1>
+        <p class="subtitle">{{ translateService.translate('queue.subtitle') }}</p>
+      </div>
+
+      <div class="queue-filters">
+        <p-button
+          [label]="translateService.translate('queue.allSizes')"
+          [severity]="selectedBoardSize() === null ? 'primary' : 'secondary'"
+          (onClick)="selectBoardSize(null)"
+        ></p-button>
+        <p-button
+          label="3x3"
+          [severity]="selectedBoardSize() === 3 ? 'primary' : 'secondary'"
+          (onClick)="selectBoardSize(3)"
+        ></p-button>
+        <p-button
+          label="4x4"
+          [severity]="selectedBoardSize() === 4 ? 'primary' : 'secondary'"
+          (onClick)="selectBoardSize(4)"
+        ></p-button>
+        <p-button
+          label="5x5"
+          [severity]="selectedBoardSize() === 5 ? 'primary' : 'secondary'"
+          (onClick)="selectBoardSize(5)"
+        ></p-button>
+      </div>
+
+      @if (isLoading()) {
+        <div class="loading-container">
+          <p-progressSpinner [style]="{ width: '50px', height: '50px' }"></p-progressSpinner>
+        </div>
+      } @else {
+        @if (queueStatus() && queueStatus()!.totalCount > 0) {
+          <div class="queue-stats">
+            <p>{{ translateService.translate('queue.totalPlayers') }}: <strong>{{ queueStatus()!.totalCount }}</strong></p>
+          </div>
+
+          <div class="queue-table-wrapper">
+            <table class="queue-table">
+              <thead>
+                <tr>
+                  <th>{{ translateService.translate('queue.table.username') }}</th>
+                  <th>{{ translateService.translate('queue.table.status') }}</th>
+                  <th>{{ translateService.translate('queue.table.boardSize') }}</th>
+                  <th>{{ translateService.translate('queue.table.actions') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (player of queueStatus()!.players; track player.userId) {
+                  <tr>
+                    <td class="username-cell">{{ player.username }}</td>
+                    <td class="status-cell">
+                      <p-tag
+                        [value]="translateService.translate(getStatusLabel(player.status))"
+                        [severity]="getStatusSeverity(player.status)"
+                      ></p-tag>
+                    </td>
+                    <td class="board-size-cell">{{ getBoardSizeLabel(player.boardSize) }}</td>
+                    <td class="actions-cell">
+                      @if (canJoinGame(player)) {
+                        <button
+                          type="button"
+                          class="join-game-btn"
+                          (click)="joinGame(player)"
+                          [disabled]="isJoining()"
+                          [attr.aria-label]="translateService.translate('queue.join') + ' ' + player.username"
+                        >
+                          @if (isJoining()) {
+                            <span class="btn-loading">{{ translateService.translate('queue.join') }}...</span>
+                          } @else {
+                            {{ translateService.translate('queue.join') }}
+                          }
+                        </button>
+                      } @else {
+                        <span class="no-action">-</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="empty-queue">
+            <p>{{ translateService.translate('queue.empty') }}</p>
+          </div>
+        }
+      }
+    </div>
+  </div>
+</div>
+

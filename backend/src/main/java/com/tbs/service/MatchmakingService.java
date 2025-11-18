@@ -4,6 +4,7 @@ import com.tbs.dto.matchmaking.*;
 import com.tbs.enums.BoardSize;
 import com.tbs.enums.GameStatus;
 import com.tbs.enums.GameType;
+import com.tbs.enums.PlayerSymbol;
 import com.tbs.enums.QueuePlayerStatus;
 import com.tbs.exception.*;
 import com.tbs.model.Game;
@@ -38,67 +39,59 @@ public class MatchmakingService {
 
     @Transactional
     public MatchmakingQueueResponse addToQueue(Long userId, MatchmakingQueueRequest request) {
-        if (userId == null) {
-            throw new IllegalArgumentException("userId cannot be null");
-        }
-        if (request == null) {
-            throw new IllegalArgumentException("request cannot be null");
-        }
-        if (request.boardSize() == null) {
-            throw new BadRequestException("boardSize is required");
-        }
-        
         log.debug("Adding user {} to matchmaking queue for board size {}", userId, request.boardSize());
 
-        String lockKey = userId.toString();
-        if (!redisService.acquireLock(lockKey, 5)) {
+        String userLockKey = userId.toString();
+        if (!redisService.acquireLock(userLockKey, 5)) {
             throw new UserAlreadyInQueueException("User is already in the matchmaking queue or operation in progress");
         }
 
         try {
-            if (redisService.isUserInQueue(userId)) {
-                throw new UserAlreadyInQueueException("User is already in the matchmaking queue");
-            }
-
             if (gameRepository.hasActivePvpGame(userId)) {
                 throw new UserHasActiveGameException("User already has an active PvP game");
             }
 
-            redisService.addToQueue(userId, request.boardSize());
-        } finally {
-            redisService.releaseLock(lockKey);
-        }
-
-        int estimatedWaitTime = calculateEstimatedWaitTime(request.boardSize());
-
-        List<Long> potentialMatches = redisService.getQueueForBoardSize(request.boardSize())
-                .stream()
-                .filter(id -> !id.equals(userId))
-                .toList();
-
-        if (!potentialMatches.isEmpty()) {
-            Long matchedUserId = potentialMatches.get(ThreadLocalRandom.current().nextInt(potentialMatches.size()));
-            try {
-                Game createdGame = createPvpGame(userId, matchedUserId, request.boardSize());
-                if (createdGame.getId() != null) {
-                    log.info("Match found! Created game {} for users {} and {}", createdGame.getId(), userId, matchedUserId);
-                    return new MatchmakingQueueResponse("Match found! Game created", 0);
-                }
-            } catch (Exception e) {
-                log.error("Failed to create game after match found", e);
+            boolean added = redisService.addToQueueIfNotExists(userId, request.boardSize());
+            if (!added) {
+                throw new UserAlreadyInQueueException("User is already in the matchmaking queue");
             }
-        }
 
-        log.info("User {} added to matchmaking queue for board size {}", userId, request.boardSize());
-        return new MatchmakingQueueResponse("Successfully added to queue", estimatedWaitTime);
+            int estimatedWaitTime = calculateEstimatedWaitTime(request.boardSize());
+
+            String matchmakingLockKey = "matchmaking:" + request.boardSize().name();
+            if (redisService.acquireLock(matchmakingLockKey, 10)) {
+                try {
+                    List<Long> potentialMatches = redisService.getQueueForBoardSize(request.boardSize())
+                            .stream()
+                            .filter(id -> !id.equals(userId))
+                            .filter(id -> !gameRepository.hasActivePvpGame(id))
+                            .toList();
+
+                    if (!potentialMatches.isEmpty()) {
+                        Long matchedUserId = potentialMatches.get(ThreadLocalRandom.current().nextInt(potentialMatches.size()));
+                        Game createdGame = createPvpGame(userId, matchedUserId, request.boardSize());
+                        if (createdGame.getId() == null) {
+                            log.error("Failed to create game: gameId is null after save. userId1={}, userId2={}", 
+                                      userId, matchedUserId);
+                            throw new IllegalStateException("Failed to create game: gameId is null");
+                        }
+                        log.info("Match found! Created game {} for users {} and {}", createdGame.getId(), userId, matchedUserId);
+                        return new MatchmakingQueueResponse("Match found! Game created", 0);
+                    }
+                } finally {
+                    redisService.releaseLock(matchmakingLockKey);
+                }
+            }
+
+            log.info("User {} added to matchmaking queue for board size {}", userId, request.boardSize());
+            return new MatchmakingQueueResponse("Successfully added to queue", estimatedWaitTime);
+        } finally {
+            redisService.releaseLock(userLockKey);
+        }
     }
 
     @Transactional
     public LeaveQueueResponse removeFromQueue(Long userId) {
-        if (userId == null) {
-            throw new IllegalArgumentException("userId cannot be null");
-        }
-        
         log.debug("Removing user {} from matchmaking queue", userId);
 
         boolean removed = redisService.removeFromQueue(userId);
@@ -113,24 +106,15 @@ public class MatchmakingService {
 
     @Transactional
     public ChallengeResponse createDirectChallenge(Long challengerId, Long challengedId, ChallengeRequest request) {
-        if (challengerId == null) {
-            throw new IllegalArgumentException("challengerId cannot be null");
-        }
-        if (challengedId == null) {
-            throw new IllegalArgumentException("challengedId cannot be null");
-        }
-        if (request == null) {
-            throw new IllegalArgumentException("request cannot be null");
-        }
-        if (request.boardSize() == null) {
-            throw new BadRequestException("boardSize is required");
-        }
-        
         log.debug("Creating direct challenge: challenger {} challenges {} for board size {}",
                 challengerId, challengedId, request.boardSize());
 
         if (challengerId.equals(challengedId)) {
             throw new CannotChallengeSelfException("Users cannot challenge themselves");
+        }
+
+        if (!isUserAvailable(challengerId)) {
+            throw new UserHasActiveGameException("Challenger already has an active PvP game");
         }
 
         User challengedUser = userRepository.findById(challengedId)
@@ -143,13 +127,16 @@ public class MatchmakingService {
         User challenger = userRepository.findById(challengerId)
                 .orElseThrow(() -> new UserNotFoundException("Challenger not found"));
 
+        redisService.removeFromQueue(challengerId);
+        redisService.removeFromQueue(challengedId);
+
         Game game = new Game();
         game.setGameType(GameType.PVP);
         game.setBoardSize(request.boardSize());
         game.setPlayer1(challenger);
         game.setPlayer2(challengedUser);
-        game.setStatus(GameStatus.WAITING);
-        game.setCurrentPlayerSymbol(null);
+        game.setStatus(GameStatus.IN_PROGRESS);
+        game.setCurrentPlayerSymbol(PlayerSymbol.X);
 
         Game savedGame = gameRepository.save(game);
 
@@ -174,16 +161,9 @@ public class MatchmakingService {
         );
     }
 
+    @Transactional(readOnly = true)
     public boolean isUserAvailable(Long userId) {
-        if (gameRepository.hasActivePvpGame(userId)) {
-            return false;
-        }
-
-        if (redisService.isUserInQueue(userId)) {
-            return false;
-        }
-
-        return true;
+        return !gameRepository.hasActivePvpGame(userId);
     }
 
     private int calculateEstimatedWaitTime(BoardSize boardSize) {
@@ -197,9 +177,6 @@ public class MatchmakingService {
     }
 
     private Game createPvpGame(Long player1Id, Long player2Id, BoardSize boardSize) {
-        if (player1Id == null || player2Id == null) {
-            throw new IllegalArgumentException("Player IDs cannot be null");
-        }
         if (player1Id.equals(player2Id)) {
             throw new IllegalArgumentException("Player 1 and Player 2 cannot be the same");
         }
@@ -224,8 +201,8 @@ public class MatchmakingService {
         game.setBoardSize(boardSize);
         game.setPlayer1(player1);
         game.setPlayer2(player2);
-        game.setStatus(GameStatus.WAITING);
-        game.setCurrentPlayerSymbol(null);
+        game.setStatus(GameStatus.IN_PROGRESS);
+        game.setCurrentPlayerSymbol(PlayerSymbol.X);
 
         return gameRepository.save(game);
     }
@@ -259,10 +236,14 @@ public class MatchmakingService {
             }
         }
 
-        Map<Long, String> usernameMap = new HashMap<>();
-        for (Map.Entry<Long, User> entry : usersMap.entrySet()) {
-            usernameMap.put(entry.getKey(), entry.getValue().getUsername());
-        }
+        Map<Long, String> usernameMap = usersMap.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> {
+                            String username = entry.getValue().getUsername();
+                            return username != null ? username : "Unknown";
+                        }
+                ));
 
         List<PlayerQueueStatus> playerStatuses = queueEntries.stream()
                 .map(entry -> determinePlayerStatus(entry, usersMap, userGameMap, usernameMap))

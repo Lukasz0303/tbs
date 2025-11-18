@@ -19,32 +19,31 @@ import java.util.List;
 public class WebSocketDocumentationController {
 
     @Value("${server.port:8080}")
-    private String serverPort;
+    private int serverPort;
 
     @GetMapping("/docs")
     @Operation(
             summary = "Get WebSocket documentation",
-            description = "Returns comprehensive documentation for WebSocket endpoint /ws/game/{gameId}",
+            description = "Returns comprehensive documentation for WebSocket endpoint /api/ws/game/{gameId}",
             tags = {"WebSocket"}
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Documentation retrieved successfully")
     })
     public ResponseEntity<WebSocketDocumentationResponse> getWebSocketDocumentation() {
-        int port = Integer.parseInt(serverPort);
-        String baseUrl = "http://localhost:" + port;
-        String wsUrl = "ws://localhost:" + port;
+        String baseUrl = "http://localhost:" + serverPort;
+        String wsUrl = "ws://localhost:" + serverPort;
 
         WebSocketDocumentationResponse documentation = new WebSocketDocumentationResponse(
-                "/ws/game/{gameId}",
+                "/api/ws/game/{gameId}",
                 "WebSocket",
-                wsUrl + "/ws/game/{gameId}",
+                wsUrl + "/api/ws/game/{gameId}",
                 "game-protocol",
                 new WebSocketDocumentationResponse.ConnectionInfo(
-                        wsUrl + "/ws/game/{gameId}",
+                        wsUrl + "/api/ws/game/{gameId}",
                         "WebSocket",
                         "game-protocol",
-                        "const ws = new WebSocket('" + wsUrl + "/ws/game/42', 'game-protocol');\n" +
+                        "const ws = new WebSocket('" + wsUrl + "/api/ws/game/42?token=<JWT_TOKEN>', 'game-protocol');\n" +
                                 "ws.setRequestHeader('Authorization', 'Bearer <JWT_TOKEN>');"
                 ),
                 new WebSocketDocumentationResponse.AuthenticationInfo(

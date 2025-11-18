@@ -1,6 +1,7 @@
 package com.tbs.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.tbs.dto.websocket.*;
 import com.tbs.exception.ForbiddenException;
 import com.tbs.exception.InvalidMoveException;
@@ -21,10 +22,13 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -38,6 +42,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private static final int PING_TIMEOUT_SECONDS = 60;
     private static final int RECONNECT_WINDOW_SECONDS = 20;
     private static final int TIMER_UPDATE_INTERVAL_SECONDS = 1;
+    private static final int MAX_MESSAGES_PER_MINUTE = 60;
+    private static final int MAX_MOVES_PER_MINUTE = 10;
 
     private final ObjectMapper objectMapper;
     private final WebSocketSessionManager sessionManager;
@@ -46,6 +52,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final BoardStateService boardStateService;
     private final com.tbs.service.WebSocketMessageStorageService messageStorageService;
     private final com.tbs.service.WebSocketGameService webSocketGameService;
+    private final com.tbs.service.RateLimitingService rateLimitingService;
     
     private final Map<String, WebSocketSession> activeSessions = new ConcurrentHashMap<>();
     private final Map<Long, ScheduledFuture<?>> gameTimers = new ConcurrentHashMap<>();
@@ -61,6 +68,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             BoardStateService boardStateService,
             com.tbs.service.WebSocketMessageStorageService messageStorageService,
             com.tbs.service.WebSocketGameService webSocketGameService,
+            com.tbs.service.RateLimitingService rateLimitingService,
             @Qualifier("webSocketScheduler") ScheduledExecutorService scheduler
     ) {
         this.objectMapper = objectMapper;
@@ -70,7 +78,33 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         this.boardStateService = boardStateService;
         this.messageStorageService = messageStorageService;
         this.webSocketGameService = webSocketGameService;
+        this.rateLimitingService = rateLimitingService;
         this.scheduler = scheduler;
+    }
+
+    @PostConstruct
+    public void init() {
+        scheduler.scheduleAtFixedRate(this::cleanupStaleTimers, 60, 60, TimeUnit.SECONDS);
+    }
+
+    private void cleanupStaleTimers() {
+        try {
+            Set<Long> activeGameIds = sessionManager.getAllActiveGameIds();
+            gameTimers.entrySet().removeIf(entry -> {
+                if (!activeGameIds.contains(entry.getKey())) {
+                    ScheduledFuture<?> timer = entry.getValue();
+                    if (timer != null && !timer.isDone()) {
+                        timer.cancel(false);
+                    }
+                    return true;
+                }
+                return false;
+            });
+            moveDeadlines.entrySet().removeIf(entry -> !activeGameIds.contains(entry.getKey()));
+            log.debug("Cleaned up stale timers. Active games: {}", activeGameIds.size());
+        } catch (Exception e) {
+            log.error("Error during cleanup of stale timers", e);
+        }
     }
 
     @Override
@@ -120,11 +154,61 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
+        final int MAX_PAYLOAD_SIZE = 1024;
+        if (message.getPayloadLength() > MAX_PAYLOAD_SIZE) {
+            log.warn("WebSocket message too large: {} bytes (max: {})", message.getPayloadLength(), MAX_PAYLOAD_SIZE);
+            sendError(session, "Message too large");
+            return;
+        }
+
+        String rateLimitKey = "websocket:" + userId + ":" + gameId;
+        if (!rateLimitingService.isAllowed(rateLimitKey + ":messages", MAX_MESSAGES_PER_MINUTE, java.time.Duration.ofMinutes(1))) {
+            log.warn("Rate limit exceeded for WebSocket messages: userId={}, gameId={}", userId, gameId);
+            sendError(session, "Rate limit exceeded. Please slow down.");
+            return;
+        }
+
         try {
-            BaseWebSocketMessage wsMessage = objectMapper.readValue(message.getPayload(), BaseWebSocketMessage.class);
-            handleMessage(session, gameId, userId, wsMessage);
+            JsonNode root = objectMapper.readTree(message.getPayload());
+            if (root == null || !root.hasNonNull("type")) {
+                log.error("WebSocket message missing type field: gameId={}, userId={}, payload={}", gameId, userId, message.getPayload());
+                sendError(session, "Invalid message format");
+                return;
+            }
+
+            String typeText = root.get("type").asText();
+            WebSocketMessageType type;
+            try {
+                type = WebSocketMessageType.valueOf(typeText);
+            } catch (IllegalArgumentException e) {
+                log.error("Unknown WebSocket message type: gameId={}, userId={}, type={}, payload={}", gameId, userId, typeText, message.getPayload());
+                sendError(session, "Invalid message format");
+                return;
+            }
+
+            switch (type) {
+                case MOVE -> {
+                    String moveRateLimitKey = rateLimitKey + ":moves";
+                    if (!rateLimitingService.isAllowed(moveRateLimitKey, MAX_MOVES_PER_MINUTE, java.time.Duration.ofMinutes(1))) {
+                        log.warn("Rate limit exceeded for WebSocket moves: userId={}, gameId={}", userId, gameId);
+                        sendError(session, "Move rate limit exceeded. Please slow down.");
+                        return;
+                    }
+                    MoveMessage moveMessage = objectMapper.treeToValue(root, MoveMessage.class);
+                    handleMove(session, gameId, userId, moveMessage);
+                }
+                case SURRENDER -> handleSurrender(session, gameId, userId);
+                case PING -> {
+                    PingMessage pingMessage = objectMapper.treeToValue(root, PingMessage.class);
+                    handlePing(session, pingMessage);
+                }
+                default -> {
+                    log.warn("Unsupported client WebSocket message type: gameId={}, userId={}, type={}", gameId, userId, type);
+                    sendError(session, "Invalid message format");
+                }
+            }
         } catch (Exception e) {
-            log.error("Error handling WebSocket message: gameId={}, userId={}", gameId, userId, e);
+            log.error("Error handling WebSocket message: gameId={}, userId={}, payload={}", gameId, userId, message.getPayload(), e);
             sendError(session, "Invalid message format");
         }
     }
@@ -285,7 +369,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private void sendOpponentMove(Long gameId, Long userId, int row, int col, 
                                   PlayerSymbol playerSymbol,
                                   com.tbs.dto.common.BoardState boardState, Game game) {
-        Map<Long, String> sessions = sessionManager.getGameSessions(gameId);
+        Map<Long, String> sessions = new HashMap<>(sessionManager.getGameSessions(gameId));
         
         for (Map.Entry<Long, String> entry : sessions.entrySet()) {
             if (!entry.getKey().equals(userId)) {
@@ -309,7 +393,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void sendMessageToBothPlayers(Long gameId, BaseWebSocketMessage message) {
-        Map<Long, String> sessions = sessionManager.getGameSessions(gameId);
+        Map<Long, String> sessions = new HashMap<>(sessionManager.getGameSessions(gameId));
         sessions.forEach((userId, sessionId) -> {
             WebSocketSession session = activeSessions.get(sessionId);
             if (session != null && session.isOpen()) {
@@ -378,7 +462,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         try {
             log.debug("notifyMoveFromRestApi: gameId={}, userId={}, moveId={}, row={}, col={}, symbol={}", 
                     gameId, userId, moveId, row, col, playerSymbol);
-            Map<Long, String> sessions = sessionManager.getGameSessions(gameId);
+            Map<Long, String> sessions = new HashMap<>(sessionManager.getGameSessions(gameId));
             
             log.debug("WebSocket sessions for gameId={}: {}", gameId, sessions);
             
@@ -584,32 +668,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             
             PlayerSymbol currentPlayerSymbol = currentGame.getCurrentPlayerSymbol();
             
-            User winner = null;
             List<Move> existingMoves = moveRepository.findByGameIdOrderByMoveOrderAsc(gameId);
             PlayerSymbol player1Symbol = determinePlayer1SymbolFromMoves(currentGame, existingMoves);
-            if (currentPlayerSymbol == player1Symbol) {
-                winner = currentGame.getPlayer2();
-            } else {
-                winner = currentGame.getPlayer1();
-            }
             
-            if (winner == null) {
-                log.error("Cannot determine winner for timeout in gameId={}", gameId);
-                return;
-            }
+            User winner = (currentPlayerSymbol == player1Symbol) 
+                    ? currentGame.getPlayer2() 
+                    : currentGame.getPlayer1();
             
-            currentGame.setStatus(com.tbs.enums.GameStatus.FINISHED);
-            currentGame.setWinner(winner);
-            currentGame.setFinishedAt(Instant.now());
-            gameRepository.save(currentGame);
-            
-            stopMoveTimer(gameId);
-            
-            com.tbs.dto.common.BoardState boardState = boardStateService.generateBoardState(currentGame, existingMoves);
-            
-            log.info("Game {} finished by timeout. Winner: user {}", gameId, winner.getId());
-            
-            handleGameEnded(gameId, currentGame, boardState, existingMoves.size());
+            finishGameWithWinner(gameId, winner, "move timeout");
         } catch (com.tbs.exception.GameNotFoundException e) {
             log.warn("Game not found during move timeout: gameId={}", gameId);
             stopMoveTimer(gameId);
@@ -639,7 +705,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private void handleDisconnection(Long gameId, Long userId) {
         scheduler.schedule(() -> {
             try {
-                Map<Long, String> sessions = sessionManager.getGameSessions(gameId);
+                Map<Long, String> sessions = new HashMap<>(sessionManager.getGameSessions(gameId));
                 if (sessions.containsKey(userId)) {
                     log.info("Reconnect window expired for gameId={}, userId={}. Forfeiting game.", gameId, userId);
                     
@@ -656,20 +722,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                                 : game.getPlayer1();
                         
                         if (winner == null) {
+                            log.warn("Cannot determine winner for disconnection in gameId={}, userId={}", gameId, userId);
                             return;
                         }
                         
-                        game.setStatus(com.tbs.enums.GameStatus.FINISHED);
-                        game.setWinner(winner);
-                        game.setFinishedAt(Instant.now());
-                        gameRepository.save(game);
-                        
-                        stopMoveTimer(gameId);
-                        
-                        List<Move> moves = moveRepository.findByGameIdOrderByMoveOrderAsc(gameId);
-                        com.tbs.dto.common.BoardState boardState = boardStateService.generateBoardState(game, moves);
-                        
-                        handleGameEnded(gameId, game, boardState, moves.size());
+                        finishGameWithWinner(gameId, winner, "disconnection");
                     } catch (com.tbs.exception.GameNotFoundException e) {
                         log.warn("Game not found during disconnection: gameId={}", gameId);
                     }
@@ -680,9 +737,42 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }, RECONNECT_WINDOW_SECONDS, TimeUnit.SECONDS);
     }
 
+    private void finishGameWithWinner(Long gameId, User winner, String reason) {
+        try {
+            Game game = gameRepository.findByIdWithPlayers(gameId)
+                    .orElseThrow(() -> new com.tbs.exception.GameNotFoundException("Game not found: " + gameId));
+            
+            if (game.getStatus() != com.tbs.enums.GameStatus.IN_PROGRESS) {
+                return;
+            }
+            
+            if (winner == null) {
+                log.error("Cannot determine winner for {} in gameId={}", reason, gameId);
+                return;
+            }
+            
+            game.setStatus(com.tbs.enums.GameStatus.FINISHED);
+            game.setWinner(winner);
+            game.setFinishedAt(Instant.now());
+            gameRepository.save(game);
+            
+            stopMoveTimer(gameId);
+            
+            List<Move> moves = moveRepository.findByGameIdOrderByMoveOrderAsc(gameId);
+            com.tbs.dto.common.BoardState boardState = boardStateService.generateBoardState(game, moves);
+            
+            log.info("Game {} finished: {}. Winner: user {}", gameId, reason, winner.getId());
+            handleGameEnded(gameId, game, boardState, moves.size());
+        } catch (com.tbs.exception.GameNotFoundException e) {
+            log.warn("Game not found during finishGameWithWinner: gameId={}, reason={}", gameId, reason);
+        } catch (Exception e) {
+            log.error("Error finishing game: gameId={}, reason={}", gameId, reason, e);
+        }
+    }
+
     private void closeBothSessions(Long gameId) {
         stopMoveTimer(gameId);
-        Map<Long, String> sessions = sessionManager.getGameSessions(gameId);
+        Map<Long, String> sessions = new HashMap<>(sessionManager.getGameSessions(gameId));
         sessions.forEach((userId, sessionId) -> {
             WebSocketSession session = activeSessions.get(sessionId);
             if (session != null && session.isOpen()) {

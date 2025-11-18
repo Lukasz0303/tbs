@@ -27,12 +27,16 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final List<String> allowedOrigins;
     private final List<String> allowedMethods;
+    private final List<String> allowedHeaders;
+    private final List<String> exposedHeaders;
     private final long maxAge;
 
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
             @Value("#{'${app.cors.allowed-origins}'.split(',')}") List<String> allowedOrigins,
             @Value("#{'${app.cors.allowed-methods}'.split(',')}") List<String> allowedMethods,
+            @Value("#{'${app.cors.allowed-headers}'.split(',')}") List<String> allowedHeaders,
+            @Value("#{'${app.cors.exposed-headers}'.split(',')}") List<String> exposedHeaders,
             @Value("${app.cors.max-age:3600}") long maxAge
     ) {
         this.jwtAuthenticationFilter = Objects.requireNonNull(jwtAuthenticationFilter);
@@ -43,9 +47,17 @@ public class SecurityConfig {
         if (allowedMethods == null || allowedMethods.isEmpty()) {
             throw new IllegalArgumentException("app.cors.allowed-methods cannot be empty");
         }
+        if (allowedHeaders == null || allowedHeaders.isEmpty()) {
+            throw new IllegalArgumentException("app.cors.allowed-headers cannot be empty");
+        }
+        if (exposedHeaders == null || exposedHeaders.isEmpty()) {
+            throw new IllegalArgumentException("app.cors.exposed-headers cannot be empty");
+        }
         
         this.allowedOrigins = allowedOrigins;
         this.allowedMethods = allowedMethods;
+        this.allowedHeaders = allowedHeaders;
+        this.exposedHeaders = exposedHeaders;
         this.maxAge = maxAge;
     }
 
@@ -59,8 +71,8 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(allowedMethods);
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
-        configuration.setExposedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowedHeaders(allowedHeaders);
+        configuration.setExposedHeaders(exposedHeaders);
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(maxAge);
 
@@ -82,6 +94,7 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/guests").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/rankings/**").permitAll()
                         .requestMatchers("/api/websocket/**").permitAll()
+                        .requestMatchers("/api/ws/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-resources/**", "/webjars/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/actuator/metrics", "/actuator/prometheus").authenticated()

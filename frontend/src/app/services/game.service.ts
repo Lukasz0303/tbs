@@ -1,10 +1,11 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, catchError, map, of, switchMap, throwError } from 'rxjs';
+import { Observable, catchError, map, of, switchMap, throwError, timeout } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { Game, PlayerSymbol, BotDifficulty, GameType } from '../models/game.model';
 import { SavedGameResponse } from '../models/api.model';
 import { GameResponse, CreateGameRequest, MakeMoveRequest, MakeMoveResponse } from '../models/api-response.model';
+import { normalizeBoardState } from '../shared/utils/board-state.util';
 
 @Injectable({ providedIn: 'root' })
 export class GameService {
@@ -43,6 +44,7 @@ export class GameService {
     }
 
     return this.http.get<GameResponse>(`${this.apiUrl}/v1/games/${gameId}`).pipe(
+      timeout(10000),
       map((response) => this.mapToGame(response)),
       catchError((error) => {
         return throwError(() => error);
@@ -61,11 +63,19 @@ export class GameService {
       boardState = [];
     }
     
-    const normalized = this.normalizeBoardState(boardState);
+    const normalized = normalizeBoardState(boardState);
     
     const player1Id = response.player1?.userId || response.player1Id || 0;
     const player2Id = response.player2?.userId || response.player2Id || null;
     const winnerId = response.winner?.userId || response.winnerId || null;
+    
+    let currentPlayerSymbol: PlayerSymbol | null = null;
+    if (response.currentPlayerSymbol) {
+      const symbol = String(response.currentPlayerSymbol).toLowerCase();
+      if (symbol === 'x' || symbol === 'o') {
+        currentPlayerSymbol = symbol as PlayerSymbol;
+      }
+    }
     
     return {
       gameId: response.gameId,
@@ -76,7 +86,7 @@ export class GameService {
       player1Id,
       player2Id,
       botDifficulty: response.botDifficulty ?? null,
-      currentPlayerSymbol: response.currentPlayerSymbol,
+      currentPlayerSymbol,
       winnerId,
       lastMoveAt: response.lastMoveAt ?? null,
       createdAt: response.createdAt,
@@ -84,31 +94,6 @@ export class GameService {
       finishedAt: response.finishedAt ?? null,
       totalMoves: response.totalMoves,
     };
-  }
-
-  private normalizeBoardState(boardState: unknown): (PlayerSymbol | null)[][] {
-    if (!Array.isArray(boardState)) {
-      return [];
-    }
-
-    if (boardState.length === 0) {
-      return [];
-    }
-
-    return boardState.map((row: unknown, rowIndex: number) => {
-      if (!Array.isArray(row)) {
-        return [];
-      }
-      return row.map((cell: unknown, colIndex: number) => {
-        if (cell === null || cell === undefined || cell === '') {
-          return null;
-        }
-        if (cell === 'x' || cell === 'o') {
-          return cell as PlayerSymbol;
-        }
-        return null;
-      });
-    });
   }
 
   createBotGame(difficulty: BotDifficulty = 'easy', boardSize: 3 | 4 | 5 = 3): Observable<Game> {

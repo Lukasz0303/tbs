@@ -1,0 +1,28 @@
+<p-toast position="top-right"></p-toast>
+<div class="matchmaking-container">
+  <div class="matchmaking-card">
+    <h2>{{ translateService.translate('matchmaking.title') }}</h2>
+    
+    <div class="matchmaking-info">
+      <p>{{ translateService.translate('matchmaking.boardSize') }}: {{ boardSize() }}x{{ boardSize() }}</p>
+      @if (estimatedWaitTime() > 0) {
+        <p>{{ translateService.translate('matchmaking.estimatedWaitTime') }}: {{ estimatedWaitTime() }} {{ translateService.translate('matchmaking.seconds') }}</p>
+      }
+    </div>
+
+    <div class="matchmaking-animation">
+      <p-progressSpinner [style]="{ width: '100px', height: '100px' }"></p-progressSpinner>
+      <p class="status-text">{{ translateService.translate(statusText()) }}</p>
+    </div>
+
+    <div class="matchmaking-actions">
+      <p-button
+        [label]="translateService.translate('matchmaking.cancel')"
+        severity="secondary"
+        (onClick)="onCancel()"
+        [disabled]="isCancelling()"
+      ></p-button>
+    </div>
+  </div>
+</div>
+
