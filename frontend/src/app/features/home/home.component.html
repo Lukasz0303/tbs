@@ -1,32 +1,44 @@
 <p-toast key="home" position="top-right"></p-toast>
 <section class="home">
-  <div class="home-card">
-    @if (currentUser$ | async; as user) {
-      @if (user && !user.isGuest) {
-        <h1>{{ translateService.translate('home.hero.title.loggedIn') }}</h1>
-        <p>{{ translateService.translate('home.hero.description.loggedIn') }}</p>
+  <div class="home-content">
+    <div class="home-card">
+      @if (currentUser$ | async; as user) {
+        @if (user && !user.isGuest) {
+          <h1>{{ translateService.translate('home.hero.title.loggedIn') }}</h1>
+          <p>{{ translateService.translate('home.hero.description.loggedIn') }}</p>
+        } @else {
+          <h1>{{ translateService.translate('home.hero.title') }}</h1>
+          <p>{{ translateService.translate('home.hero.description') }}</p>
+        }
       } @else {
         <h1>{{ translateService.translate('home.hero.title') }}</h1>
         <p>{{ translateService.translate('home.hero.description') }}</p>
       }
-    } @else {
-      <h1>{{ translateService.translate('home.hero.title') }}</h1>
-      <p>{{ translateService.translate('home.hero.description') }}</p>
-    }
-    <div class="home-actions">
-      @if (currentUser$ | async; as user) {
-        @if (user && !user.isGuest) {
-          @if (savedGame(); as game) {
-            <button type="button" class="home-action primary" (click)="continueGame()">
-              {{ translateService.translate('home.hero.continueGameButton') }}
+      <div class="home-actions">
+        @if (currentUser$ | async; as user) {
+          @if (user && !user.isGuest) {
+            @if (savedGame(); as game) {
+              <button type="button" class="home-action primary" (click)="continueGame()">
+                {{ translateService.translate('home.hero.continueGameButton') }}
+              </button>
+            }
+            <button type="button" class="home-action" (click)="startNewGame()">
+              {{ translateService.translate('home.hero.newGameButton') }}
+            </button>
+            <button type="button" class="home-action outline" (click)="logout()">
+              {{ translateService.translate('home.hero.logoutButton') }}
+            </button>
+          } @else {
+            <button type="button" class="home-action primary" (click)="playAsGuest()">
+              {{ translateService.translate('home.hero.guestButton') }}
+            </button>
+            <button type="button" class="home-action" (click)="goToLogin()">
+              {{ translateService.translate('home.hero.loginButton') }}
+            </button>
+            <button type="button" class="home-action outline" (click)="goToRegister()">
+              {{ translateService.translate('home.hero.registerButton') }}
             </button>
           }
-          <button type="button" class="home-action" (click)="startNewGame()">
-            {{ translateService.translate('home.hero.newGameButton') }}
-          </button>
-          <button type="button" class="home-action outline" (click)="logout()">
-            {{ translateService.translate('home.hero.logoutButton') }}
-          </button>
         } @else {
           <button type="button" class="home-action primary" (click)="playAsGuest()">
             {{ translateService.translate('home.hero.guestButton') }}
@@ -38,17 +50,7 @@
             {{ translateService.translate('home.hero.registerButton') }}
           </button>
         }
-      } @else {
-        <button type="button" class="home-action primary" (click)="playAsGuest()">
-          {{ translateService.translate('home.hero.guestButton') }}
-        </button>
-        <button type="button" class="home-action" (click)="goToLogin()">
-          {{ translateService.translate('home.hero.loginButton') }}
-        </button>
-        <button type="button" class="home-action outline" (click)="goToRegister()">
-          {{ translateService.translate('home.hero.registerButton') }}
-        </button>
-      }
+      </div>
     </div>
   </div>
 </section>

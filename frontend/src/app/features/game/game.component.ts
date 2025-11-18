@@ -9,7 +9,7 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { GameService } from '../../services/game.service';
 import { TranslateService } from '../../services/translate.service';
-import { Game } from '../../models/game.model';
+import { Game, PlayerSymbol } from '../../models/game.model';
 import { GameBoardComponent } from '../../components/game/game-board.component';
 import { GameInfoComponent } from '../../components/game/game-info.component';
 import { GameTimerComponent } from '../../components/game/game-timer.component';
@@ -18,6 +18,8 @@ import { WebSocketService } from '../../services/websocket.service';
 import { GameBotIndicatorComponent } from '../../components/game/game-bot-indicator.component';
 import { GameResultDialogComponent } from '../../components/game/game-result-dialog.component';
 import { WebSocketDTOs } from '../../models/websocket.model';
+import { LoggerService } from '../../services/logger.service';
+import { normalizeBoardState } from '../../shared/utils/board-state.util';
 
 @Component({
   selector: 'app-game',
@@ -48,11 +50,13 @@ export class GameComponent implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
   private readonly authService = inject(AuthService);
   private readonly websocketService = inject(WebSocketService);
+  private readonly logger = inject(LoggerService);
 
   readonly isBotThinking = signal<boolean>(false);
   readonly showResult = signal<boolean>(false);
   readonly remainingSeconds = signal<number>(10);
   readonly isPlayerTurn = signal<boolean>(true);
+  readonly isMovePending = signal<boolean>(false);
   readonly winningCells = signal<Array<{ row: number; col: number }>>([]);
   readonly currentUser$ = this.authService.getCurrentUser();
   private readonly currentUserSignal = toSignal(this.authService.getCurrentUser(), { initialValue: null });
@@ -71,6 +75,7 @@ export class GameComponent implements OnInit, OnDestroy {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) => {
         const gameId = Number(params.get('gameId'));
+        this.logger.debug('GameComponent.ngOnInit route param gameId', gameId);
         if (gameId) {
           this.gameId = gameId;
           this.loadGame();
@@ -115,10 +120,21 @@ export class GameComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.logger.debug('GameComponent.loadGame', { gameId: this.gameId });
+
     this.gameService
       .getGame(this.gameId)
       .pipe(
         switchMap((game) => {
+          this.logger.debug('GameComponent.loadGame response', {
+            gameId: game.gameId,
+            gameType: game.gameType,
+            status: game.status,
+            player1Id: game.player1Id,
+            player2Id: game.player2Id,
+            currentPlayerSymbol: game.currentPlayerSymbol,
+            totalMoves: game.totalMoves,
+          });
           this.updateLocalGame(game);
           this.updateTurnLock(game);
           this.updateWinningCells(game);
@@ -158,7 +174,7 @@ export class GameComponent implements OnInit, OnDestroy {
       return;
     }
 
-    interval(2000)
+    interval(5000)
       .pipe(
         switchMap(() => {
           if (!this.gameId) {
@@ -215,20 +231,13 @@ export class GameComponent implements OnInit, OnDestroy {
 
     this.websocketService
       .connect(this.gameId, token)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(
+        switchMap(() => this.websocketService.getMessages()),
+        takeUntilDestroyed(this.destroyRef)
+      )
       .subscribe({
-        next: () => {
-          this.websocketService
-            .getMessages()
-            .pipe(takeUntilDestroyed(this.destroyRef))
-            .subscribe({
-              next: (message) => this.handleWebSocketMessage(message),
-              error: (error) => this.handleWebSocketError(error),
-            });
-        },
-        error: (error) => {
-          this.handleWebSocketError(error);
-        },
+        next: (message) => this.handleWebSocketMessage(message),
+        error: (error) => this.handleWebSocketError(error),
       });
   }
 
@@ -310,10 +319,66 @@ export class GameComponent implements OnInit, OnDestroy {
 
   onMove(event: { row: number; col: number }, game: Game): void {
     if (!this.gameId) {
+      this.logger.error('Cannot make move: gameId is missing');
+      return;
+    }
+
+    if (!game) {
+      this.logger.error('Cannot make move: game is null');
+      this.messageService.add({
+        severity: 'error',
+        summary: this.translate.translate('game.error.title'),
+        detail: this.translate.translate('game.error.load'),
+      });
+      return;
+    }
+
+    if (event.row < 0 || event.col < 0 || event.row >= game.boardSize || event.col >= game.boardSize) {
+      this.logger.error('Invalid move coordinates', { 
+        row: event.row, 
+        col: event.col, 
+        boardSize: game.boardSize 
+      });
+      this.messageService.add({
+        severity: 'error',
+        summary: this.translate.translate('game.error.title'),
+        detail: this.translate.translate('game.error.move'),
+      });
+      return;
+    }
+
+    this.logger.debug('GAME_ON_MOVE', {
+      row: event.row,
+      col: event.col,
+      gameType: game.gameType,
+      status: game.status,
+      currentPlayerSymbol: game.currentPlayerSymbol,
+      isMoveDisabled: this.isMoveDisabled(game),
+      isMovePending: this.isMovePending()
+    });
+
+    if (this.isMovePending()) {
+      this.logger.debug('GAME_MOVE_BLOCKED', {
+        reason: 'move_pending',
+        gameType: game.gameType,
+        status: game.status
+      });
+      this.messageService.add({
+        severity: 'warn',
+        summary: this.translate.translate('game.error.title'),
+        detail: 'Czekam na odpowiedź z serwera...',
+      });
       return;
     }
 
     if (this.isMoveDisabled(game)) {
+      this.logger.debug('GAME_MOVE_BLOCKED', {
+        reason: 'move_disabled',
+        gameType: game.gameType,
+        status: game.status,
+        currentPlayerSymbol: game.currentPlayerSymbol,
+        isPlayerTurn: this.isPlayerTurn()
+      });
       this.messageService.add({
         severity: 'warn',
         summary: this.translate.translate('game.error.title'),
@@ -322,7 +387,14 @@ export class GameComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (game.boardState[event.row]?.[event.col] !== null) {
+    const cell = game.boardState[event.row]?.[event.col];
+    if (cell === 'x' || cell === 'o') {
+      this.logger.debug('GAME_MOVE_BLOCKED', {
+        reason: 'cell_occupied',
+        row: event.row,
+        col: event.col,
+        cellValue: cell
+      });
       this.messageService.add({
         severity: 'warn',
         summary: this.translate.translate('game.error.title'),
@@ -330,6 +402,8 @@ export class GameComponent implements OnInit, OnDestroy {
       });
       return;
     }
+
+    this.isMovePending.set(true);
 
     if (game.gameType === 'pvp') {
       this.sendMoveViaWebSocket(event, game);
@@ -385,29 +459,96 @@ export class GameComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: ({ updated, user }) => {
+          this.isMovePending.set(false);
           if (user && updated.gameType === 'vs_bot' && updated.status === 'in_progress') {
             if (updated.currentPlayerSymbol && updated.currentPlayerSymbol === 'o' && !this.isBotThinking()) {
               this.makeBotMove();
             }
           }
         },
-        error: (error) => this.handleMoveError(error),
+        error: (error) => {
+          this.isMovePending.set(false);
+          this.handleMoveError(error);
+        },
       });
   }
 
   private sendMoveViaWebSocket(move: { row: number; col: number }, game: Game): void {
     const user = this.currentUserSignal();
     if (!user) {
+      this.logger.error('Cannot send move: user not found');
+      this.isMovePending.set(false);
+      this.messageService.add({
+        severity: 'error',
+        summary: this.translate.translate('game.error.title'),
+        detail: this.translate.translate('game.error.unauthorized'),
+      });
       return;
     }
 
-    const playerSymbol = game.player1Id === user.userId ? 'x' : 'o';
-    this.websocketService
-      .sendMove(move.row, move.col, playerSymbol)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        error: (error) => this.handleMoveError(error),
-      });
+    this.websocketService.isConnected$.pipe(
+      take(1),
+      switchMap((isConnected) => {
+        this.logger.debug('GAME_WS_CONNECTION_STATUS', {
+          isConnected,
+          gameId: this.gameId,
+        });
+        
+        if (!isConnected) {
+          this.logger.debug('GAME_MOVE_BLOCKED', {
+            reason: 'websocket_not_connected',
+            gameId: this.gameId
+          });
+          this.messageService.add({
+            severity: 'warn',
+            summary: this.translate.translate('game.error.title'),
+            detail: 'WebSocket nie jest połączony. Próba ponownego połączenia...',
+          });
+          
+          const token = this.authService.getAuthToken();
+          if (token && this.gameId) {
+            return this.websocketService.connect(this.gameId, token).pipe(
+              catchError((error) => {
+                this.logger.error('Failed to reconnect WebSocket:', error);
+                this.isMovePending.set(false);
+                this.messageService.add({
+                  severity: 'error',
+                  summary: this.translate.translate('game.error.title'),
+                  detail: 'Nie można połączyć się z serwerem. Spróbuj odświeżyć stronę.',
+                });
+                return EMPTY;
+              })
+            );
+          }
+          this.isMovePending.set(false);
+          return EMPTY;
+        }
+
+        const playerSymbol = Number(game.player1Id) === Number(user.userId) ? 'x' : 'o';
+        
+        this.logger.debug('Sending move via WebSocket', {
+          row: move.row,
+          col: move.col,
+          playerSymbol,
+          userId: user.userId,
+          player1Id: game.player1Id,
+          player2Id: game.player2Id,
+          isConnected
+        });
+
+        return this.websocketService.sendMove(move.row, move.col, playerSymbol);
+      }),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: () => {
+        this.logger.debug('Move sent successfully via WebSocket');
+      },
+      error: (error) => {
+        this.isMovePending.set(false);
+        this.logger.error('Error sending move via WebSocket:', error);
+        this.handleMoveError(error);
+      },
+    });
   }
 
   private makeBotMove(): void {
@@ -478,14 +619,21 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   private handleWebSocketMessage(message: WebSocketDTOs.WebSocketMessage): void {
+    this.logger.debug('GAME_WS_MESSAGE', {
+      type: message.type,
+      payload: message.payload
+    });
+    this.logger.debug('GAME_WS_MESSAGE_PAYLOAD', JSON.stringify(message.payload, null, 2));
     switch (message.type) {
       case 'MOVE_ACCEPTED':
         if (this.isMoveAcceptedPayload(message.payload)) {
+          this.isMovePending.set(false);
           this.updateGameFromMove(message.payload);
         }
         break;
       case 'MOVE_REJECTED':
         if (this.isMoveRejectedPayload(message.payload)) {
+          this.isMovePending.set(false);
           this.messageService.add({
             severity: 'error',
             summary: this.translate.translate('game.error.title'),
@@ -495,6 +643,7 @@ export class GameComponent implements OnInit, OnDestroy {
         break;
       case 'OPPONENT_MOVE':
         if (this.isOpponentMovePayload(message.payload)) {
+          this.isMovePending.set(false);
           this.updateGameFromMove(message.payload);
         }
         break;
@@ -510,6 +659,7 @@ export class GameComponent implements OnInit, OnDestroy {
         break;
       case 'GAME_ENDED':
         if (this.isGameEndedPayload(message.payload)) {
+          this.isMovePending.set(false);
           this.updateGameFromPayload(message.payload);
           setTimeout(() => {
             this.showResult.set(true);
@@ -578,16 +728,43 @@ export class GameComponent implements OnInit, OnDestroy {
     );
   }
 
+  private normalizeBoardStateFromPayload(boardState: unknown): (PlayerSymbol | null)[][] {
+    if (boardState && typeof boardState === 'object' && !Array.isArray(boardState) && 'state' in boardState) {
+      boardState = (boardState as { state: (PlayerSymbol | null)[][] }).state;
+    }
+    return normalizeBoardState(boardState);
+  }
+
+  private normalizePlayerSymbol(symbol: unknown): PlayerSymbol | null {
+    if (!symbol) {
+      return null;
+    }
+    const normalized = String(symbol).toLowerCase();
+    return normalized === 'x' || normalized === 'o' ? normalized as PlayerSymbol : null;
+  }
+
   private updateGameFromMove(payload: WebSocketDTOs.MoveAcceptedMessage['payload'] | WebSocketDTOs.OpponentMoveMessage['payload']): void {
     const state = this.vm();
     const game = state?.game;
     if (game) {
+      const boardState = this.normalizeBoardStateFromPayload(payload.boardState);
+      const currentPlayerSymbol = this.normalizePlayerSymbol(payload.currentPlayerSymbol);
+      
       const updated: Game = {
         ...game,
-        boardState: payload.boardState,
-        currentPlayerSymbol: payload.currentPlayerSymbol,
+        boardState,
+        currentPlayerSymbol,
         lastMoveAt: payload.nextMoveAt,
+        totalMoves: game.totalMoves + 1,
       };
+      
+      this.logger.debug('updateGameFromMove', {
+        payloadCurrentPlayerSymbol: payload.currentPlayerSymbol,
+        normalizedCurrentPlayerSymbol: currentPlayerSymbol,
+        totalMoves: updated.totalMoves,
+        gameType: updated.gameType
+      });
+      
       this.updateLocalGame(updated);
       this.updateTurnLock(updated);
       this.updateWinningCells(updated);
@@ -598,12 +775,20 @@ export class GameComponent implements OnInit, OnDestroy {
     const state = this.vm();
     const game = state?.game;
     if (game) {
+      const boardState = this.normalizeBoardStateFromPayload(
+        'finalBoardState' in payload ? payload.finalBoardState : payload.boardState
+      );
+
       const updated: Game = {
         ...game,
         status: payload.status,
         winnerId: payload.winner?.userId || null,
-        boardState: 'finalBoardState' in payload ? payload.finalBoardState : payload.boardState,
+        boardState: boardState as (PlayerSymbol | null)[][],
       };
+      this.logger.debug('GAME_UPDATE_FROM_PAYLOAD', {
+        status: updated.status,
+        boardState: updated.boardState,
+      });
       this.updateLocalGame(updated);
       this.updateTurnLock(updated);
       this.updateWinningCells(updated);
@@ -619,11 +804,29 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   private hasGameChanged(oldGame: Game, newGame: Game): boolean {
-    return (
-      oldGame.status !== newGame.status ||
-      oldGame.currentPlayerSymbol !== newGame.currentPlayerSymbol ||
-      JSON.stringify(oldGame.boardState) !== JSON.stringify(newGame.boardState)
-    );
+    if (oldGame.status !== newGame.status) {
+      return true;
+    }
+    if (oldGame.currentPlayerSymbol !== newGame.currentPlayerSymbol) {
+      return true;
+    }
+    
+    if (oldGame.boardState.length !== newGame.boardState.length) {
+      return true;
+    }
+    
+    for (let i = 0; i < oldGame.boardState.length; i++) {
+      if (oldGame.boardState[i].length !== newGame.boardState[i].length) {
+        return true;
+      }
+      for (let j = 0; j < oldGame.boardState[i].length; j++) {
+        if (oldGame.boardState[i][j] !== newGame.boardState[i][j]) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
   }
 
   surrender(gameId: number): void {
@@ -672,10 +875,34 @@ export class GameComponent implements OnInit, OnDestroy {
     }
 
     if (game.status !== 'in_progress') {
+      this.logger.debug('GAME_IS_MOVE_DISABLED', {
+        reason: 'status_not_in_progress',
+        status: game.status,
+        gameType: game.gameType
+      });
       return true;
     }
 
-    return !this.isPlayerTurn();
+    if (this.isMovePending()) {
+      this.logger.debug('GAME_IS_MOVE_DISABLED', {
+        reason: 'move_pending',
+        gameType: game.gameType,
+        status: game.status
+      });
+      return true;
+    }
+
+    const playerTurn = this.isPlayerTurn();
+    this.logger.debug('GAME_IS_MOVE_DISABLED', {
+      reason: playerTurn ? 'allowed' : 'not_player_turn',
+      gameType: game.gameType,
+      status: game.status,
+      currentPlayerSymbol: game.currentPlayerSymbol,
+      isPlayerTurn: playerTurn,
+      disabled: !playerTurn
+    });
+    
+    return !playerTurn;
   }
 
   getGameTitle(game: Game): string {
@@ -713,6 +940,7 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   private handleWebSocketError(error: unknown): void {
+    this.isMovePending.set(false);
     this.messageService.add({
       severity: 'warn',
       summary: this.translate.translate('game.error.title'),
@@ -748,7 +976,13 @@ export class GameComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (game.status !== 'in_progress' || !game.currentPlayerSymbol) {
+    if (game.status !== 'in_progress') {
+      this.isPlayerTurn.set(false);
+      return;
+    }
+
+    if (!game.currentPlayerSymbol) {
+      this.logger.warn('Game is in_progress but currentPlayerSymbol is null', game);
       this.isPlayerTurn.set(false);
       return;
     }
@@ -759,9 +993,39 @@ export class GameComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const expectedSymbol = game.player1Id === user.userId ? 'x' : game.player2Id === user.userId ? 'o' : null;
-    const isPlayerTurn = expectedSymbol === game.currentPlayerSymbol;
-    this.isPlayerTurn.set(isPlayerTurn);
+    if (game.gameType === 'pvp') {
+      const isPlayer1 = Number(game.player1Id) === Number(user.userId);
+      const isPlayer2 = game.player2Id !== null && Number(game.player2Id) === Number(user.userId);
+      
+      if (!isPlayer1 && !isPlayer2) {
+        this.logger.warn('User is not a participant of this game', {
+          userId: user.userId,
+          player1Id: game.player1Id,
+          player2Id: game.player2Id
+        });
+        this.isPlayerTurn.set(false);
+        return;
+      }
+
+      const expectedSymbol = isPlayer1 ? 'x' : 'o';
+      const currentSymbol = String(game.currentPlayerSymbol).toLowerCase();
+      const isPlayerTurn = expectedSymbol === currentSymbol;
+      
+      this.logger.debug('updateTurnLock PvP', {
+        userId: user.userId,
+        isPlayer1,
+        isPlayer2,
+        expectedSymbol,
+        currentSymbol,
+        currentPlayerSymbol: game.currentPlayerSymbol,
+        isPlayerTurn
+      });
+      
+      this.isPlayerTurn.set(isPlayerTurn);
+      return;
+    }
+
+    this.isPlayerTurn.set(false);
   }
 
   private updateWinningCells(game: Game): void {

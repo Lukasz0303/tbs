@@ -35,14 +35,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        String requestPath = request.getRequestURI();
+        if (requestPath == null) {
+            return false;
+        }
+        
+        return requestPath.startsWith("/ws/") 
+            || requestPath.startsWith("/api/ws/")
+            || requestPath.equals("/api/v1/auth/login")
+            || requestPath.equals("/api/v1/auth/register")
+            || requestPath.equals("/api/auth/login")
+            || requestPath.equals("/api/auth/register")
+            || requestPath.startsWith("/swagger-ui")
+            || requestPath.startsWith("/v3/api-docs")
+            || requestPath.startsWith("/actuator/health")
+            || requestPath.startsWith("/actuator/info");
+    }
+
+    @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
             throws ServletException, IOException {
-
-        String requestPath = request.getRequestURI();
-        if (requestPath != null && requestPath.startsWith("/ws/")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
 
         try {
             String token = extractToken(request);

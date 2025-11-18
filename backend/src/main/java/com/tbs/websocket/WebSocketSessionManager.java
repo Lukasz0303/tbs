@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
@@ -55,6 +56,10 @@ public class WebSocketSessionManager {
 
     public boolean hasActiveConnections() {
         return !gameSessions.isEmpty();
+    }
+
+    public Set<Long> getAllActiveGameIds() {
+        return gameSessions.keySet();
     }
 }
 

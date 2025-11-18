@@ -46,11 +46,15 @@ public class WebSocketAuthenticationInterceptor implements HandshakeInterceptor 
             @NonNull Map<String, Object> attributes
     ) throws Exception {
         try {
+            URI uri = request.getURI();
+            log.debug("WebSocket handshake attempt: path={}, query={}", uri.getPath(), uri.getQuery());
+            
             String authHeader = request.getHeaders().getFirst(AUTHORIZATION_HEADER);
             String token = null;
             
             if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)) {
                 token = authHeader.substring(BEARER_PREFIX.length()).trim();
+                log.debug("WebSocket: Token found in Authorization header");
             } else {
                 String query = request.getURI().getQuery();
                 if (query != null && query.contains("token=")) {
@@ -62,6 +66,7 @@ public class WebSocketAuthenticationInterceptor implements HandshakeInterceptor 
                             } catch (Exception e) {
                                 token = param.substring(6);
                             }
+                            log.debug("WebSocket: Token found in query parameter");
                             break;
                         }
                     }
@@ -69,7 +74,7 @@ public class WebSocketAuthenticationInterceptor implements HandshakeInterceptor 
             }
             
             if (token == null || token.isEmpty()) {
-                log.warn("WebSocket handshake rejected: Missing or invalid Authorization header or token query parameter");
+                log.warn("WebSocket handshake rejected: Missing or invalid Authorization header or token query parameter. Path={}, Query={}", uri.getPath(), uri.getQuery());
                 response.setStatusCode(org.springframework.http.HttpStatus.UNAUTHORIZED);
                 return false;
             }
@@ -83,8 +88,10 @@ public class WebSocketAuthenticationInterceptor implements HandshakeInterceptor 
             Long userId = jwtTokenProvider.getUserIdFromToken(token);
             Long gameId = extractGameIdFromPath(request.getURI());
 
-            if (gameId == null) {
-                log.warn("WebSocket handshake rejected: Missing gameId in path");
+            log.debug("WebSocket handshake: userId={}, gameId={}, path={}", userId, gameId, uri.getPath());
+
+            if (gameId == null || gameId <= 0) {
+                log.warn("WebSocket handshake rejected: Invalid gameId in path. Path={}, gameId={}", uri.getPath(), gameId);
                 response.setStatusCode(org.springframework.http.HttpStatus.BAD_REQUEST);
                 return false;
             }
@@ -111,7 +118,7 @@ public class WebSocketAuthenticationInterceptor implements HandshakeInterceptor 
             attributes.put("gameId", gameId);
             attributes.put("game", game);
 
-            log.debug("WebSocket handshake accepted: userId={}, gameId={}", userId, gameId);
+            log.info("WebSocket handshake accepted: userId={}, gameId={}", userId, gameId);
             return true;
         } catch (Exception e) {
             log.error("Error during WebSocket handshake", e);

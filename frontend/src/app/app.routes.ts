@@ -32,6 +32,20 @@ export const routes: Routes = [
             (m) => m.GameOptionsComponent,
           ),
       },
+      {
+        path: 'game/matchmaking',
+        loadComponent: () =>
+          import('./features/game/matchmaking-queue.component').then(
+            (m) => m.MatchmakingQueueComponent,
+          ),
+      },
+      {
+        path: 'game/matchmaking/waiting',
+        loadComponent: () =>
+          import('./features/game/matchmaking.component').then(
+            (m) => m.MatchmakingComponent,
+          ),
+      },
       { path: 'game', component: GameDashboardComponent },
       {
         path: 'game/:gameId',

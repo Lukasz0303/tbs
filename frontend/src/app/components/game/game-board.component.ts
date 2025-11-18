@@ -3,6 +3,8 @@ import { ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, Input, Ou
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { PlayerSymbol } from '../../models/game.model';
+import { LoggerService } from '../../services/logger.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-game-board',
@@ -24,6 +26,7 @@ export class GameBoardComponent {
   @Output() move = new EventEmitter<{ row: number; col: number }>();
 
   private readonly destroyRef = inject(DestroyRef);
+  private readonly logger = inject(LoggerService);
   private readonly clickSubject = new Subject<number>();
 
   constructor() {
@@ -56,10 +59,28 @@ export class GameBoardComponent {
   }
 
   onCellClick(index: number): void {
+    if (!environment.production) {
+      this.logger.debug('GAME_BOARD_CLICK', {
+        index,
+        boardSize: this.boardSize,
+        gameType: this.gameType,
+        gameStatus: this.gameStatus,
+        disabledInput: this.disabled,
+        cellDisabled: this.isCellDisabled(index),
+        cellValue: this.getCellValue(index),
+      });
+    }
     this.clickSubject.next(index);
   }
 
   private onCellClickInternal(index: number): void {
+    if (!environment.production) {
+      this.logger.debug('GAME_BOARD_INTERNAL_CLICK', {
+        index,
+        cellDisabled: this.isCellDisabled(index),
+        cellValue: this.getCellValue(index),
+      });
+    }
     if (this.isCellDisabled(index)) {
       return;
     }
@@ -86,18 +107,14 @@ export class GameBoardComponent {
     const col = this.getColFromIndex(index);
     return this.boardState[row]?.[col] ?? null;
   }
-
+  
   isCellDisabled(index: number): boolean {
     const isWaitingVsBot = this.gameType === 'vs_bot' && this.gameStatus === 'waiting';
     if (isWaitingVsBot) {
       return false;
     }
 
-    if (this.disabled) {
-      return true;
-    }
-
-    return this.gameStatus !== 'in_progress';
+    return this.disabled;
   }
 }
 

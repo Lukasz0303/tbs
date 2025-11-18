@@ -3,6 +3,7 @@ package com.tbs.service;
 import com.tbs.enums.BoardSize;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
@@ -42,27 +43,75 @@ public class RedisService {
         log.debug("Added user {} to queue for board size {}", userId, boardSize);
     }
 
-    public boolean removeFromQueue(Long userId) {
-        String userKey = USER_PREFIX + userId;
-        String boardSizeValue = redisTemplate.opsForValue().get(userKey);
-
-        if (boardSizeValue == null) {
-            return false;
-        }
-
+    public boolean addToQueueIfNotExists(Long userId, BoardSize boardSize) {
         try {
-            BoardSize boardSize = BoardSize.valueOf(boardSizeValue);
             String queueKey = QUEUE_PREFIX + boardSize.name();
-
-            redisTemplate.opsForZSet().remove(queueKey, userId.toString());
-            redisTemplate.delete(userKey);
-
-            log.debug("Removed user {} from queue for board size {}", userId, boardSize);
+            String userKey = USER_PREFIX + userId;
+            
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(userKey))) {
+                return false;
+            }
+            
+            long timestamp = Instant.now().toEpochMilli();
+            
+            Boolean addedToZSet = redisTemplate.opsForZSet().addIfAbsent(queueKey, userId.toString(), timestamp);
+            if (Boolean.FALSE.equals(addedToZSet)) {
+                return false;
+            }
+            
+            Boolean setUserKey = redisTemplate.opsForValue().setIfAbsent(
+                    userKey, 
+                    boardSize.name(), 
+                    java.time.Duration.ofSeconds(QUEUE_TTL_SECONDS)
+            );
+            
+            if (Boolean.FALSE.equals(setUserKey)) {
+                redisTemplate.opsForZSet().remove(queueKey, userId.toString());
+                return false;
+            }
+            
+            redisTemplate.expire(queueKey, java.time.Duration.ofSeconds(QUEUE_TTL_SECONDS));
+            
+            log.debug("Added user {} to queue for board size {} (atomic operation)", userId, boardSize);
             return true;
-        } catch (IllegalArgumentException e) {
-            log.warn("Invalid board size value in Redis for user {}: {}", userId, boardSizeValue);
-            redisTemplate.delete(userKey);
-            return false;
+        } catch (RedisConnectionFailureException e) {
+            log.error("Redis connection failure while adding user {} to queue", userId, e);
+            throw new IllegalStateException("Failed to add user to queue due to Redis connection failure", e);
+        } catch (Exception e) {
+            log.error("Unexpected error while adding user {} to queue", userId, e);
+            throw new IllegalStateException("Failed to add user to queue", e);
+        }
+    }
+
+    public boolean removeFromQueue(Long userId) {
+        try {
+            String userKey = USER_PREFIX + userId;
+            String boardSizeValue = redisTemplate.opsForValue().get(userKey);
+
+            if (boardSizeValue == null) {
+                return false;
+            }
+
+            try {
+                BoardSize boardSize = BoardSize.valueOf(boardSizeValue);
+                String queueKey = QUEUE_PREFIX + boardSize.name();
+
+                redisTemplate.opsForZSet().remove(queueKey, userId.toString());
+                redisTemplate.delete(userKey);
+
+                log.debug("Removed user {} from queue for board size {}", userId, boardSize);
+                return true;
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid board size value in Redis for user {}: {}", userId, boardSizeValue);
+                redisTemplate.delete(userKey);
+                return false;
+            }
+        } catch (RedisConnectionFailureException e) {
+            log.error("Redis connection failure while removing user {} from queue", userId, e);
+            throw new IllegalStateException("Failed to remove user from queue due to Redis connection failure", e);
+        } catch (Exception e) {
+            log.error("Unexpected error while removing user {} from queue", userId, e);
+            throw new IllegalStateException("Failed to remove user from queue", e);
         }
     }
 
@@ -167,18 +216,32 @@ public class RedisService {
     }
 
     public boolean acquireLock(String lockKey, int timeoutSeconds) {
-        String fullLockKey = LOCK_PREFIX + lockKey;
-        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(
-                fullLockKey, 
-                "locked", 
-                java.time.Duration.ofSeconds(timeoutSeconds)
-        );
-        return Boolean.TRUE.equals(acquired);
+        try {
+            String fullLockKey = LOCK_PREFIX + lockKey;
+            Boolean acquired = redisTemplate.opsForValue().setIfAbsent(
+                    fullLockKey, 
+                    "locked", 
+                    java.time.Duration.ofSeconds(timeoutSeconds)
+            );
+            return Boolean.TRUE.equals(acquired);
+        } catch (RedisConnectionFailureException e) {
+            log.error("Redis connection failure while acquiring lock: {}", lockKey, e);
+            throw new IllegalStateException("Failed to acquire lock due to Redis connection failure", e);
+        } catch (Exception e) {
+            log.error("Unexpected error while acquiring lock: {}", lockKey, e);
+            throw new IllegalStateException("Failed to acquire lock", e);
+        }
     }
 
     public void releaseLock(String lockKey) {
-        String fullLockKey = LOCK_PREFIX + lockKey;
-        redisTemplate.delete(fullLockKey);
+        try {
+            String fullLockKey = LOCK_PREFIX + lockKey;
+            redisTemplate.delete(fullLockKey);
+        } catch (RedisConnectionFailureException e) {
+            log.warn("Redis connection failure while releasing lock: {} (non-critical)", lockKey, e);
+        } catch (Exception e) {
+            log.warn("Unexpected error while releasing lock: {} (non-critical)", lockKey, e);
+        }
     }
 
     public record QueueEntry(Long userId, BoardSize boardSize, Instant joinedAt) {}

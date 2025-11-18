@@ -175,9 +175,12 @@ export class GameOptionsComponent {
   }
 
   private createGame(selectedMode: GameMode, selectedSize: BoardSize): Observable<Game> {
-    const gameObservable = selectedMode === 'pvp'
-      ? this.gameService.createPvpGame(selectedSize)
-      : this.gameService.createBotGame(selectedMode as BotDifficulty, selectedSize);
+    if (selectedMode === 'pvp') {
+      this.navigateTo(['/game/matchmaking'], { queryParams: { boardSize: selectedSize } });
+      return EMPTY;
+    }
+    
+    const gameObservable = this.gameService.createBotGame(selectedMode as BotDifficulty, selectedSize);
     
     return gameObservable.pipe(
       tap((game) => {
@@ -226,8 +229,8 @@ export class GameOptionsComponent {
     return error instanceof HttpErrorResponse && error.status === 404;
   }
 
-  private navigateTo(commands: Array<string | number>): void {
-    this.router.navigate(commands).catch((error) => {
+  private navigateTo(commands: Array<string | number>, extras?: { queryParams?: Record<string, any> }): void {
+    this.router.navigate(commands, extras).catch((error) => {
       this.isStartingGame.set(false);
       this.notifyError('home.error.navigation');
       this.handleError(error);

@@ -1,8 +1,9 @@
 import { inject, Injectable } from '@angular/core';
 import { Observable, Subject, BehaviorSubject, throwError, EMPTY } from 'rxjs';
-import { catchError, filter, map } from 'rxjs/operators';
+import { catchError, filter, map, timeout } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { WebSocketDTOs } from '../models/websocket.model';
+import { LoggerService } from './logger.service';
 
 @Injectable({ providedIn: 'root' })
 export class WebSocketService {
@@ -13,6 +14,7 @@ export class WebSocketService {
   private readonly maxReconnectAttempts = 20;
   private reconnectTimeout: number | null = null;
   private gameId: number | null = null;
+  private readonly logger = inject(LoggerService);
 
   readonly isConnected$ = this.connectionStatus$.asObservable();
 
@@ -34,9 +36,16 @@ export class WebSocketService {
     this.disconnect();
     this.gameId = gameId;
 
-    const wsUrl = environment.apiBaseUrl.replace('http', 'ws');
-    const url = `${wsUrl}/ws/game/${gameId}?token=${encodeURIComponent(token)}`;
+    const baseUrl = environment.apiBaseUrl.replace('http', 'ws');
+    const url = `${baseUrl}/ws/game/${gameId}?token=${encodeURIComponent(token)}`;
     const connectionTimeout = 10000;
+
+    this.logger.debug('WebSocket: Attempting to connect', {
+      gameId,
+      url: url.replace(/\?token=.*$/, '?token=***'),
+      baseUrl,
+      apiBaseUrl: environment.apiBaseUrl
+    });
 
     return new Observable((observer) => {
       let timeoutId: number | null = null;
@@ -46,6 +55,10 @@ export class WebSocketService {
 
         timeoutId = window.setTimeout(() => {
           if (this.ws?.readyState !== WebSocket.OPEN) {
+            this.logger.error('WebSocket: Connection timeout', {
+              readyState: this.ws?.readyState,
+              gameId
+            });
             if (this.ws) {
               this.ws.close();
             }
@@ -54,6 +67,7 @@ export class WebSocketService {
         }, connectionTimeout);
 
         this.ws.onopen = () => {
+          this.logger.debug('WebSocket: Connection opened successfully', { gameId });
           if (timeoutId !== null) {
             clearTimeout(timeoutId);
           }
@@ -67,28 +81,45 @@ export class WebSocketService {
           try {
             const parsed = JSON.parse(event.data);
             if (this.isValidWebSocketMessage(parsed)) {
+              this.logger.debug('WebSocket: Message received', { type: parsed.type, gameId });
               this.messages$.next(parsed);
             } else {
-              console.warn('Invalid WebSocket message format:', parsed);
+              this.logger.warn('WebSocket: Invalid message format', { parsed, gameId });
             }
           } catch (error) {
-            console.error('Failed to parse WebSocket message:', error);
+            this.logger.error('WebSocket: Failed to parse message', { error, gameId });
           }
         };
 
         this.ws.onerror = (error) => {
+          this.logger.error('WebSocket: Connection error', {
+            error,
+            gameId,
+            readyState: this.ws?.readyState,
+            url: url.replace(/\?token=.*$/, '?token=***')
+          });
           if (timeoutId !== null) {
             clearTimeout(timeoutId);
           }
           observer.error(error);
         };
 
-        this.ws.onclose = () => {
+        this.ws.onclose = (event) => {
+          this.logger.warn('WebSocket: Connection closed', {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean,
+            gameId,
+            readyState: this.ws?.readyState
+          });
           if (timeoutId !== null) {
             clearTimeout(timeoutId);
           }
           this.connectionStatus$.next(false);
-          this.handleReconnect(gameId, token);
+          
+          if (event.code !== 1000 && event.code !== 1001) {
+            this.handleReconnect(gameId, token);
+          }
         };
       } catch (error) {
         if (timeoutId !== null) {
@@ -126,8 +157,21 @@ export class WebSocketService {
 
   sendMove(row: number, col: number, playerSymbol: 'x' | 'o'): Observable<void> {
     return new Observable((observer) => {
-      if (this.ws?.readyState !== WebSocket.OPEN) {
-        observer.error(new Error('WebSocket is not connected'));
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        const readyState = this.ws?.readyState;
+        const stateNames: Record<number, string> = {
+          [WebSocket.CONNECTING]: 'CONNECTING',
+          [WebSocket.OPEN]: 'OPEN',
+          [WebSocket.CLOSING]: 'CLOSING',
+          [WebSocket.CLOSED]: 'CLOSED'
+        };
+        const stateName = readyState !== undefined ? (stateNames[readyState] || 'UNKNOWN') : 'NULL';
+        this.logger.error('WebSocket: Cannot send move - not connected', {
+          readyState,
+          stateName,
+          gameId: this.gameId
+        });
+        observer.error(new Error(`WebSocket is not connected (state: ${stateName})`));
         return;
       }
 
@@ -140,10 +184,13 @@ export class WebSocketService {
             playerSymbol,
           },
         };
-        this.ws.send(JSON.stringify(message));
+        const json = JSON.stringify(message);
+        this.logger.debug('WebSocket: Sending move', { json, row, col, playerSymbol, gameId: this.gameId });
+        this.ws.send(json);
         observer.next();
         observer.complete();
       } catch (error) {
+        this.logger.error('WebSocket: Error sending move', { error, gameId: this.gameId });
         observer.error(error);
       }
     });
@@ -181,7 +228,7 @@ export class WebSocketService {
     }
 
     this.reconnectAttempts++;
-    const delay = Math.min(1000 * this.reconnectAttempts, 10000);
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 10000);
 
     this.reconnectTimeout = window.setTimeout(() => {
       this.connect(gameId, token)

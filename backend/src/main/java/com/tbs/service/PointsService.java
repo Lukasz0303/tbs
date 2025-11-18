@@ -72,35 +72,86 @@ public class PointsService {
             throw new IllegalStateException("Winner user ID cannot be null");
         }
 
-        if (Boolean.TRUE.equals(winner.getIsGuest())) {
-            log.debug("Skipping points award for guest user {} in game {}", winnerId, game.getId());
-            return;
-        }
-
         long pointsToAward = calculatePoints(game);
         if (pointsToAward <= 0) {
             log.warn("No points to award for game {} with type {} and bot difficulty {}", 
                     game.getId(), game.getGameType(), game.getBotDifficulty());
-            return;
         }
 
-        User user = userRepository.findById(winnerId)
-                .orElseThrow(() -> new IllegalStateException("Winner user not found: " + winnerId));
-
-        long currentPoints = user.getTotalPoints() != null ? user.getTotalPoints() : 0L;
-        int currentWins = user.getGamesWon() != null ? user.getGamesWon() : 0;
-        int currentPlayed = user.getGamesPlayed() != null ? user.getGamesPlayed() : 0;
-
-        user.setTotalPoints(currentPoints + pointsToAward);
-        user.setGamesWon(currentWins + 1);
-        user.setGamesPlayed(currentPlayed + 1);
-
-        userRepository.save(user);
-
-        log.info("Awarded {} points to user {} for winning game {} (type: {}, difficulty: {})", 
-                pointsToAward, user.getId(), game.getId(), game.getGameType(), game.getBotDifficulty());
+        if (game.getGameType() == GameType.PVP) {
+            updatePlayerStatsForPvpWin(game, winnerId, pointsToAward);
+        } else if (game.getGameType() == GameType.VS_BOT) {
+            updatePlayerStatsForBotWin(game, winnerId, pointsToAward);
+        }
 
         refreshRankingsAsync();
+    }
+
+    private void updatePlayerStatsForPvpWin(Game game, Long winnerId, long pointsToAward) {
+        Long player1Id = getPlayerId(game.getPlayer1());
+        Long player2Id = getPlayerId(game.getPlayer2());
+
+        if (player1Id != null) {
+            userRepository.findById(player1Id)
+                    .filter(player -> !Boolean.TRUE.equals(player.getIsGuest()))
+                    .ifPresent(player1 -> {
+                        int currentPlayed = player1.getGamesPlayed() != null ? player1.getGamesPlayed() : 0;
+                        player1.setGamesPlayed(currentPlayed + 1);
+
+                        if (player1Id.equals(winnerId)) {
+                            long currentPoints = player1.getTotalPoints() != null ? player1.getTotalPoints() : 0L;
+                            int currentWins = player1.getGamesWon() != null ? player1.getGamesWon() : 0;
+                            player1.setTotalPoints(currentPoints + pointsToAward);
+                            player1.setGamesWon(currentWins + 1);
+                            log.info("Awarded {} points to user {} for winning PvP game {}", 
+                                    pointsToAward, player1Id, game.getId());
+                        }
+
+                        userRepository.save(player1);
+                    });
+        }
+
+        if (player2Id != null) {
+            userRepository.findById(player2Id)
+                    .filter(player -> !Boolean.TRUE.equals(player.getIsGuest()))
+                    .ifPresent(player2 -> {
+                        int currentPlayed = player2.getGamesPlayed() != null ? player2.getGamesPlayed() : 0;
+                        player2.setGamesPlayed(currentPlayed + 1);
+
+                        if (player2Id.equals(winnerId)) {
+                            long currentPoints = player2.getTotalPoints() != null ? player2.getTotalPoints() : 0L;
+                            int currentWins = player2.getGamesWon() != null ? player2.getGamesWon() : 0;
+                            player2.setTotalPoints(currentPoints + pointsToAward);
+                            player2.setGamesWon(currentWins + 1);
+                            log.info("Awarded {} points to user {} for winning PvP game {}", 
+                                    pointsToAward, player2Id, game.getId());
+                        }
+
+                        userRepository.save(player2);
+                    });
+        }
+    }
+
+    private void updatePlayerStatsForBotWin(Game game, Long winnerId, long pointsToAward) {
+        userRepository.findById(winnerId)
+                .filter(user -> !Boolean.TRUE.equals(user.getIsGuest()))
+                .ifPresentOrElse(
+                        user -> {
+                            long currentPoints = user.getTotalPoints() != null ? user.getTotalPoints() : 0L;
+                            int currentWins = user.getGamesWon() != null ? user.getGamesWon() : 0;
+                            int currentPlayed = user.getGamesPlayed() != null ? user.getGamesPlayed() : 0;
+
+                            user.setTotalPoints(currentPoints + pointsToAward);
+                            user.setGamesWon(currentWins + 1);
+                            user.setGamesPlayed(currentPlayed + 1);
+
+                            userRepository.save(user);
+
+                            log.info("Awarded {} points to user {} for winning game {} (type: {}, difficulty: {})", 
+                                    pointsToAward, user.getId(), game.getId(), game.getGameType(), game.getBotDifficulty());
+                        },
+                        () -> log.debug("Skipping points award for guest user {} in game {}", winnerId, game.getId())
+                );
     }
 
     private boolean isPlayerInGame(Game game, User player) {

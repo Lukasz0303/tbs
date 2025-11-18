@@ -20,10 +20,10 @@ public class OpenAPIConfiguration {
                         .description("API for World at War - competitive turn-based strategy game\n\n" +
                                 "## WebSocket Endpoints\n\n" +
                                 "**WebSocket endpointy nie są standardowo dokumentowane w OpenAPI**, ale są dostępne:\n\n" +
-                                "### WS /ws/game/{gameId}\n\n" +
+                                "### WS /api/ws/game/{gameId}\n\n" +
                                 "Połączenie WebSocket dla komunikacji w czasie rzeczywistym podczas rozgrywki PvP.\n\n" +
                                 "**Połączenie:**\n" +
-                                "- URL: `ws://localhost:8080/ws/game/{gameId}`\n" +
+                                "- URL: `ws://localhost:8080/api/ws/game/{gameId}`\n" +
                                 "- Protokół: WebSocket\n" +
                                 "- Autoryzacja: JWT token w nagłówku `Authorization: Bearer <token>`\n\n" +
                                 "**Wymagania:**\n" +

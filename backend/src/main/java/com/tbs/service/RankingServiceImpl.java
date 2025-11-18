@@ -64,6 +64,9 @@ public class RankingServiceImpl implements RankingService {
                 String.format("Page size must be between 1 and %d", MAX_PAGE_SIZE)
             );
         }
+        if (pageable.getPageNumber() < 0) {
+            throw new IllegalArgumentException("Page number cannot be negative");
+        }
 
         List<RankingItem> items;
         long totalCount = rankingRepository.countAll();
@@ -141,6 +144,10 @@ public class RankingServiceImpl implements RankingService {
             log.warn("Ranking not found for user: {}", userId);
             throw new UserNotInRankingException("Ranking not found for user with id: " + userId);
         }
+        if (results.size() > 1) {
+            log.error("Multiple rankings found for user: {} (expected 1, got {})", userId, results.size());
+            throw new IllegalStateException("Data integrity violation: multiple rankings for user " + userId);
+        }
 
         Object[] result = results.get(0);
         return mapToRankingDetailResponse(result);
@@ -204,9 +211,19 @@ public class RankingServiceImpl implements RankingService {
     private RankingItem mapToRankingItem(Object[] row) {
         validateRow(row, RANKING_ITEM_COLUMNS, "RankingItem");
         try {
+            Long rankPosition = getLongValueOrNull(row[0], "rankPosition");
+            if (rankPosition == null) {
+                log.error("Rank position is null in ranking item. Row: {}", Arrays.toString(row));
+                throw new IllegalStateException("Rank position cannot be null");
+            }
+            Long userId = getLongValueOrNull(row[1], "userId");
+            if (userId == null) {
+                log.error("User ID is null in ranking item. Row: {}", Arrays.toString(row));
+                throw new IllegalStateException("User ID cannot be null");
+            }
             return new RankingItem(
-                    getLongValue(row[0], "rankPosition"),
-                    getLongValue(row[1], "userId"),
+                    rankPosition,
+                    userId,
                     getStringValue(row[2], "username"),
                     getLongValue(row[3], "totalPoints"),
                     getIntValue(row[4], "gamesPlayed"),
@@ -275,6 +292,16 @@ public class RankingServiceImpl implements RankingService {
         throw new IllegalStateException("Field " + fieldName + " must be a number, got: " + value.getClass().getName());
     }
 
+    private Long getLongValueOrNull(Object value, String fieldName) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        throw new IllegalStateException("Field " + fieldName + " must be a number, got: " + value.getClass().getName());
+    }
+
     private int getIntValue(Object value, String fieldName) {
         if (value == null) {
             throw new IllegalStateException("Field " + fieldName + " cannot be null");
@@ -318,11 +345,10 @@ public class RankingServiceImpl implements RankingService {
                 cause = cause.getCause();
             }
             throw new IllegalStateException("Failed to refresh player_rankings materialized view: " + e.getMessage(), e);
-        } catch (org.springframework.data.redis.RedisConnectionFailureException e) {
-            log.warn("Redis unavailable during cache evict, continuing without cache: {}", e.getMessage());
         } catch (Exception e) {
-            if (e.getCause() instanceof org.springframework.data.redis.RedisConnectionFailureException ||
-                e.getCause() != null && e.getCause().getClass().getName().contains("redis")) {
+            if (e instanceof org.springframework.data.redis.RedisConnectionFailureException ||
+                e.getCause() instanceof org.springframework.data.redis.RedisConnectionFailureException ||
+                (e.getCause() != null && e.getCause().getClass().getName().contains("redis"))) {
                 log.warn("Redis unavailable during cache evict, continuing without cache: {}", e.getMessage());
                 return;
             }

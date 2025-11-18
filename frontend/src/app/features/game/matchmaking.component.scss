@@ -1,0 +1,102 @@
+:host {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100dvh - 200px);
+  padding: clamp(2.5rem, 5vw, 6rem) clamp(1.5rem, 4vw, 4rem);
+  margin: 0 auto;
+}
+
+:host::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(4, 11, 29, 0.42);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.matchmaking-container {
+  width: min(500px, 100%);
+}
+
+.matchmaking-card {
+  border-radius: 1.75rem;
+  padding: clamp(2.5rem, 4vw, 3.5rem);
+  background: rgba(10, 18, 40, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 40px 110px -70px rgba(2, 6, 18, 0.85);
+  backdrop-filter: blur(18px);
+  display: grid;
+  gap: 2.5rem;
+  color: #eaf2ff;
+  text-align: center;
+}
+
+.matchmaking-card h2 {
+  margin: 0;
+  font-size: clamp(1.75rem, 3vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.matchmaking-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  p {
+    margin: 0;
+    font-size: 1.1rem;
+    color: rgba(230, 240, 255, 0.8);
+  }
+}
+
+.matchmaking-animation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  margin: 1rem 0;
+
+  .status-text {
+    margin: 0;
+    font-size: 1rem;
+    color: rgba(230, 240, 255, 0.7);
+    animation: pulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.matchmaking-actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 480px) {
+  :host {
+    padding: 2rem 1.25rem;
+  }
+
+  .matchmaking-card {
+    gap: 2rem;
+    padding: 2rem 1.5rem;
+  }
+}
+

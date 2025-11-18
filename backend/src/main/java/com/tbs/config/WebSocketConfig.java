@@ -32,7 +32,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     @Override
     public void registerWebSocketHandlers(@NonNull WebSocketHandlerRegistry registry) {
-        registry.addHandler(gameWebSocketHandler, "/ws/game/{gameId}")
+        registry.addHandler(gameWebSocketHandler, "/api/ws/game/{gameId}")
                 .addInterceptors(authenticationInterceptor)
                 .setAllowedOrigins(allowedOrigins.toArray(new String[0]));
     }

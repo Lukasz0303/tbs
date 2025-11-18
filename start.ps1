@@ -32,8 +32,11 @@ function Test-Port {
     param([int]$Port)
     
     try {
-        $connection = Test-NetConnection -ComputerName localhost -Port $Port -InformationLevel Quiet -WarningAction SilentlyContinue
-        return $connection
+        $connection = Test-NetConnection -ComputerName localhost -Port $Port -InformationLevel Quiet -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+        if ($connection -eq $true) {
+            return $true
+        }
+        return $false
     } catch {
         return $false
     }

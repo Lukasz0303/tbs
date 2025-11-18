@@ -1,15 +1,97 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable, throwError, timeout } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { Game, PlayerSymbol } from '../models/game.model';
 import { GameResponse } from '../models/api-response.model';
+import { normalizeBoardState } from '../shared/utils/board-state.util';
+
+export interface MatchmakingQueueRequest {
+  boardSize: 3 | 4 | 5;
+}
+
+export interface MatchmakingQueueResponse {
+  message: string;
+  estimatedWaitTime: number;
+}
+
+export interface LeaveQueueResponse {
+  message: string;
+}
+
+export type BoardSizeEnum = 'THREE' | 'FOUR' | 'FIVE';
+export type QueuePlayerStatusEnum = 'WAITING' | 'MATCHED' | 'PLAYING';
+
+export interface PlayerQueueStatus {
+  userId: number;
+  username: string;
+  boardSize: BoardSizeEnum;
+  status: QueuePlayerStatusEnum;
+  joinedAt: string;
+  matchedWith?: number | null;
+  matchedWithUsername?: string | null;
+  gameId?: number | null;
+  isMatched: boolean;
+}
+
+export interface QueueStatusResponse {
+  players: PlayerQueueStatus[];
+  totalCount: number;
+}
 
 @Injectable({ providedIn: 'root' })
 export class MatchmakingService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = environment.apiBaseUrl;
+
+  joinQueue(boardSize: 3 | 4 | 5): Observable<MatchmakingQueueResponse> {
+    if (![3, 4, 5].includes(boardSize)) {
+      return throwError(() => new Error('Invalid boardSize: must be 3, 4, or 5'));
+    }
+
+    const request: MatchmakingQueueRequest = { boardSize };
+
+    return this.http
+      .post<MatchmakingQueueResponse>(`${this.apiUrl}/v1/matching/queue`, request)
+      .pipe(
+        catchError((error) => {
+          return throwError(() => error);
+        })
+      );
+  }
+
+  leaveQueue(): Observable<LeaveQueueResponse> {
+    return this.http
+      .delete<LeaveQueueResponse>(`${this.apiUrl}/v1/matching/queue`)
+      .pipe(
+        catchError((error) => {
+          return throwError(() => error);
+        })
+      );
+  }
+
+  getQueueStatus(boardSize?: 3 | 4 | 5): Observable<QueueStatusResponse> {
+    let params = new HttpParams();
+    
+    if (boardSize) {
+      const boardSizeMap: Record<number, string> = {
+        3: 'THREE',
+        4: 'FOUR',
+        5: 'FIVE',
+      };
+      params = params.set('boardSize', boardSizeMap[boardSize]);
+    }
+
+    return this.http
+      .get<QueueStatusResponse>(`${this.apiUrl}/v1/matching/queue`, { params })
+      .pipe(
+        timeout(10000),
+        catchError((error) => {
+          return throwError(() => error);
+        })
+      );
+  }
 
   challengePlayer(userId: number, boardSize: 3 | 4 | 5 = 3): Observable<Game> {
     if (!userId || userId <= 0) {
@@ -41,7 +123,7 @@ export class MatchmakingService {
       boardState = [];
     }
     
-    const normalized = this.normalizeBoardState(boardState);
+    const normalized = normalizeBoardState(boardState);
     
     const player1Id = response.player1?.userId || response.player1Id || 0;
     const player2Id = response.player2?.userId || response.player2Id || null;
@@ -64,31 +146,6 @@ export class MatchmakingService {
       finishedAt: response.finishedAt ?? null,
       totalMoves: response.totalMoves,
     };
-  }
-
-  private normalizeBoardState(boardState: unknown): (PlayerSymbol | null)[][] {
-    if (!Array.isArray(boardState)) {
-      return [];
-    }
-
-    if (boardState.length === 0) {
-      return [];
-    }
-
-    return boardState.map((row: unknown) => {
-      if (!Array.isArray(row)) {
-        return [];
-      }
-      return row.map((cell: unknown) => {
-        if (cell === null || cell === undefined || cell === '') {
-          return null;
-        }
-        if (cell === 'x' || cell === 'o') {
-          return cell as PlayerSymbol;
-        }
-        return null;
-      });
-    });
   }
 }
 
