@@ -1,0 +1,42 @@
+@if (game; as gameData) {
+  <div class="last-game-card">
+    <div class="card-header">
+      <h3>{{ translate.translate('profile.lastGame.title') }}</h3>
+    </div>
+
+    <div class="game-info">
+      <div class="info-item">
+        <span class="info-label">{{ translate.translate('profile.lastGame.type') }}:</span>
+        <span class="info-value">{{ gameTypeLabel() }}</span>
+      </div>
+
+      <div class="info-item">
+        <span class="info-label">{{ translate.translate('profile.lastGame.opponent') }}:</span>
+        <span class="info-value">{{ opponentLabel() }}</span>
+      </div>
+
+      <div class="info-item">
+        <span class="info-label">{{ translate.translate('profile.lastGame.status') }}:</span>
+        <span class="info-value">{{ statusLabel() }}</span>
+      </div>
+
+      @if (lastMoveDate()) {
+        <div class="info-item">
+          <span class="info-label">{{ translate.translate('profile.lastGame.lastMove') }}:</span>
+          <span class="info-value">{{ lastMoveDate() ? (lastMoveDate() | date: 'short') : '-' }}</span>
+        </div>
+      }
+    </div>
+
+    <div class="card-actions">
+      <button
+        pButton
+        type="button"
+        [label]="translate.translate('profile.lastGame.continue')"
+        icon="pi pi-play"
+        (click)="onContinue()">
+      </button>
+    </div>
+  </div>
+}
+

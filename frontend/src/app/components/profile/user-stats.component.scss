@@ -1,0 +1,63 @@
+.user-stats {
+  h2 {
+    color: var(--p-text-color);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 1.5rem 0;
+  }
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: var(--p-surface-ground);
+  border-radius: var(--p-border-radius);
+
+  .stat-label {
+    color: var(--p-text-secondary-color);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .stat-value {
+    color: var(--p-text-color);
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+}
+
+.ranking-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--p-surface-border);
+}
+
+.ranking-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: var(--p-primary-color);
+  border-radius: var(--p-border-radius);
+  color: var(--p-primary-contrast-text);
+
+  .ranking-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .ranking-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+}
+

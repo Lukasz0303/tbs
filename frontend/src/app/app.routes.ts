@@ -56,6 +56,13 @@ export const routes: Routes = [
       },
       { path: 'leaderboard', component: LeaderboardComponent },
       {
+        path: 'profile',
+        loadComponent: () =>
+          import('./features/profile/profile.component').then(
+            (m) => m.ProfileComponent,
+          ),
+      },
+      {
         path: 'polityka-prywatnosci',
         loadComponent: () =>
           import('./features/legal/privacy-policy.component').then(

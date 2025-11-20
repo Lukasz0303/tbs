@@ -118,6 +118,27 @@
         }
       </div>
 
+      <div class="flex flex-col gap-2">
+        <label>{{ translateService.translate('auth.register.avatar') }}</label>
+        <div class="avatar-selection">
+          <div class="avatar-grid">
+            @for (avatarId of [1, 2, 3, 4, 5, 6]; track avatarId) {
+              <div
+                class="avatar-option"
+                [class.selected]="selectedAvatar() === avatarId"
+                (click)="selectAvatar(avatarId)">
+                <img [src]="getAvatarPath(avatarId)" [alt]="'Avatar ' + avatarId" class="avatar-preview" />
+                @if (selectedAvatar() === avatarId) {
+                  <div class="selected-indicator">
+                    <i class="pi pi-check"></i>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
       <p-button
         type="submit"
         [label]="translateService.translate('auth.register.submit')"

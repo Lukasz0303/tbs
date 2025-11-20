@@ -137,7 +137,7 @@ public class WebSocketDocumentationController {
                                 List.of(),
                                 List.of(
                                         "Wysyłane co sekundę",
-                                        "Timeout po 10 sekundach bez ruchu"
+                                        "Timeout po 20 sekundach bez ruchu"
                                 )
                         ),
                         new WebSocketDocumentationResponse.MessageTypeInfo(
@@ -169,7 +169,7 @@ public class WebSocketDocumentationController {
                                 "3. Gra kończy się ze statusem FINISHED\n" +
                                 "4. Wysyłane GAME_ENDED do obu graczy\n" +
                                 "5. Połączenia są zamykane",
-                        "1. Timer 10 sekund na ruch\n" +
+                        "1. Timer 20 sekund na ruch\n" +
                                 "2. TIMER_UPDATE wysyłane co sekundę\n" +
                                 "3. Po timeout: gra kończy się, przeciwnik wygrywa",
                         "1. Klient wysyła PING co 30 sekund\n" +
@@ -191,7 +191,7 @@ public class WebSocketDocumentationController {
                                 "AUTHORIZATION_ERROR - Brak uprawnień"
                         ),
                         "20 sekund",
-                        "10 sekund na ruch, 60 sekund na połączenie"
+                        "20 sekund na ruch, 60 sekund na połączenie"
                 ),
                 baseUrl + "/api/websocket/docs lub plik .ai/implementation-plans/websocket/ws-game-gameId.md"
         );

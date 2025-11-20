@@ -35,6 +35,7 @@ public class BotUserService {
         botUser.setEmail("bot@system.local");
         botUser.setPasswordHash("$2a$10$botSystemPasswordHashPlaceholder");
         botUser.setIsGuest(false);
+        botUser.setAvatar(1);
         botUser.setIpAddress(null);
         botUser.setTotalPoints(0L);
         botUser.setGamesPlayed(0);

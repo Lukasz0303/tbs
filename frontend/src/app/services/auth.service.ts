@@ -11,6 +11,7 @@ interface AuthUserResponse {
   username: string | null;
   email: string | null;
   isGuest: boolean;
+  avatar: number | null;
   totalPoints: number;
   gamesPlayed: number;
   gamesWon: number;
@@ -28,6 +29,7 @@ interface RegisterRequest {
   username: string;
   email: string;
   password: string;
+  avatar?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -100,6 +102,7 @@ export class AuthService {
             username: null,
             email: null,
             isGuest: response.isGuest,
+            avatar: response.avatar ?? 1,
             totalPoints: response.totalPoints,
             gamesPlayed: response.gamesPlayed,
             gamesWon: response.gamesWon,
@@ -149,8 +152,8 @@ export class AuthService {
     );
   }
 
-  register(username: string, email: string, password: string): Observable<User> {
-    const request: RegisterRequest = { username, email, password };
+  register(username: string, email: string, password: string, avatar?: number): Observable<User> {
+    const request: RegisterRequest = { username, email, password, avatar };
     return this.http.post<AuthUserResponse>(`${this.apiUrl}/v1/auth/register`, request).pipe(
       tap((response) => {
         if (response.authToken) {
@@ -185,6 +188,7 @@ export class AuthService {
       username: response.username,
       email: response.email,
       isGuest: response.isGuest,
+      avatar: response.avatar ?? 1,
       totalPoints: response.totalPoints,
       gamesPlayed: response.gamesPlayed,
       gamesWon: response.gamesWon,

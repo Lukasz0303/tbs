@@ -31,6 +31,9 @@ public class User {
     @Column(name = "is_guest", nullable = false)
     private Boolean isGuest;
 
+    @Column(name = "avatar", nullable = true)
+    private Integer avatar;
+
     @Column(name = "ip_address", columnDefinition = "text", nullable = true)
     private String ipAddress;
 
@@ -103,6 +106,14 @@ public class User {
 
     public void setIsGuest(Boolean isGuest) {
         this.isGuest = isGuest;
+    }
+
+    public Integer getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(Integer avatar) {
+        this.avatar = avatar;
     }
 
     public String getIpAddress() {

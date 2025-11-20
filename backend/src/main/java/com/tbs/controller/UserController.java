@@ -132,7 +132,7 @@ public class UserController {
     @PreAuthorize("hasRole('USER')")
     @Operation(
             summary = "Update user profile",
-            description = "Updates the profile of an authenticated user. Currently supports updating username (3-50 characters). Only the owner can update their own profile."
+            description = "Updates the profile of an authenticated user. Supports updating username (3-50 characters) and avatar (1-6). Only the owner can update their own profile."
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -163,6 +163,43 @@ public class UserController {
         }
 
         UpdateUserResponse response = userService.updateUserProfile(userId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{userId}/avatar")
+    @PreAuthorize("hasRole('USER')")
+    @Operation(
+            summary = "Update user avatar",
+            description = "Updates the avatar of an authenticated user. Avatar must be between 1 and 6. Only the owner can update their own avatar."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Avatar updated successfully",
+                    content = @Content(schema = @Schema(implementation = UpdateUserResponse.class))
+            ),
+            @ApiResponse(responseCode = "400", description = "Invalid avatar value - must be between 1 and 6"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - can only update own avatar"),
+            @ApiResponse(responseCode = "404", description = "User not found"),
+            @ApiResponse(responseCode = "429", description = "Rate limit exceeded - maximum 10 requests per minute")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<UpdateUserResponse> updateUserAvatar(
+            @PathVariable @Min(1) Long userId,
+            @RequestBody @Valid com.tbs.dto.user.UpdateAvatarRequest request
+    ) {
+        Long currentUserId = authenticationService.getCurrentUserId();
+
+        String rateLimitKey = "users:update-avatar:" + currentUserId;
+        checkRateLimit(rateLimitKey, updateRateLimit, Duration.ofMinutes(1),
+                "Rate limit exceeded. Maximum " + updateRateLimit + " requests per minute.");
+
+        if (!userId.equals(currentUserId)) {
+            throw new ForbiddenException("You can only update your own avatar");
+        }
+
+        UpdateUserResponse response = userService.updateUserAvatar(userId, request);
         return ResponseEntity.ok(response);
     }
 }

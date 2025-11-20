@@ -1,0 +1,62 @@
+@if (game; as gameData) {
+  <div class="game-bot-info">
+    <div class="bot-content">
+      <div class="bot-info-section">
+        <div class="bot-details">
+          <div class="detail-item">
+            <span class="detail-label">{{ translate.translate('game.info.type') }}</span>
+            <span class="detail-value">{{ gameTypeLabel() }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">{{ translate.translate('game.info.status') }}</span>
+            <span class="detail-value">{{ statusLabel() }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">{{ translate.translate('game.info.moves') }}</span>
+            <span class="detail-value">{{ totalMoves() }}</span>
+          </div>
+          @if (currentPlayerSymbol(); as symbol) {
+            <div class="detail-item">
+              <span class="detail-label">{{ translate.translate('game.info.currentPlayer') }}</span>
+              <span class="detail-value">{{ symbol }}</span>
+            </div>
+          }
+        </div>
+      </div>
+      <div class="avatar-section">
+        <div class="bot-title">{{ botDifficultyLabel() }}</div>
+        @if (botAvatar(); as avatar) {
+          <div class="avatar-container">
+            <img [src]="avatar" alt="Bot Avatar" class="avatar-image" />
+          </div>
+        }
+        @if (botSymbol(); as symbol) {
+          <div class="player-symbol symbol-o">
+            <span class="symbol-value">{{ symbol }}</span>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+} @else {
+  <div class="game-bot-info">
+    <div class="bot-content">
+      <div class="bot-info-section">
+        <div class="bot-details">
+          <div class="detail-item">
+            <span class="detail-label">{{ translate.translate('game.info.type') }}</span>
+            <span class="detail-value">-</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">{{ translate.translate('game.info.status') }}</span>
+            <span class="detail-value">-</span>
+          </div>
+        </div>
+      </div>
+      <div class="avatar-section">
+        <div class="bot-title">-</div>
+      </div>
+    </div>
+  </div>
+}
+

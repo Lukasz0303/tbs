@@ -27,6 +27,7 @@ import { MessageService } from 'primeng/api';
 import { AuthService } from '../../services/auth.service';
 import { TranslateService } from '../../services/translate.service';
 import { LoggerService } from '../../services/logger.service';
+import { getAvatarPath } from '../../utils/avatar.util';
 
 @Component({
   selector: 'app-auth-register',
@@ -59,6 +60,7 @@ export class AuthRegisterComponent implements OnInit {
   readonly isLoading = signal<boolean>(false);
   readonly showPassword = signal<boolean>(false);
   readonly showConfirmPassword = signal<boolean>(false);
+  readonly selectedAvatar = signal<number>(1);
 
   constructor() {
     this.registerForm = this.fb.group(
@@ -75,6 +77,7 @@ export class AuthRegisterComponent implements OnInit {
         email: ['', [Validators.required, Validators.email]],
         password: ['', [Validators.required, Validators.minLength(8)]],
         confirmPassword: ['', [Validators.required]],
+        avatar: [1, [Validators.required, Validators.min(1), Validators.max(6)]],
       },
       {
         validators: this.passwordMatchValidator,
@@ -121,10 +124,10 @@ export class AuthRegisterComponent implements OnInit {
     }
 
     this.isLoading.set(true);
-    const { username, email, password } = this.registerForm.value;
+    const { username, email, password, avatar } = this.registerForm.value;
 
     this.authService
-      .register(username, email, password)
+      .register(username, email, password, avatar || 1)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
@@ -177,7 +180,7 @@ export class AuthRegisterComponent implements OnInit {
           control.markAsTouched();
         }
       });
-      this.cdr.detectChanges();
+      this.cdr.markForCheck();
     }
   }
 
@@ -226,6 +229,15 @@ export class AuthRegisterComponent implements OnInit {
 
   toggleConfirmPasswordVisibility(): void {
     this.showConfirmPassword.update((value) => !value);
+  }
+
+  selectAvatar(avatarId: number): void {
+    this.selectedAvatar.set(avatarId);
+    this.registerForm.patchValue({ avatar: avatarId });
+  }
+
+  getAvatarPath(avatarId: number): string {
+    return getAvatarPath(avatarId);
   }
 
   private markFormGroupTouched(formGroup: FormGroup): void {

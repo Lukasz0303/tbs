@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { interval, of } from 'rxjs';
+import { interval, of, timer } from 'rxjs';
 import { take, catchError, debounceTime } from 'rxjs/operators';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -44,6 +44,8 @@ export class MatchmakingComponent implements OnInit {
   readonly statusText = signal<string>('matchmaking.searching');
   readonly isCancelling = signal<boolean>(false);
   readonly isInQueue = signal<boolean>(false);
+  readonly hasError = signal<boolean>(false);
+  readonly errorMessage = signal<string>('');
 
   ngOnInit(): void {
     this.route.queryParams.pipe(
@@ -67,26 +69,86 @@ export class MatchmakingComponent implements OnInit {
     this.matchmakingService.joinQueue(this.boardSize()).pipe(
       takeUntilDestroyed(this.destroyRef),
       catchError((error) => {
-        this.handleError(error);
-        this.router.navigate(['/']);
-        throw error;
+        this.logger.error('Error joining matchmaking queue:', error);
+        
+        let errorMsg = this.translateService.translate('matchmaking.error.detail');
+        if (error instanceof HttpErrorResponse) {
+          if (error.status === 401 || error.status === 403) {
+            errorMsg = this.translateService.translate('matchmaking.error.auth');
+          } else if (error.status === 409) {
+            errorMsg = this.translateService.translate('matchmaking.error.alreadyInQueue');
+          } else if (error.error?.message) {
+            errorMsg = error.error.message;
+          }
+        } else if (error instanceof Error) {
+          errorMsg = error.message;
+        }
+        
+        this.hasError.set(true);
+        this.errorMessage.set(errorMsg);
+        this.statusText.set('matchmaking.error.status');
+        
+        this.messageService.add({
+          severity: 'error',
+          summary: this.translateService.translate('matchmaking.error.title'),
+          detail: errorMsg,
+          life: 5000,
+        });
+        
+        return of<MatchmakingQueueResponse>({
+          message: 'Error joining queue',
+          estimatedWaitTime: 0
+        });
       })
     ).subscribe({
       next: (response) => {
-        this.isInQueue.set(true);
-        this.estimatedWaitTime.set(response.estimatedWaitTime || 0);
-        
-        if (response.message?.includes('Match found')) {
-          this.checkForCreatedGame();
+        if (response.message === 'Error joining queue') {
           return;
         }
         
+        this.hasError.set(false);
+        this.isInQueue.set(true);
+        this.estimatedWaitTime.set(response.estimatedWaitTime || 0);
+        
+        this.logger.debug('Joined queue. Response:', response);
+        
+        if (response.message?.includes('Match found')) {
+          this.logger.debug('Match found in response, checking for game...');
+          timer(100).pipe(
+            takeUntilDestroyed(this.destroyRef),
+            take(1)
+          ).subscribe(() => {
+            this.checkForCreatedGame();
+          });
+          return;
+        }
+        
+        this.logger.debug('No match found yet, starting polling...');
+        this.checkForCreatedGame();
+        
+        timer(300).pipe(
+          takeUntilDestroyed(this.destroyRef),
+          take(1)
+        ).subscribe(() => {
+          this.checkMatchmakingStatus();
+        });
+        
+        timer(800).pipe(
+          takeUntilDestroyed(this.destroyRef),
+          take(1)
+        ).subscribe(() => {
+          this.checkMatchmakingStatus();
+        });
+        
+        timer(1500).pipe(
+          takeUntilDestroyed(this.destroyRef),
+          take(1)
+        ).subscribe(() => {
+          this.checkMatchmakingStatus();
+        });
+        
         this.startPolling();
         this.startWaitTimeCounter();
-      },
-      error: (error: unknown) => {
-        this.handleError(error);
-        this.router.navigate(['/']);
       }
     });
   }
@@ -104,7 +166,7 @@ export class MatchmakingComponent implements OnInit {
   }
 
   private checkForCreatedGame(): void {
-    this.gameService.getSavedGame().pipe(
+    this.gameService.getActivePvpGame().pipe(
       take(1),
       takeUntilDestroyed(this.destroyRef),
       catchError(() => {
@@ -114,18 +176,25 @@ export class MatchmakingComponent implements OnInit {
     ).subscribe({
       next: (game: Game | null) => {
         if (game && this.isActivePvpGame(game)) {
-          this.router.navigate(['/game', game.gameId]);
+          this.logger.debug('PvP game found! Navigating to game:', game.gameId);
+          this.router.navigate(['/game', game.gameId]).catch((error) => {
+            this.logger.error('Error navigating to game:', error);
+          });
         } else {
-          this.startPolling();
-          this.startWaitTimeCounter();
+          if (!this.isInQueue()) {
+            this.startPolling();
+            this.startWaitTimeCounter();
+          }
         }
       }
     });
   }
 
   private startPolling(): void {
-    interval(5000).pipe(
-      debounceTime(500),
+    this.checkMatchmakingStatus();
+    
+    interval(2000).pipe(
+      debounceTime(300),
       takeUntilDestroyed(this.destroyRef)
     ).subscribe(() => {
       this.checkMatchmakingStatus();
@@ -133,7 +202,12 @@ export class MatchmakingComponent implements OnInit {
   }
 
   private checkMatchmakingStatus(): void {
-    this.gameService.getSavedGame().pipe(
+    if (!this.isInQueue()) {
+      return;
+    }
+    
+    this.logger.debug('Checking matchmaking status...');
+    this.gameService.getActivePvpGame().pipe(
       take(1),
       catchError((error) => {
         this.logger.error('Error checking matchmaking status:', error);
@@ -141,8 +215,13 @@ export class MatchmakingComponent implements OnInit {
       })
     ).subscribe({
       next: (game: Game | null) => {
+        this.logger.debug('Matchmaking status check result:', game ? `Game ${game.gameId} found` : 'No game found');
         if (game && this.isActivePvpGame(game)) {
-          this.router.navigate(['/game', game.gameId]);
+          this.logger.debug('Match found! Navigating to game:', game.gameId);
+          this.isInQueue.set(false);
+          this.router.navigate(['/game', game.gameId]).catch((error) => {
+            this.logger.error('Error navigating to game:', error);
+          });
         }
       }
     });

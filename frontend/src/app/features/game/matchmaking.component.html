@@ -11,8 +11,14 @@
     </div>
 
     <div class="matchmaking-animation">
-      <p-progressSpinner [style]="{ width: '100px', height: '100px' }"></p-progressSpinner>
-      <p class="status-text">{{ translateService.translate(statusText()) }}</p>
+      @if (hasError()) {
+        <div class="error-message">
+          <p class="error-text">{{ errorMessage() }}</p>
+        </div>
+      } @else {
+        <p-progressSpinner [style]="{ width: '100px', height: '100px' }"></p-progressSpinner>
+        <p class="status-text">{{ translateService.translate(statusText()) }}</p>
+      }
     </div>
 
     <div class="matchmaking-actions">

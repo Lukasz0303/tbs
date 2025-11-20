@@ -14,8 +14,33 @@ export class GameService {
 
   getSavedGame(): Observable<Game | null> {
     const params = new HttpParams()
-      .append('status', 'waiting')
-      .append('status', 'in_progress')
+      .set('status', 'in_progress')
+      .set('size', 1)
+      .set('sort', 'updatedAt,desc');
+
+    return this.http
+      .get<SavedGameResponse>(`${this.apiUrl}/v1/games`, { params })
+      .pipe(
+        map((response) => {
+          const [game] = response.content ?? [];
+          if (!game) {
+            return null;
+          }
+          return this.mapToGame(game);
+        }),
+        catchError((error) => {
+          if (error.status === 404) {
+            return of(null);
+          }
+          return throwError(() => error);
+        })
+      );
+  }
+
+  getActivePvpGame(): Observable<Game | null> {
+    const params = new HttpParams()
+      .set('status', 'in_progress')
+      .set('gameType', 'pvp')
       .set('size', 1)
       .set('sort', 'updatedAt,desc');
 

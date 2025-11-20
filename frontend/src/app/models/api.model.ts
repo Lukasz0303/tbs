@@ -16,6 +16,7 @@ export interface SavedGameResponse extends PaginatedResponse<GameResponse> {}
 export interface GuestSessionResponse {
   userId: number;
   isGuest: boolean;
+  avatar: number;
   totalPoints: number;
   gamesPlayed: number;
   gamesWon: number;

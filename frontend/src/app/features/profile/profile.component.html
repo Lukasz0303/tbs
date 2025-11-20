@@ -1,0 +1,123 @@
+<p-toast key="profile" position="top-right"></p-toast>
+
+@if (currentUser$ | async; as user) {
+  <div class="profile-container">
+    <div class="profile-header">
+      <h1>{{ translate.translate('profile.title') }}</h1>
+    </div>
+
+    <div class="profile-content">
+      <div class="profile-info-card">
+        <h2>{{ translate.translate('profile.info.title') }}</h2>
+        @if (!user.isGuest) {
+          <div class="avatar-section">
+            <div class="avatar-display">
+              <div class="avatar-wrapper">
+                <img 
+                  [src]="getAvatarPath(user.avatar)" 
+                  alt="Avatar" 
+                  class="avatar-image clickable"
+                  (click)="onEditAvatar()"
+                  [title]="translate.translate('profile.avatar.clickToEdit')" />
+                <button
+                  pButton
+                  type="button"
+                  class="avatar-edit-button"
+                  icon="pi pi-pencil"
+                  [pTooltip]="translate.translate('profile.avatar.edit')"
+                  tooltipPosition="top"
+                  size="small"
+                  (click)="onEditAvatar()"
+                  [title]="translate.translate('profile.avatar.edit')"
+                  aria-label="Edit avatar">
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+        <div class="info-row">
+          <span class="info-label">{{ translate.translate('profile.username') }}:</span>
+          <span class="info-value">
+            {{ user.username || translate.translate('profile.guest') }}
+            @if (!user.isGuest) {
+              <button
+                pButton
+                type="button"
+                [label]="translate.translate('profile.edit')"
+                icon="pi pi-pencil"
+                severity="secondary"
+                size="small"
+                (click)="onEditUsername()">
+              </button>
+            }
+          </span>
+        </div>
+        @if (!user.isGuest && user.email) {
+          <div class="info-row">
+            <span class="info-label">{{ translate.translate('profile.email') }}:</span>
+            <span class="info-value">{{ user.email }}</span>
+          </div>
+        }
+        <div class="info-row">
+          <span class="info-label">{{ translate.translate('profile.status') }}:</span>
+          <span class="info-value">
+            {{ user.isGuest ? translate.translate('profile.guest') : translate.translate('profile.registered') }}
+          </span>
+        </div>
+      </div>
+
+      <div class="profile-stats-card">
+        <app-user-stats
+          [user]="user"
+          [ranking]="userRanking$ | async">
+        </app-user-stats>
+      </div>
+
+      @if (lastGame$ | async; as lastGame) {
+        <div class="last-game-section">
+          <app-last-game-card
+            [game]="lastGame"
+            (continueGame)="onContinueGame($event)">
+          </app-last-game-card>
+        </div>
+      }
+
+      @if (user.isGuest) {
+        <div class="registration-encouragement">
+          <h3>{{ translate.translate('profile.registerEncouragement.title') }}</h3>
+          <p>{{ translate.translate('profile.registerEncouragement.description') }}</p>
+          <button
+            pButton
+            type="button"
+            [label]="translate.translate('profile.registerButton')"
+            (click)="navigateToRegister()">
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+
+  @if (showEditDialog$ | async) {
+    <app-edit-username-dialog
+      [currentUsername]="user.username || ''"
+      (close)="onCloseEditDialog()"
+      (save)="onSaveUsername($event)">
+    </app-edit-username-dialog>
+  }
+
+  @if (showAvatarDialog$ | async) {
+    <app-avatar-selector
+      [visible]="true"
+      [currentAvatar]="user.avatar"
+      (close)="onCloseAvatarDialog()"
+      (save)="onSaveAvatar($event)">
+    </app-avatar-selector>
+  }
+} @else {
+  <div class="profile-container">
+    <div class="loading-container">
+      <p>{{ translate.translate('profile.loading') }}</p>
+    </div>
+  </div>
+}
+

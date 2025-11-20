@@ -1,6 +1,7 @@
 package com.tbs.service;
 
 import com.tbs.dto.user.LastSeenResponse;
+import com.tbs.dto.user.UpdateAvatarRequest;
 import com.tbs.dto.user.UpdateUserRequest;
 import com.tbs.dto.user.UpdateUserResponse;
 import com.tbs.dto.user.UserProfileResponse;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -172,10 +174,9 @@ class UserServiceTest {
     @Test
     void updateUserProfile_shouldUpdateUsernameSuccessfully() {
         Long userId = 1L;
-        UpdateUserRequest request = new UpdateUserRequest("newusername");
+        UpdateUserRequest request = new UpdateUserRequest("newusername", null);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(registeredUser));
-        when(userRepository.findByUsername("newusername")).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenReturn(registeredUser);
 
         UpdateUserResponse response = userService.updateUserProfile(userId, request);
@@ -183,14 +184,13 @@ class UserServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.userId()).isEqualTo(1L);
         verify(userRepository, times(1)).findById(userId);
-        verify(userRepository, times(1)).findByUsername("newusername");
         verify(userRepository, times(1)).save(any(User.class));
     }
 
     @Test
     void updateUserProfile_shouldNotUpdateWhenUsernameUnchanged() {
         Long userId = 1L;
-        UpdateUserRequest request = new UpdateUserRequest("testuser");
+        UpdateUserRequest request = new UpdateUserRequest("testuser", null);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(registeredUser));
         when(userRepository.save(any(User.class))).thenReturn(registeredUser);
@@ -199,34 +199,30 @@ class UserServiceTest {
 
         assertThat(response).isNotNull();
         verify(userRepository, times(1)).findById(userId);
-        verify(userRepository, never()).findByUsername(anyString());
         verify(userRepository, times(1)).save(any(User.class));
     }
 
     @Test
     void updateUserProfile_shouldThrowConflictExceptionWhenUsernameExists() {
         Long userId = 1L;
-        UpdateUserRequest request = new UpdateUserRequest("existinguser");
-        User existingUser = new User();
-        existingUser.setId(999L);
-        existingUser.setUsername("existinguser");
+        UpdateUserRequest request = new UpdateUserRequest("existinguser", null);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(registeredUser));
-        when(userRepository.findByUsername("existinguser")).thenReturn(Optional.of(existingUser));
+        when(userRepository.save(any(User.class)))
+                .thenThrow(new DataIntegrityViolationException("Username already exists"));
 
         assertThatThrownBy(() -> userService.updateUserProfile(userId, request))
                 .isInstanceOf(ConflictException.class)
                 .hasMessage("Username already exists");
 
         verify(userRepository, times(1)).findById(userId);
-        verify(userRepository, times(1)).findByUsername("existinguser");
-        verify(userRepository, never()).save(any(User.class));
+        verify(userRepository, times(1)).save(any(User.class));
     }
 
     @Test
     void updateUserProfile_shouldThrowUserNotFoundException() {
         Long userId = 999L;
-        UpdateUserRequest request = new UpdateUserRequest("newusername");
+        UpdateUserRequest request = new UpdateUserRequest("newusername", null);
 
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
@@ -235,8 +231,102 @@ class UserServiceTest {
                 .hasMessage("User not found");
 
         verify(userRepository, times(1)).findById(userId);
-        verify(userRepository, never()).findByUsername(anyString());
         verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void updateUserProfile_shouldUpdateAvatarSuccessfully() {
+        Long userId = 1L;
+        UpdateUserRequest request = new UpdateUserRequest(null, 3);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(registeredUser));
+        when(userRepository.save(any(User.class))).thenReturn(registeredUser);
+
+        UpdateUserResponse response = userService.updateUserProfile(userId, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.userId()).isEqualTo(1L);
+        verify(userRepository, times(1)).findById(userId);
+        verify(userRepository, times(1)).save(any(User.class));
+    }
+
+    @Test
+    void updateUserProfile_shouldUpdateBothUsernameAndAvatar() {
+        Long userId = 1L;
+        UpdateUserRequest request = new UpdateUserRequest("newusername", 5);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(registeredUser));
+        when(userRepository.save(any(User.class))).thenReturn(registeredUser);
+
+        UpdateUserResponse response = userService.updateUserProfile(userId, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.userId()).isEqualTo(1L);
+        verify(userRepository, times(1)).findById(userId);
+        verify(userRepository, times(1)).save(any(User.class));
+    }
+
+    @Test
+    void updateUserAvatar_shouldUpdateAvatarSuccessfully() {
+        Long userId = 1L;
+        UpdateAvatarRequest request = new UpdateAvatarRequest(4);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(registeredUser));
+        when(userRepository.save(any(User.class))).thenReturn(registeredUser);
+
+        UpdateUserResponse response = userService.updateUserAvatar(userId, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.userId()).isEqualTo(1L);
+        verify(userRepository, times(1)).findById(userId);
+        verify(userRepository, times(1)).save(any(User.class));
+    }
+
+    @Test
+    void updateUserAvatar_shouldThrowUserNotFoundException() {
+        Long userId = 999L;
+        UpdateAvatarRequest request = new UpdateAvatarRequest(2);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.updateUserAvatar(userId, request))
+                .isInstanceOf(UserNotFoundException.class)
+                .hasMessage("User not found");
+
+        verify(userRepository, times(1)).findById(userId);
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void getUserProfile_shouldReturnDefaultAvatarWhenNull() {
+        Long userId = 1L;
+        Long currentUserId = 1L;
+        registeredUser.setAvatar(null);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(registeredUser));
+
+        UserProfileResponse response = userService.getUserProfile(userId, currentUserId);
+
+        assertThat(response).isNotNull();
+        assertThat(response.avatar()).isEqualTo(1);
+        verify(userRepository, times(1)).findById(userId);
+    }
+
+    @Test
+    void updateUserProfile_shouldReturnDefaultAvatarWhenNull() {
+        Long userId = 1L;
+        UpdateUserRequest request = new UpdateUserRequest(null, null);
+        registeredUser.setAvatar(null);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(registeredUser));
+        when(userRepository.save(any(User.class))).thenReturn(registeredUser);
+
+        UpdateUserResponse response = userService.updateUserProfile(userId, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.avatar()).isEqualTo(1);
+        verify(userRepository, times(1)).findById(userId);
+        verify(userRepository, times(1)).save(any(User.class));
     }
 }
 

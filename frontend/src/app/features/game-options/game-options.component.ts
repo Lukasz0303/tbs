@@ -176,7 +176,7 @@ export class GameOptionsComponent {
 
   private createGame(selectedMode: GameMode, selectedSize: BoardSize): Observable<Game> {
     if (selectedMode === 'pvp') {
-      this.navigateTo(['/game/matchmaking'], { queryParams: { boardSize: selectedSize } });
+      this.navigateTo(['/game/matchmaking/waiting'], { queryParams: { boardSize: selectedSize } });
       return EMPTY;
     }
     
@@ -229,7 +229,7 @@ export class GameOptionsComponent {
     return error instanceof HttpErrorResponse && error.status === 404;
   }
 
-  private navigateTo(commands: Array<string | number>, extras?: { queryParams?: Record<string, any> }): void {
+  private navigateTo(commands: Array<string | number>, extras?: { queryParams?: Record<string, string | number> }): void {
     this.router.navigate(commands, extras).catch((error) => {
       this.isStartingGame.set(false);
       this.notifyError('home.error.navigation');
