@@ -1,0 +1,35 @@
+<div class="user-stats">
+  <h2>{{ translate.translate('profile.stats.title') }}</h2>
+  
+  <div class="stats-grid">
+    <div class="stat-item">
+      <span class="stat-label">{{ translate.translate('profile.stats.points') }}:</span>
+      <span class="stat-value">{{ user?.totalPoints || 0 }}</span>
+    </div>
+    
+    <div class="stat-item">
+      <span class="stat-label">{{ translate.translate('profile.stats.gamesPlayed') }}:</span>
+      <span class="stat-value">{{ user?.gamesPlayed || 0 }}</span>
+    </div>
+    
+    <div class="stat-item">
+      <span class="stat-label">{{ translate.translate('profile.stats.gamesWon') }}:</span>
+      <span class="stat-value">{{ user?.gamesWon || 0 }}</span>
+    </div>
+    
+    <div class="stat-item">
+      <span class="stat-label">{{ translate.translate('profile.stats.winRate') }}:</span>
+      <span class="stat-value">{{ winRate() }}%</span>
+    </div>
+  </div>
+
+  @if (hasRanking() && ranking; as rankingData) {
+    <div class="ranking-section">
+      <div class="ranking-badge">
+        <span class="ranking-label">{{ translate.translate('profile.ranking.position') }}:</span>
+        <span class="ranking-value">#{{ rankingData.rankPosition }}</span>
+      </div>
+    </div>
+  }
+</div>
+

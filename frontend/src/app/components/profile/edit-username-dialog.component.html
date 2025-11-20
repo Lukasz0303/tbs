@@ -1,0 +1,42 @@
+<p-dialog
+  [visible]="visible"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '500px' }"
+  (onHide)="onClose()"
+  [header]="translate.translate('profile.edit.title')">
+  <form [formGroup]="editForm" (ngSubmit)="onSave()">
+    <div class="form-field">
+      <label for="username">{{ translate.translate('profile.username') }}</label>
+      <input
+        id="username"
+        type="text"
+        pInputText
+        formControlName="username"
+        [placeholder]="translate.translate('profile.edit.username.placeholder')"
+        [class.ng-invalid]="isFieldInvalid('username')" />
+      @if (isFieldInvalid('username')) {
+        <small class="p-error">{{ getFieldError('username') }}</small>
+      }
+    </div>
+
+    <div class="dialog-actions">
+      <button
+        pButton
+        type="button"
+        [label]="translate.translate('profile.edit.cancel')"
+        severity="secondary"
+        (click)="onClose()">
+      </button>
+      <button
+        pButton
+        type="submit"
+        [label]="translate.translate('profile.edit.save')"
+        [disabled]="editForm.invalid">
+      </button>
+    </div>
+  </form>
+</p-dialog>
+

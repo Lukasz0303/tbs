@@ -26,6 +26,19 @@
       </p>
       <p class="text-slate-200" *ngIf="game.status === 'draw'">Gra zakończona remisem</p>
       <p class="text-slate-200" *ngIf="game.status === 'abandoned'">Gra została porzucona</p>
+      
+      <div class="points-info" *ngIf="pointsAtStake > 0">
+        <p class="text-slate-200" *ngIf="game.status === 'finished' && isPlayerWinner()">
+          <span class="font-semibold text-green-400">
+            {{ translate.translate('game.result.pointsEarned') }}: +{{ pointsAtStake }}
+          </span>
+        </p>
+        <p class="text-slate-200" *ngIf="game.status === 'draw'">
+          <span class="font-semibold text-yellow-400">
+            {{ translate.translate('game.result.drawPoints') }}: +{{ drawPoints }}
+          </span>
+        </p>
+      </div>
     </div>
   </div>
 </section>

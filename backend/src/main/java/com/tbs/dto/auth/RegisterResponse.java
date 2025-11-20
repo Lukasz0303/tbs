@@ -5,6 +5,7 @@ public record RegisterResponse(
         String username,
         String email,
         boolean isGuest,
+        Integer avatar,
         long totalPoints,
         int gamesPlayed,
         int gamesWon,

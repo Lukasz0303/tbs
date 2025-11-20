@@ -1,0 +1,28 @@
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+
+  label {
+    color: var(--p-text-color);
+    font-weight: 500;
+  }
+
+  input.ng-invalid.ng-touched {
+    border-color: var(--p-error-color);
+  }
+
+  .p-error {
+    color: var(--p-error-color);
+    font-size: 0.875rem;
+  }
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+

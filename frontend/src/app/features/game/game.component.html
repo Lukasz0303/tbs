@@ -9,34 +9,34 @@
 
     @if (!state.loading && state.game; as game) {
       <div class="game-content">
-        <div class="game-header">
-          <h2>{{ getGameTitle(game) }}</h2>
-          @if (game.gameType === 'pvp' && game.status === 'in_progress') {
-            <button
-              pButton
-              type="button"
-              label="{{ translate.translate('game.action.surrender') }}"
-              severity="danger"
-              (click)="surrender(game.gameId)">
-            </button>
-          }
-        </div>
-
-        <div class="game-info">
-          <app-game-info
+        <div class="players-section">
+          <app-game-user-profile 
+            [user]="currentUser$ | async"
             [game]="game"
-            [currentUser]="currentUser$ | async">
-          </app-game-info>
-
-          @if (game.gameType === 'pvp' && game.status === 'in_progress') {
-            <app-game-timer
+            [remainingSeconds]="remainingSeconds()"
+            [isActiveTurn]="isCurrentPlayerTurn(game)"
+            [gameId]="game.gameId"
+            [onSurrender]="surrender.bind(this)">
+          </app-game-user-profile>
+          
+          <div class="vs-divider">
+            <span class="vs-text">VS</span>
+            <div class="vs-points">
+              {{ translate.translate('game.pvp.points') }}: +{{ getPointsAtStake(game) }}
+            </div>
+          </div>
+          
+          @if (game.gameType === 'pvp') {
+            <app-game-user-profile 
+              [user]="opponentUser()"
+              [game]="game"
               [remainingSeconds]="remainingSeconds()"
-              [currentPlayerSymbol]="game.currentPlayerSymbol">
-            </app-game-timer>
-          }
-
-          @if (game.gameType === 'vs_bot' && isBotThinking()) {
-            <app-game-bot-indicator></app-game-bot-indicator>
+              [isActiveTurn]="isOpponentTurn(game)"
+              [gameId]="null"
+              [onSurrender]="null">
+            </app-game-user-profile>
+          } @else {
+            <app-game-bot-info [game]="game"></app-game-bot-info>
           }
         </div>
 
@@ -57,6 +57,8 @@
           [visible]="showResult()"
           [game]="game"
           [currentUser]="currentUser$ | async"
+          [pointsAtStake]="getPointsAtStake(game)"
+          [drawPoints]="getDrawPoints(game)"
           (close)="onResultDialogClose()">
         </app-game-result-dialog>
       </div>

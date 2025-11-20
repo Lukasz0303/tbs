@@ -1,0 +1,53 @@
+.last-game-card {
+  background: var(--p-surface-card);
+  border-radius: var(--p-border-radius);
+  padding: 1.5rem;
+  box-shadow: var(--p-shadow);
+}
+
+.card-header {
+  margin-bottom: 1.5rem;
+
+  h3 {
+    color: var(--p-text-color);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+  }
+}
+
+.game-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--p-surface-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  .info-label {
+    color: var(--p-text-secondary-color);
+    font-weight: 500;
+  }
+
+  .info-value {
+    color: var(--p-text-color);
+    font-weight: 600;
+  }
+}
+
+.card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+

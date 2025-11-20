@@ -1,0 +1,83 @@
+<p-toast key="game-avatar" position="top-right"></p-toast>
+
+@if (user; as userData) {
+  <div class="game-user-profile">
+    <div class="profile-content">
+      <div class="avatar-section">
+        <div class="profile-name">{{ displayName() }}</div>
+        <div class="avatar-wrapper">
+          <div class="avatar-container">
+            <img [src]="avatarPath()" alt="Avatar" class="avatar-image" />
+          </div>
+          @if (canEditAvatar()) {
+            <button
+              pButton
+              type="button"
+              class="avatar-edit-button"
+              icon="pi pi-pencil"
+              [pTooltip]="translate.translate('profile.avatar.edit')"
+              tooltipPosition="top"
+              size="small"
+              (click)="onEditAvatar()"
+              [title]="translate.translate('profile.avatar.edit')"
+              aria-label="Edit avatar">
+            </button>
+          }
+        </div>
+        @if (playerSymbol(); as symbol) {
+          <div class="player-symbol" [class.symbol-x]="symbol.toLowerCase() === 'x'" [class.symbol-o]="symbol.toLowerCase() === 'o'">
+            <span class="symbol-value">{{ symbol.toUpperCase() }}</span>
+          </div>
+        }
+      </div>
+      <div class="stats-section">
+        <div class="stat-item">
+          <span class="stat-label">{{ translate.translate('profile.stats.points') }}</span>
+          <span class="stat-value">{{ userData.totalPoints || 0 }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">{{ translate.translate('profile.stats.gamesPlayed') }}</span>
+          <span class="stat-value">{{ userData.gamesPlayed || 0 }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">{{ translate.translate('profile.stats.gamesWon') }}</span>
+          <span class="stat-value">{{ userData.gamesWon || 0 }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">{{ translate.translate('profile.stats.winRate') }}</span>
+          <span class="stat-value">{{ winRate() }}%</span>
+        </div>
+      </div>
+      
+      @if (isActiveTurn && game && game.gameType === 'pvp' && game.status === 'in_progress') {
+        <div class="turn-indicator">
+          <div class="turn-info">
+            <span class="turn-text">
+              {{ translate.translate('game.turn.label') }}: {{ playerSymbol()?.toUpperCase() || '-' }} 
+              {{ translate.translate('game.timer.label') }}: {{ remainingSeconds.toString().padStart(2, '0') }}
+            </span>
+          </div>
+          @if (gameId && onSurrender) {
+            <button
+              type="button"
+              class="surrender-btn"
+              (click)="onSurrender(gameId)">
+              {{ translate.translate('game.action.surrender') }}
+            </button>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
+  @if (showAvatarDialog() && user) {
+    <app-avatar-selector
+      [visible]="true"
+      [currentAvatar]="user.avatar"
+      [isLoading]="isSavingAvatar()"
+      (close)="onCloseAvatarDialog()"
+      (save)="onSaveAvatar($event)">
+    </app-avatar-selector>
+  }
+}
+

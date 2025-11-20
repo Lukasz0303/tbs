@@ -25,7 +25,6 @@ public class PointsService {
     private final long pointsMediumBot;
     private final long pointsHardBot;
     private final long pointsPvp;
-    private final long pointsDraw;
 
     private final UserRepository userRepository;
     private final RankingService rankingService;
@@ -37,8 +36,7 @@ public class PointsService {
             @Value("${app.points.easy-bot:100}") long pointsEasyBot,
             @Value("${app.points.medium-bot:500}") long pointsMediumBot,
             @Value("${app.points.hard-bot:1000}") long pointsHardBot,
-            @Value("${app.points.pvp:1000}") long pointsPvp,
-            @Value("${app.points.draw:100}") long pointsDraw
+            @Value("${app.points.pvp:1000}") long pointsPvp
     ) {
         this.userRepository = Objects.requireNonNull(userRepository, "UserRepository cannot be null");
         this.rankingService = Objects.requireNonNull(rankingService, "RankingService cannot be null");
@@ -46,7 +44,6 @@ public class PointsService {
         this.pointsMediumBot = pointsMediumBot;
         this.pointsHardBot = pointsHardBot;
         this.pointsPvp = pointsPvp;
-        this.pointsDraw = pointsDraw;
     }
 
     @Transactional
@@ -133,25 +130,48 @@ public class PointsService {
     }
 
     private void updatePlayerStatsForBotWin(Game game, Long winnerId, long pointsToAward) {
-        userRepository.findById(winnerId)
-                .filter(user -> !Boolean.TRUE.equals(user.getIsGuest()))
-                .ifPresentOrElse(
-                        user -> {
-                            long currentPoints = user.getTotalPoints() != null ? user.getTotalPoints() : 0L;
-                            int currentWins = user.getGamesWon() != null ? user.getGamesWon() : 0;
-                            int currentPlayed = user.getGamesPlayed() != null ? user.getGamesPlayed() : 0;
+        Long player1Id = getPlayerId(game.getPlayer1());
+        boolean isBotWinner = winnerId != null && isBotUser(winnerId);
+        
+        if (isBotWinner && player1Id != null) {
+            userRepository.findById(player1Id)
+                    .filter(player -> !Boolean.TRUE.equals(player.getIsGuest()))
+                    .ifPresent(player -> {
+                        int currentPlayed = player.getGamesPlayed() != null ? player.getGamesPlayed() : 0;
+                        player.setGamesPlayed(currentPlayed + 1);
+                        userRepository.save(player);
+                        log.info("Recorded game played for user {} who lost to bot in game {}", player1Id, game.getId());
+                    });
+        } else if (winnerId != null) {
+            userRepository.findById(winnerId)
+                    .filter(user -> !Boolean.TRUE.equals(user.getIsGuest()))
+                    .ifPresentOrElse(
+                            user -> {
+                                long currentPoints = user.getTotalPoints() != null ? user.getTotalPoints() : 0L;
+                                int currentWins = user.getGamesWon() != null ? user.getGamesWon() : 0;
+                                int currentPlayed = user.getGamesPlayed() != null ? user.getGamesPlayed() : 0;
 
-                            user.setTotalPoints(currentPoints + pointsToAward);
-                            user.setGamesWon(currentWins + 1);
-                            user.setGamesPlayed(currentPlayed + 1);
+                                user.setTotalPoints(currentPoints + pointsToAward);
+                                user.setGamesWon(currentWins + 1);
+                                user.setGamesPlayed(currentPlayed + 1);
 
-                            userRepository.save(user);
+                                userRepository.save(user);
 
-                            log.info("Awarded {} points to user {} for winning game {} (type: {}, difficulty: {})", 
-                                    pointsToAward, user.getId(), game.getId(), game.getGameType(), game.getBotDifficulty());
-                        },
-                        () -> log.debug("Skipping points award for guest user {} in game {}", winnerId, game.getId())
-                );
+                                log.info("Awarded {} points to user {} for winning game {} (type: {}, difficulty: {})", 
+                                        pointsToAward, user.getId(), game.getId(), game.getGameType(), game.getBotDifficulty());
+                            },
+                            () -> log.debug("Skipping points award for guest user {} in game {}", winnerId, game.getId())
+                    );
+        }
+    }
+
+    private boolean isBotUser(Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        return userRepository.findById(userId)
+                .map(user -> "Bot".equals(user.getUsername()))
+                .orElse(false);
     }
 
     private boolean isPlayerInGame(Game game, User player) {
@@ -206,30 +226,37 @@ public class PointsService {
             return;
         }
 
+        long drawPoints = calculateDrawPoints(game);
+
         if (game.getGameType() == GameType.PVP) {
             Long player1Id = getPlayerId(game.getPlayer1());
             if (player1Id != null) {
                 userRepository.findById(player1Id)
                         .filter(player -> !Boolean.TRUE.equals(player.getIsGuest()))
-                        .ifPresent(player -> awardDrawPointsToUser(player1Id));
+                        .ifPresent(player -> awardDrawPointsToUser(player1Id, drawPoints));
             }
             Long player2Id = getPlayerId(game.getPlayer2());
             if (player2Id != null) {
                 userRepository.findById(player2Id)
                         .filter(player -> !Boolean.TRUE.equals(player.getIsGuest()))
-                        .ifPresent(player -> awardDrawPointsToUser(player2Id));
+                        .ifPresent(player -> awardDrawPointsToUser(player2Id, drawPoints));
             }
         } else if (game.getGameType() == GameType.VS_BOT) {
             Long player1Id = getPlayerId(game.getPlayer1());
             if (player1Id != null) {
                 userRepository.findById(player1Id)
                         .filter(player -> !Boolean.TRUE.equals(player.getIsGuest()))
-                        .ifPresent(player -> awardDrawPointsToUser(player1Id));
+                        .ifPresent(player -> awardDrawPointsToUser(player1Id, drawPoints));
             }
         }
 
         log.info("Awarded {} points for draw in game {} (type: {})", 
-                pointsDraw, game.getId(), game.getGameType());
+                drawPoints, game.getId(), game.getGameType());
+    }
+    
+    private long calculateDrawPoints(Game game) {
+        long pointsAtStake = calculatePoints(game);
+        return Math.round(pointsAtStake / 10.0);
     }
 
     private Long getPlayerId(User player) {
@@ -252,7 +279,7 @@ public class PointsService {
         }
     }
 
-    private void awardDrawPointsToUser(Long userId) {
+    private void awardDrawPointsToUser(Long userId, long drawPoints) {
         if (userId == null) {
             return;
         }
@@ -263,32 +290,50 @@ public class PointsService {
         long currentPoints = user.getTotalPoints() != null ? user.getTotalPoints() : 0L;
         int currentPlayed = user.getGamesPlayed() != null ? user.getGamesPlayed() : 0;
 
-        user.setTotalPoints(currentPoints + pointsDraw);
+        user.setTotalPoints(currentPoints + drawPoints);
         user.setGamesPlayed(currentPlayed + 1);
 
         userRepository.save(user);
 
-        log.info("Awarded {} draw points to user {}", pointsDraw, userId);
+        log.info("Awarded {} draw points to user {}", drawPoints, userId);
 
         refreshRankingsAsync();
     }
 
     private long calculatePoints(Game game) {
+        long basePoints = 0L;
+        
         if (game.getGameType() == GameType.PVP) {
-            return pointsPvp;
+            basePoints = pointsPvp;
         } else if (game.getGameType() == GameType.VS_BOT) {
             BotDifficulty difficulty = game.getBotDifficulty();
             if (difficulty == null) {
                 log.warn("Game {} is VS_BOT but botDifficulty is null", game.getId());
                 return 0L;
             }
-            return switch (difficulty) {
+            basePoints = switch (difficulty) {
                 case EASY -> pointsEasyBot;
                 case MEDIUM -> pointsMediumBot;
                 case HARD -> pointsHardBot;
             };
+        } else {
+            return 0L;
         }
-        return 0L;
+        
+        double multiplier = getBoardSizeMultiplier(game.getBoardSize());
+        return Math.round(basePoints * multiplier);
+    }
+    
+    private double getBoardSizeMultiplier(com.tbs.enums.BoardSize boardSize) {
+        if (boardSize == null) {
+            return 1.0;
+        }
+        return switch (boardSize.getValue()) {
+            case 3 -> 1.0;
+            case 4 -> 1.5;
+            case 5 -> 2.0;
+            default -> 1.0;
+        };
     }
 
     @Async("rankingRefreshExecutor")

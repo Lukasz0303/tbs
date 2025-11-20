@@ -65,6 +65,7 @@ public class GuestService {
         User guest = new User();
         guest.setIsGuest(true);
         guest.setIpAddress(ipAddress);
+        guest.setAvatar(1);
         guest.setTotalPoints(0L);
         guest.setGamesPlayed(0);
         guest.setGamesWon(0);
@@ -80,6 +81,7 @@ public class GuestService {
         return new GuestResponse(
                 user.getId(),
                 true,
+                Optional.ofNullable(user.getAvatar()).orElse(1),
                 Optional.ofNullable(user.getTotalPoints()).orElse(0L),
                 Optional.ofNullable(user.getGamesPlayed()).orElse(0),
                 Optional.ofNullable(user.getGamesWon()).orElse(0),

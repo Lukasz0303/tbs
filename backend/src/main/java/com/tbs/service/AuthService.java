@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -65,6 +66,7 @@ public class AuthService {
                 user.getUsername(),
                 user.getEmail(),
                 false,
+                Optional.ofNullable(user.getAvatar()).orElse(1),
                 user.getTotalPoints(),
                 user.getGamesPlayed(),
                 user.getGamesWon(),
@@ -117,6 +119,9 @@ public class AuthService {
         user.setUsername(request.username());
         user.setPasswordHash(encodedPassword);
         user.setIsGuest(false);
+        user.setAvatar(Optional.ofNullable(request.avatar())
+                .filter(avatar -> avatar >= 1 && avatar <= 6)
+                .orElse(1));
         user.setIpAddress(null);
         user.setTotalPoints(0L);
         user.setGamesPlayed(0);
@@ -130,6 +135,7 @@ public class AuthService {
                 savedUser.getUsername(),
                 savedUser.getEmail(),
                 false,
+                Optional.ofNullable(savedUser.getAvatar()).orElse(1),
                 savedUser.getTotalPoints(),
                 savedUser.getGamesPlayed(),
                 savedUser.getGamesWon(),

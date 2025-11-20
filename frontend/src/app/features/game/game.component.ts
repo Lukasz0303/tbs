@@ -11,15 +11,17 @@ import { GameService } from '../../services/game.service';
 import { TranslateService } from '../../services/translate.service';
 import { Game, PlayerSymbol } from '../../models/game.model';
 import { GameBoardComponent } from '../../components/game/game-board.component';
-import { GameInfoComponent } from '../../components/game/game-info.component';
 import { GameTimerComponent } from '../../components/game/game-timer.component';
 import { AuthService } from '../../services/auth.service';
 import { WebSocketService } from '../../services/websocket.service';
-import { GameBotIndicatorComponent } from '../../components/game/game-bot-indicator.component';
 import { GameResultDialogComponent } from '../../components/game/game-result-dialog.component';
+import { GameUserProfileComponent } from '../../components/game/game-user-profile.component';
+import { GameBotInfoComponent } from '../../components/game/game-bot-info.component';
 import { WebSocketDTOs } from '../../models/websocket.model';
 import { LoggerService } from '../../services/logger.service';
 import { normalizeBoardState } from '../../shared/utils/board-state.util';
+import { UserService } from '../../services/user.service';
+import { User } from '../../models/user.model';
 
 @Component({
   selector: 'app-game',
@@ -31,10 +33,10 @@ import { normalizeBoardState } from '../../shared/utils/board-state.util';
     ProgressSpinnerModule,
     ToastModule,
     GameBoardComponent,
-    GameInfoComponent,
     GameTimerComponent,
-    GameBotIndicatorComponent,
     GameResultDialogComponent,
+    GameUserProfileComponent,
+    GameBotInfoComponent,
   ],
   providers: [MessageService],
   templateUrl: './game.component.html',
@@ -51,15 +53,17 @@ export class GameComponent implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly websocketService = inject(WebSocketService);
   private readonly logger = inject(LoggerService);
+  private readonly userService = inject(UserService);
 
   readonly isBotThinking = signal<boolean>(false);
   readonly showResult = signal<boolean>(false);
-  readonly remainingSeconds = signal<number>(10);
+  readonly remainingSeconds = signal<number>(20);
   readonly isPlayerTurn = signal<boolean>(true);
   readonly isMovePending = signal<boolean>(false);
   readonly winningCells = signal<Array<{ row: number; col: number }>>([]);
   readonly currentUser$ = this.authService.getCurrentUser();
   private readonly currentUserSignal = toSignal(this.authService.getCurrentUser(), { initialValue: null });
+  readonly opponentUser = signal<User | null>(null);
 
   private gameId: number | null = null;
 
@@ -71,6 +75,8 @@ export class GameComponent implements OnInit, OnDestroy {
   readonly vm = toSignal(this.gameState$, { initialValue: { loading: true, game: null as Game | null } });
 
   ngOnInit(): void {
+    this.authService.loadCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
+    
     this.route.paramMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) => {
@@ -107,7 +113,9 @@ export class GameComponent implements OnInit, OnDestroy {
             }
           }
         },
-        error: () => {},
+        error: (error) => {
+          this.logger.error('Error in checkBotTurnAfterUserLoad:', error);
+        },
       });
   }
 
@@ -174,13 +182,18 @@ export class GameComponent implements OnInit, OnDestroy {
       return;
     }
 
-    interval(5000)
+    interval(10000)
       .pipe(
         switchMap(() => {
           if (!this.gameId) {
             return EMPTY;
           }
-          return this.gameService.getGame(this.gameId!);
+          return this.gameService.getGame(this.gameId!).pipe(
+            catchError((error) => {
+              this.logger.error('Error polling game updates:', error);
+              return EMPTY;
+            })
+          );
         }),
         map((game) => {
           const currentGame = this.vm()?.game;
@@ -190,27 +203,31 @@ export class GameComponent implements OnInit, OnDestroy {
           return null;
         }),
         filter((game): game is Game => game !== null),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe({
-        next: (game) => {
+        switchMap((game) => {
           this.updateLocalGame(game);
           this.updateTurnLock(game);
           this.updateWinningCells(game);
           this.handleGameStatusChange(game);
 
           if (game.gameType === 'vs_bot' && (game.status === 'in_progress' || game.status === 'waiting')) {
-            this.authService
-              .getCurrentUser()
-              .pipe(take(1), takeUntilDestroyed(this.destroyRef))
-              .subscribe((user) => {
-                if (user && game.currentPlayerSymbol === 'o' && !this.isBotThinking()) {
-                  this.makeBotMove();
-                }
-              });
+            return this.authService.getCurrentUser().pipe(
+              take(1),
+              map((user) => ({ game, user }))
+            );
+          }
+          return of({ game, user: null });
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: ({ game, user }) => {
+          if (user && game.gameType === 'vs_bot' && game.currentPlayerSymbol === 'o' && !this.isBotThinking()) {
+            this.makeBotMove();
           }
         },
-        error: () => {},
+        error: (error) => {
+          this.logger.error('Error in setupGameUpdates:', error);
+        },
       });
   }
 
@@ -244,18 +261,23 @@ export class GameComponent implements OnInit, OnDestroy {
   private startTimer(): void {
     interval(1000)
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
-        const state = this.vm();
-        const game = state?.game;
-        if (game && game.gameType === 'pvp' && game.status === 'in_progress' && game.lastMoveAt) {
-          const elapsed = (Date.now() - new Date(game.lastMoveAt).getTime()) / 1000;
-          const remaining = Math.max(0, 10 - elapsed);
-          this.remainingSeconds.set(Math.floor(remaining));
+      .subscribe({
+        next: () => {
+          const state = this.vm();
+          const game = state?.game;
+          if (game && game.gameType === 'pvp' && game.status === 'in_progress' && game.lastMoveAt) {
+            const elapsed = (Date.now() - new Date(game.lastMoveAt).getTime()) / 1000;
+            const remaining = Math.max(0, 20 - elapsed);
+            this.remainingSeconds.set(Math.floor(remaining));
 
-          if (remaining <= 0) {
-            this.checkTimeout();
+            if (remaining <= 0) {
+              this.checkTimeout();
+            }
           }
-        }
+        },
+        error: (error) => {
+          this.logger.error('Error in startTimer:', error);
+        },
       });
   }
 
@@ -302,7 +324,18 @@ export class GameComponent implements OnInit, OnDestroy {
             this.showResult.set(true);
           }
         },
-        error: () => {},
+        error: (error) => {
+          this.logger.error('Error in pollUntilGameStarts:', error);
+          const state = this.vm();
+          const game = state?.game;
+          if (game && game.status === 'waiting') {
+            this.messageService.add({
+              severity: 'warn',
+              summary: this.translate.translate('game.error.title'),
+              detail: this.translate.translate('game.error.timeout'),
+            });
+          }
+        },
         complete: () => {
           const state = this.vm();
           const game = state?.game;
@@ -366,7 +399,7 @@ export class GameComponent implements OnInit, OnDestroy {
       this.messageService.add({
         severity: 'warn',
         summary: this.translate.translate('game.error.title'),
-        detail: 'Czekam na odpowiedź z serwera...',
+        detail: this.translate.translate('game.error.waitingForResponse'),
       });
       return;
     }
@@ -502,7 +535,7 @@ export class GameComponent implements OnInit, OnDestroy {
           this.messageService.add({
             severity: 'warn',
             summary: this.translate.translate('game.error.title'),
-            detail: 'WebSocket nie jest połączony. Próba ponownego połączenia...',
+            detail: this.translate.translate('game.error.websocketReconnecting'),
           });
           
           const token = this.authService.getAuthToken();
@@ -514,7 +547,7 @@ export class GameComponent implements OnInit, OnDestroy {
                 this.messageService.add({
                   severity: 'error',
                   summary: this.translate.translate('game.error.title'),
-                  detail: 'Nie można połączyć się z serwerem. Spróbuj odświeżyć stronę.',
+                  detail: this.translate.translate('game.error.websocketConnectionFailed'),
                 });
                 return EMPTY;
               })
@@ -797,6 +830,7 @@ export class GameComponent implements OnInit, OnDestroy {
 
   private handleGameStatusChange(game: Game): void {
     if (game.status === 'finished' || game.status === 'draw' || game.status === 'abandoned') {
+      this.authService.loadCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
       setTimeout(() => {
         this.showResult.set(true);
       }, 400);
@@ -864,6 +898,44 @@ export class GameComponent implements OnInit, OnDestroy {
 
   private updateLocalGame(nextGame: Game): void {
     this.updateGameState(nextGame, false);
+    this.loadOpponentProfile(nextGame);
+  }
+
+  private loadOpponentProfile(game: Game | null): void {
+    if (!game || game.gameType !== 'pvp' || !game.player2Id) {
+      this.opponentUser.set(null);
+      return;
+    }
+
+    const currentUser = this.currentUserSignal();
+    if (!currentUser) {
+      return;
+    }
+
+    const opponentId = Number(game.player1Id) === Number(currentUser.userId) 
+      ? game.player2Id 
+      : game.player1Id;
+
+    if (!opponentId) {
+      this.opponentUser.set(null);
+      return;
+    }
+
+    if (this.opponentUser()?.userId === opponentId) {
+      return;
+    }
+
+    this.userService.getUserProfile(opponentId).pipe(
+      takeUntilDestroyed(this.destroyRef),
+      catchError((error) => {
+        this.logger.error('Error loading opponent profile:', error);
+        return of(null);
+      })
+    ).subscribe({
+      next: (user) => {
+        this.opponentUser.set(user);
+      }
+    });
   }
 
   isMoveDisabled(game: Game): boolean {
@@ -905,12 +977,6 @@ export class GameComponent implements OnInit, OnDestroy {
     return !playerTurn;
   }
 
-  getGameTitle(game: Game): string {
-    if (game.gameType === 'vs_bot') {
-      return `${this.translate.translate('game.title.bot')} (${game.botDifficulty || 'easy'})`;
-    }
-    return this.translate.translate('game.title.pvp');
-  }
 
   onResultDialogClose(): void {
     this.showResult.set(false);
@@ -957,6 +1023,57 @@ export class GameComponent implements OnInit, OnDestroy {
       return err.error?.message || this.translate.translate('game.error.unknown');
     }
     return this.translate.translate('game.error.unknown');
+  }
+
+  isCurrentPlayerTurn(game: Game): boolean {
+    if (game.gameType !== 'pvp' || game.status !== 'in_progress') {
+      return false;
+    }
+    const user = this.currentUserSignal();
+    if (!user || !game.currentPlayerSymbol) {
+      return false;
+    }
+    const isPlayer1 = Number(game.player1Id) === Number(user.userId);
+    return (isPlayer1 && game.currentPlayerSymbol === 'x') || (!isPlayer1 && game.currentPlayerSymbol === 'o');
+  }
+
+  isOpponentTurn(game: Game): boolean {
+    if (game.gameType !== 'pvp' || game.status !== 'in_progress') {
+      return false;
+    }
+    return !this.isCurrentPlayerTurn(game);
+  }
+
+  getPointsAtStake(game: Game): number {
+    let basePoints = 0;
+    
+    if (game.gameType === 'pvp') {
+      basePoints = 1000;
+    } else if (game.gameType === 'vs_bot' && game.botDifficulty) {
+      switch (game.botDifficulty) {
+        case 'easy':
+          basePoints = 100;
+          break;
+        case 'medium':
+          basePoints = 500;
+          break;
+        case 'hard':
+          basePoints = 1000;
+          break;
+        default:
+          return 0;
+      }
+    } else {
+      return 0;
+    }
+    
+    const boardSizeMultiplier = game.boardSize === 3 ? 1 : game.boardSize === 4 ? 1.5 : 2.0;
+    return Math.round(basePoints * boardSizeMultiplier);
+  }
+
+  getDrawPoints(game: Game): number {
+    const pointsAtStake = this.getPointsAtStake(game);
+    return Math.round(pointsAtStake / 10);
   }
 
   private updateTurnLock(game: Game): void {

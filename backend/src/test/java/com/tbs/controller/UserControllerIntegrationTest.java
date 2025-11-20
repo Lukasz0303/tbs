@@ -166,7 +166,7 @@ class UserControllerIntegrationTest {
 
     @Test
     void updateUserProfile_shouldUpdateUsernameSuccessfully() throws Exception {
-        UpdateUserRequest request = new UpdateUserRequest("newusername");
+        UpdateUserRequest request = new UpdateUserRequest("newusername", null);
 
         mockMvc.perform(put("/api/v1/users/{userId}", testUser.getId())
                         .header("Authorization", "Bearer " + authToken)
@@ -183,7 +183,7 @@ class UserControllerIntegrationTest {
 
     @Test
     void updateUserProfile_shouldReturn400ForInvalidUsername() throws Exception {
-        UpdateUserRequest request = new UpdateUserRequest("ab");
+        UpdateUserRequest request = new UpdateUserRequest("ab", null);
 
         mockMvc.perform(put("/api/v1/users/{userId}", testUser.getId())
                         .header("Authorization", "Bearer " + authToken)
@@ -201,7 +201,7 @@ class UserControllerIntegrationTest {
         otherUser = userRepository.save(otherUser);
         String otherToken = jwtTokenProvider.generateToken(otherUser.getId());
 
-        UpdateUserRequest request = new UpdateUserRequest("newusername");
+        UpdateUserRequest request = new UpdateUserRequest("newusername", null);
 
         mockMvc.perform(put("/api/v1/users/{userId}", testUser.getId())
                         .header("Authorization", "Bearer " + otherToken)
@@ -219,7 +219,7 @@ class UserControllerIntegrationTest {
         otherUser.setIsGuest(false);
         userRepository.save(otherUser);
 
-        UpdateUserRequest request = new UpdateUserRequest("existinguser");
+        UpdateUserRequest request = new UpdateUserRequest("existinguser", null);
 
         mockMvc.perform(put("/api/v1/users/{userId}", testUser.getId())
                         .header("Authorization", "Bearer " + authToken)
@@ -233,7 +233,7 @@ class UserControllerIntegrationTest {
     @Test
     void updateUserProfile_shouldReturn404ForNonExistentUser() throws Exception {
         Long nonExistentId = 99999L;
-        UpdateUserRequest request = new UpdateUserRequest("newusername");
+        UpdateUserRequest request = new UpdateUserRequest("newusername", null);
 
         mockMvc.perform(put("/api/v1/users/{userId}", nonExistentId)
                         .header("Authorization", "Bearer " + authToken)
@@ -245,7 +245,7 @@ class UserControllerIntegrationTest {
 
     @Test
     void updateUserProfile_shouldReturn401WhenUnauthenticated() throws Exception {
-        UpdateUserRequest request = new UpdateUserRequest("newusername");
+        UpdateUserRequest request = new UpdateUserRequest("newusername", null);
 
         mockMvc.perform(put("/api/v1/users/{userId}", testUser.getId())
                         .contentType(MediaType.APPLICATION_JSON)

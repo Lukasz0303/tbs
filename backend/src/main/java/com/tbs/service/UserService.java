@@ -1,6 +1,7 @@
 package com.tbs.service;
 
 import com.tbs.dto.user.LastSeenResponse;
+import com.tbs.dto.user.UpdateAvatarRequest;
 import com.tbs.dto.user.UpdateUserRequest;
 import com.tbs.dto.user.UpdateUserResponse;
 import com.tbs.dto.user.UserProfileResponse;
@@ -9,6 +10,8 @@ import com.tbs.exception.ForbiddenException;
 import com.tbs.exception.UserNotFoundException;
 import com.tbs.model.User;
 import com.tbs.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -16,10 +19,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Optional;
 
 @Service
 @Transactional(readOnly = true)
 public class UserService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository userRepository;
     private final AuthenticationService authenticationService;
@@ -70,27 +76,50 @@ public class UserService {
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         if (request.username() != null && !request.username().equals(user.getUsername())) {
-            java.util.Optional<User> existingUser = userRepository.findByUsername(request.username());
-            if (existingUser.isPresent() && !existingUser.get().getId().equals(userId)) {
-                throw new ConflictException("Username already exists");
-            }
             user.setUsername(request.username());
+        }
+
+        if (request.avatar() != null) {
+            user.setAvatar(request.avatar());
         }
 
         try {
             userRepository.save(user);
+            log.debug("User profile updated: userId={}, username={}, avatar={}", 
+                    userId, request.username(), request.avatar());
         } catch (DataIntegrityViolationException e) {
+            log.warn("Data integrity violation during profile update: userId={}", userId, e);
             throw new ConflictException("Username already exists");
         }
 
         return mapToUpdateUserResponse(user);
     }
 
+    @Transactional
+    @CacheEvict(value = "userProfile", key = "#userId")
+    public UpdateUserResponse updateUserAvatar(Long userId, UpdateAvatarRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+        user.setAvatar(request.avatar());
+        userRepository.save(user);
+        
+        log.debug("User avatar updated: userId={}, avatar={}", userId, request.avatar());
+
+        return mapToUpdateUserResponse(user);
+    }
+
+    private Integer getAvatarOrDefault(User user) {
+        return Optional.ofNullable(user.getAvatar()).orElse(1);
+    }
+
     private com.tbs.dto.auth.UserProfileResponse mapToAuthUserProfileResponse(User user) {
         return new com.tbs.dto.auth.UserProfileResponse(
                 user.getId(),
                 user.getUsername(),
+                user.getEmail(),
                 user.getIsGuest(),
+                getAvatarOrDefault(user),
                 user.getTotalPoints(),
                 user.getGamesPlayed(),
                 user.getGamesWon(),
@@ -104,6 +133,7 @@ public class UserService {
                 user.getId(),
                 user.getUsername(),
                 user.getIsGuest(),
+                getAvatarOrDefault(user),
                 user.getTotalPoints(),
                 user.getGamesPlayed(),
                 user.getGamesWon(),
@@ -116,6 +146,7 @@ public class UserService {
                 user.getId(),
                 user.getUsername(),
                 user.getIsGuest(),
+                getAvatarOrDefault(user),
                 user.getTotalPoints(),
                 user.getGamesPlayed(),
                 user.getGamesWon(),

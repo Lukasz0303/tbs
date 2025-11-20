@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit;
 public class GameWebSocketHandler extends TextWebSocketHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GameWebSocketHandler.class);
-    private static final int MOVE_TIMEOUT_SECONDS = 10;
+    private static final int MOVE_TIMEOUT_SECONDS = 20;
     private static final int PING_TIMEOUT_SECONDS = 60;
     private static final int RECONNECT_WINDOW_SECONDS = 20;
     private static final int TIMER_UPDATE_INTERVAL_SECONDS = 1;

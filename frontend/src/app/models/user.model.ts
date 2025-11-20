@@ -3,6 +3,7 @@ export interface User {
   username: string | null;
   email: string | null;
   isGuest: boolean;
+  avatar: number | null;
   totalPoints: number;
   gamesPlayed: number;
   gamesWon: number;

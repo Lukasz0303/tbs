@@ -1,0 +1,50 @@
+<p-dialog
+  [visible]="visible"
+  [modal]="true"
+  [style]="{ width: '600px' }"
+  [header]="translate.translate('profile.avatar.selectTitle')"
+  [draggable]="false"
+  [resizable]="false"
+  [closable]="true"
+  [dismissableMask]="true"
+  (onHide)="onClose()">
+  <div class="avatar-selector">
+    <div class="avatar-grid">
+      @for (avatarType of availableAvatars; track avatarType) {
+        <div
+          class="avatar-item"
+          [class.selected]="selectedAvatar === avatarType"
+          (click)="onAvatarSelect(avatarType)">
+          <img [src]="getAvatarPath(avatarType)" [alt]="'Avatar ' + avatarType" class="avatar-preview" />
+          @if (selectedAvatar === avatarType) {
+            <div class="selected-indicator">
+              <i class="pi pi-check"></i>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+  <ng-template pTemplate="footer">
+    <div class="dialog-footer">
+      <button
+        pButton
+        type="button"
+        [label]="translate.translate('common.cancel')"
+        icon="pi pi-times"
+        severity="secondary"
+        (click)="onClose()">
+      </button>
+      <button
+        pButton
+        type="button"
+        [label]="translate.translate('common.save')"
+        icon="pi pi-check"
+        [loading]="isLoading"
+        [disabled]="isLoading"
+        (click)="onSave()">
+      </button>
+    </div>
+  </ng-template>
+</p-dialog>
+

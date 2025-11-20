@@ -65,7 +65,7 @@ class UserControllerTest {
     void getUserProfile_shouldReturnProfileSuccessfully() {
         Long userId = 1L;
         UserProfileResponse profileResponse = new UserProfileResponse(
-                1L, "testuser", false, 100L, 10, 5, Instant.now()
+                1L, "testuser", false, 1, 100L, 10, 5, Instant.now()
         );
 
         when(authenticationService.getCurrentUserIdOrNull()).thenReturn(1L);
@@ -86,7 +86,7 @@ class UserControllerTest {
     void getUserProfile_shouldReturnProfileForUnauthenticatedUser() {
         Long userId = 1L;
         UserProfileResponse profileResponse = new UserProfileResponse(
-                1L, "testuser", false, 100L, 10, 5, Instant.now()
+                1L, "testuser", false, 1, 100L, 10, 5, Instant.now()
         );
 
         when(authenticationService.getCurrentUserIdOrNull()).thenReturn(null);
@@ -172,9 +172,9 @@ class UserControllerTest {
     @Test
     void updateUserProfile_shouldUpdateProfileSuccessfully() {
         Long userId = 1L;
-        UpdateUserRequest request = new UpdateUserRequest("newusername");
+        UpdateUserRequest request = new UpdateUserRequest("newusername", null);
         UpdateUserResponse updateResponse = new UpdateUserResponse(
-                1L, "newusername", false, 100L, 10, 5, Instant.now()
+                1L, "newusername", false, 1, 100L, 10, 5, Instant.now()
         );
 
         when(authenticationService.getCurrentUserId()).thenReturn(1L);
@@ -193,7 +193,7 @@ class UserControllerTest {
     @Test
     void updateUserProfile_shouldThrowForbiddenExceptionWhenNotOwner() {
         Long userId = 2L;
-        UpdateUserRequest request = new UpdateUserRequest("newusername");
+        UpdateUserRequest request = new UpdateUserRequest("newusername", null);
 
         when(authenticationService.getCurrentUserId()).thenReturn(1L);
 
@@ -208,7 +208,7 @@ class UserControllerTest {
     @Test
     void updateUserProfile_shouldThrowUserNotFoundException() {
         Long userId = 999L;
-        UpdateUserRequest request = new UpdateUserRequest("newusername");
+        UpdateUserRequest request = new UpdateUserRequest("newusername", null);
 
         when(authenticationService.getCurrentUserId()).thenReturn(999L);
         when(userService.updateUserProfile(userId, request))

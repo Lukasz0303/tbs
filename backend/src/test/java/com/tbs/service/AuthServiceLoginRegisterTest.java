@@ -1,4 +1,4 @@
-package com.tbs.service;
+adpackage com.tbs.service;
 
 import com.tbs.dto.auth.LoginRequest;
 import com.tbs.dto.auth.LoginResponse;
@@ -155,7 +155,7 @@ class AuthServiceLoginRegisterTest {
                 .thenReturn(validToken);
 
         RegisterResponse response = authService.register(
-                new RegisterRequest("newuser@example.com", "securePass123", "newuser")
+                new RegisterRequest("newuser@example.com", "securePass123", "newuser", null)
         );
 
         assertThat(response.authToken()).isEqualTo(validToken);
@@ -177,7 +177,7 @@ class AuthServiceLoginRegisterTest {
                 .thenReturn(true);
 
         assertThatThrownBy(() -> authService.register(
-                new RegisterRequest("existing@example.com", "password123", "username")
+                new RegisterRequest("existing@example.com", "password123", "username", null)
         ))
                 .isInstanceOf(com.tbs.exception.BadRequestException.class)
                 .hasMessage("Email already exists");
@@ -193,7 +193,7 @@ class AuthServiceLoginRegisterTest {
                 .thenReturn(true);
 
         assertThatThrownBy(() -> authService.register(
-                new RegisterRequest("newemail@example.com", "password123", "existinguser")
+                new RegisterRequest("newemail@example.com", "password123", "existinguser", null)
         ))
                 .isInstanceOf(com.tbs.exception.BadRequestException.class)
                 .hasMessage("Username already exists");

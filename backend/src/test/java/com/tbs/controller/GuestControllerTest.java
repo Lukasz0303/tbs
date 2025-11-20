@@ -44,6 +44,7 @@ class GuestControllerTest {
         guestResponse = new GuestResponse(
                 1L,
                 true,
+                1,
                 0L,
                 0,
                 0,
@@ -57,6 +58,7 @@ class GuestControllerTest {
         GuestResponse newGuestResponse = new GuestResponse(
                 1L,
                 true,
+                1,
                 0L,
                 0,
                 0,
@@ -82,6 +84,7 @@ class GuestControllerTest {
         GuestResponse existingGuestResponse = new GuestResponse(
                 1L,
                 true,
+                1,
                 100L,
                 5,
                 3,
