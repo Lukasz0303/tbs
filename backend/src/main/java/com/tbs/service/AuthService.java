@@ -106,7 +106,7 @@ public class AuthService {
         
         if (savedUser.getId() == null) {
             log.error("User saved but ID is null - this should not happen!");
-            throw new RuntimeException("User saved but ID is null");
+            throw new IllegalStateException("User saved but ID is null - database constraint violation");
         }
         
         return savedUser;

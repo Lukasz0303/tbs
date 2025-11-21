@@ -1,5 +1,5 @@
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, OnDestroy, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { interval, BehaviorSubject, EMPTY, switchMap, map, catchError, of, take, filter, timer } from 'rxjs';
@@ -11,7 +11,6 @@ import { GameService } from '../../services/game.service';
 import { TranslateService } from '../../services/translate.service';
 import { Game, PlayerSymbol } from '../../models/game.model';
 import { GameBoardComponent } from '../../components/game/game-board.component';
-import { GameTimerComponent } from '../../components/game/game-timer.component';
 import { AuthService } from '../../services/auth.service';
 import { WebSocketService } from '../../services/websocket.service';
 import { GameResultDialogComponent } from '../../components/game/game-result-dialog.component';
@@ -22,6 +21,11 @@ import { LoggerService } from '../../services/logger.service';
 import { normalizeBoardState } from '../../shared/utils/board-state.util';
 import { UserService } from '../../services/user.service';
 import { User } from '../../models/user.model';
+import { RankingService } from '../../services/ranking.service';
+import { Ranking } from '../../models/ranking.model';
+import { BackgroundMusicService } from '../../services/background-music.service';
+import { GameResultSoundService } from '../../services/game-result-sound.service';
+import { AudioSettingsService } from '../../services/audio-settings.service';
 
 @Component({
   selector: 'app-game',
@@ -33,7 +37,6 @@ import { User } from '../../models/user.model';
     ProgressSpinnerModule,
     ToastModule,
     GameBoardComponent,
-    GameTimerComponent,
     GameResultDialogComponent,
     GameUserProfileComponent,
     GameBotInfoComponent,
@@ -54,6 +57,10 @@ export class GameComponent implements OnInit, OnDestroy {
   private readonly websocketService = inject(WebSocketService);
   private readonly logger = inject(LoggerService);
   private readonly userService = inject(UserService);
+  private readonly rankingService = inject(RankingService);
+  private readonly backgroundMusicService = inject(BackgroundMusicService);
+  private readonly gameResultSoundService = inject(GameResultSoundService);
+  private readonly audioSettingsService = inject(AudioSettingsService);
 
   readonly isBotThinking = signal<boolean>(false);
   readonly showResult = signal<boolean>(false);
@@ -63,9 +70,13 @@ export class GameComponent implements OnInit, OnDestroy {
   readonly winningCells = signal<Array<{ row: number; col: number }>>([]);
   readonly currentUser$ = this.authService.getCurrentUser();
   private readonly currentUserSignal = toSignal(this.authService.getCurrentUser(), { initialValue: null });
+  readonly isGuestSignal = computed(() => this.currentUserSignal()?.isGuest === true);
   readonly opponentUser = signal<User | null>(null);
+  readonly currentUserRanking = signal<Ranking | null>(null);
+  readonly opponentUserRanking = signal<Ranking | null>(null);
 
   private gameId: number | null = null;
+  private resultSoundKey: string | null = null;
 
   private readonly gameState$ = new BehaviorSubject<{ loading: boolean; game: Game | null }>({
     loading: true,
@@ -75,18 +86,88 @@ export class GameComponent implements OnInit, OnDestroy {
   readonly vm = toSignal(this.gameState$, { initialValue: { loading: true, game: null as Game | null } });
 
   ngOnInit(): void {
-    this.authService.loadCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
+    this.authService.loadCurrentUser().pipe(
+      takeUntilDestroyed(this.destroyRef),
+      catchError((error) => {
+        this.logger.error('Error loading current user:', error);
+        return EMPTY;
+      })
+    ).subscribe();
+
+    this.currentUser$
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError((error) => {
+          this.logger.error('Error in currentUser$ subscription:', error);
+          return EMPTY;
+        })
+      )
+      .subscribe({
+        next: () => {
+          const game = this.vm()?.game;
+          if (game) {
+            this.handleResultSound(game);
+          }
+        },
+        error: (error) => {
+          this.logger.error('Error in currentUser$ subscription:', error);
+        }
+      });
+    
+    this.currentUser$
+      .pipe(
+        filter((user): user is User => user !== null && !user.isGuest),
+        switchMap((user) => {
+          return this.rankingService.getUserRanking(user.userId).pipe(
+            catchError(() => of<Ranking | null>(null))
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: (ranking) => {
+          this.currentUserRanking.set(ranking);
+        }
+      });
     
     this.route.paramMap
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((params) => {
-        const gameId = Number(params.get('gameId'));
-        this.logger.debug('GameComponent.ngOnInit route param gameId', gameId);
-        if (gameId) {
-          this.gameId = gameId;
-          this.loadGame();
-          this.setupGameUpdates();
-          this.checkBotTurnAfterUserLoad();
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError((error) => {
+          this.logger.error('Error in route paramMap subscription:', error);
+          return EMPTY;
+        })
+      )
+      .subscribe({
+        next: (params) => {
+          const gameId = Number(params.get('gameId'));
+          this.logger.debug('GameComponent.ngOnInit route param gameId', gameId);
+          if (gameId) {
+            this.gameId = gameId;
+            this.loadGame();
+            this.setupGameUpdates();
+            this.checkBotTurnAfterUserLoad();
+          }
+        },
+        error: (error) => {
+          this.logger.error('Error in route paramMap subscription:', error);
+        }
+      });
+    this.audioSettingsService.settings$
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError((error) => {
+          this.logger.error('Error in audioSettingsService.settings$ subscription:', error);
+          return EMPTY;
+        })
+      )
+      .subscribe({
+        next: () => {
+          const state = this.vm();
+          this.syncBackgroundMusic(state?.game ?? null);
+        },
+        error: (error) => {
+          this.logger.error('Error in audioSettingsService.settings$ subscription:', error);
         }
       });
   }
@@ -236,6 +317,15 @@ export class GameComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (!this.authService.isAuthenticated()) {
+      this.messageService.add({
+        severity: 'error',
+        summary: this.translate.translate('game.error.title'),
+        detail: this.translate.translate('game.error.missingToken'),
+      });
+      return;
+    }
+
     const token = this.authService.getAuthToken();
     if (!token) {
       this.messageService.add({
@@ -260,7 +350,13 @@ export class GameComponent implements OnInit, OnDestroy {
 
   private startTimer(): void {
     interval(1000)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError((error) => {
+          this.logger.error('Error in timer interval:', error);
+          return EMPTY;
+        })
+      )
       .subscribe({
         next: () => {
           const state = this.vm();
@@ -538,8 +634,12 @@ export class GameComponent implements OnInit, OnDestroy {
             detail: this.translate.translate('game.error.websocketReconnecting'),
           });
           
+          if (!this.authService.isAuthenticated() || !this.gameId) {
+            return EMPTY;
+          }
+          
           const token = this.authService.getAuthToken();
-          if (token && this.gameId) {
+          if (token) {
             return this.websocketService.connect(this.gameId, token).pipe(
               catchError((error) => {
                 this.logger.error('Failed to reconnect WebSocket:', error);
@@ -703,41 +803,63 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   private isMoveAcceptedPayload(payload: unknown): payload is WebSocketDTOs.MoveAcceptedMessage['payload'] {
+    if (typeof payload !== 'object' || payload === null) {
+      return false;
+    }
+    
+    const p = payload as Record<string, unknown>;
+    
     return (
-      typeof payload === 'object' &&
-      payload !== null &&
-      'boardState' in payload &&
-      'currentPlayerSymbol' in payload &&
-      'nextMoveAt' in payload
+      'boardState' in p &&
+      'currentPlayerSymbol' in p &&
+      'nextMoveAt' in p &&
+      typeof p['nextMoveAt'] === 'string'
     );
   }
 
   private isMoveRejectedPayload(payload: unknown): payload is WebSocketDTOs.MoveRejectedMessage['payload'] {
+    if (typeof payload !== 'object' || payload === null) {
+      return false;
+    }
+    
+    const p = payload as Record<string, unknown>;
+    
     return (
-      typeof payload === 'object' &&
-      payload !== null &&
-      'reason' in payload &&
-      'code' in payload
+      'reason' in p &&
+      'code' in p &&
+      typeof p['reason'] === 'string' &&
+      typeof p['code'] === 'string'
     );
   }
 
   private isOpponentMovePayload(payload: unknown): payload is WebSocketDTOs.OpponentMoveMessage['payload'] {
+    if (typeof payload !== 'object' || payload === null) {
+      return false;
+    }
+    
+    const p = payload as Record<string, unknown>;
+    
     return (
-      typeof payload === 'object' &&
-      payload !== null &&
-      'boardState' in payload &&
-      'currentPlayerSymbol' in payload &&
-      'nextMoveAt' in payload
+      'boardState' in p &&
+      'currentPlayerSymbol' in p &&
+      'nextMoveAt' in p &&
+      typeof p['nextMoveAt'] === 'string'
     );
   }
 
   private isGameUpdatePayload(payload: unknown): payload is WebSocketDTOs.GameUpdateMessage['payload'] {
+    if (typeof payload !== 'object' || payload === null) {
+      return false;
+    }
+    
+    const p = payload as Record<string, unknown>;
+    
     return (
-      typeof payload === 'object' &&
-      payload !== null &&
-      'gameId' in payload &&
-      'status' in payload &&
-      'boardState' in payload
+      'gameId' in p &&
+      'status' in p &&
+      'boardState' in p &&
+      typeof p['gameId'] === 'number' &&
+      typeof p['status'] === 'string'
     );
   }
 
@@ -751,13 +873,20 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   private isGameEndedPayload(payload: unknown): payload is WebSocketDTOs.GameEndedMessage['payload'] {
+    if (typeof payload !== 'object' || payload === null) {
+      return false;
+    }
+    
+    const p = payload as Record<string, unknown>;
+    
     return (
-      typeof payload === 'object' &&
-      payload !== null &&
-      'gameId' in payload &&
-      'status' in payload &&
-      'finalBoardState' in payload &&
-      'totalMoves' in payload
+      'gameId' in p &&
+      'status' in p &&
+      'finalBoardState' in p &&
+      'totalMoves' in p &&
+      typeof p['gameId'] === 'number' &&
+      typeof p['status'] === 'string' &&
+      typeof p['totalMoves'] === 'number'
     );
   }
 
@@ -899,6 +1028,21 @@ export class GameComponent implements OnInit, OnDestroy {
   private updateLocalGame(nextGame: Game): void {
     this.updateGameState(nextGame, false);
     this.loadOpponentProfile(nextGame);
+    this.syncBackgroundMusic(nextGame);
+    this.handleResultSound(nextGame);
+  }
+
+  private syncBackgroundMusic(game: Game | null): void {
+    const settings = this.audioSettingsService.getSettings();
+    if (!settings.musicEnabled || !game) {
+      this.backgroundMusicService.stop();
+      return;
+    }
+    if (game.status === 'in_progress' || game.status === 'waiting') {
+      this.backgroundMusicService.play();
+      return;
+    }
+    this.backgroundMusicService.stop();
   }
 
   private loadOpponentProfile(game: Game | null): void {
@@ -934,6 +1078,22 @@ export class GameComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (user) => {
         this.opponentUser.set(user);
+        if (user && !user.isGuest) {
+          this.loadOpponentRanking(user.userId);
+        } else {
+          this.opponentUserRanking.set(null);
+        }
+      }
+    });
+  }
+
+  private loadOpponentRanking(userId: number): void {
+    this.rankingService.getUserRanking(userId).pipe(
+      takeUntilDestroyed(this.destroyRef),
+      catchError(() => of<Ranking | null>(null))
+    ).subscribe({
+      next: (ranking) => {
+        this.opponentUserRanking.set(ranking);
       }
     });
   }
@@ -985,6 +1145,7 @@ export class GameComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.websocketService.disconnect();
+    this.backgroundMusicService.stop();
   }
 
   private handleError(error: unknown): void {
@@ -1071,9 +1232,33 @@ export class GameComponent implements OnInit, OnDestroy {
     return Math.round(basePoints * boardSizeMultiplier);
   }
 
+  isCurrentUserGuest(): boolean {
+    return this.isGuestSignal();
+  }
+
   getDrawPoints(game: Game): number {
     const pointsAtStake = this.getPointsAtStake(game);
     return Math.round(pointsAtStake / 10);
+  }
+
+  getCurrentPlayerSymbol(game: Game): PlayerSymbol | null {
+    const user = this.currentUserSignal();
+    if (!user || !game) {
+      return null;
+    }
+    if (game.gameType === 'vs_bot') {
+      return 'x';
+    }
+    return Number(game.player1Id) === Number(user.userId) ? 'x' : 'o';
+  }
+
+  getOpponentSymbol(game: Game): PlayerSymbol | null {
+    const user = this.currentUserSignal();
+    if (!user || !game || game.gameType !== 'pvp') {
+      return null;
+    }
+    const currentSymbol = this.getCurrentPlayerSymbol(game);
+    return currentSymbol === 'x' ? 'o' : 'x';
   }
 
   private updateTurnLock(game: Game): void {
@@ -1165,6 +1350,44 @@ export class GameComponent implements OnInit, OnDestroy {
       }
     }
     this.winningCells.set([]);
+  }
+
+  private handleResultSound(game: Game): void {
+    if (game.status !== 'finished') {
+      this.resultSoundKey = null;
+      return;
+    }
+    const key = `${game.gameId}-${game.status}-${game.winnerId ?? 'none'}`;
+    if (this.resultSoundKey === key) {
+      return;
+    }
+    const outcome = this.resolvePlayerOutcome(game);
+    if (!outcome) {
+      return;
+    }
+    if (outcome === 'victory') {
+      this.gameResultSoundService.playVictory();
+    } else {
+      this.gameResultSoundService.playDefeat();
+    }
+    this.resultSoundKey = key;
+  }
+
+  private resolvePlayerOutcome(game: Game): 'victory' | 'defeat' | null {
+    if (game.status !== 'finished' || game.winnerId === null) {
+      return null;
+    }
+    if (game.gameType === 'vs_bot') {
+      return Number(game.winnerId) === Number(game.player1Id) ? 'victory' : 'defeat';
+    }
+    if (game.gameType === 'pvp') {
+      const user = this.currentUserSignal();
+      if (!user) {
+        return null;
+      }
+      return Number(game.winnerId) === Number(user.userId) ? 'victory' : 'defeat';
+    }
+    return null;
   }
 }
 

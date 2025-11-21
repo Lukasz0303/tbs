@@ -38,6 +38,7 @@
             {{ translateService.translate('home.gameMode.hard') }}
           </button>
           <button
+            *ngIf="isAuthenticated()"
             type="button"
             class="game-mode-btn"
             [class.selected]="isGameModeSelected('pvp')"

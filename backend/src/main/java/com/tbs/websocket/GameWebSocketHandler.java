@@ -296,9 +296,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             if (updatedGame.getStatus() == com.tbs.enums.GameStatus.FINISHED || 
                 updatedGame.getStatus() == com.tbs.enums.GameStatus.DRAW) {
                 handleGameEnded(gameId, updatedGame, boardState, result.totalMoves());
-            } else {
-                startMoveTimer(gameId, updatedGame);
+                return;
             }
+            
+            startMoveTimer(gameId, updatedGame);
 
         } catch (InvalidMoveException | ForbiddenException e) {
             log.warn("Move rejected: gameId={}, userId={}, reason={}", gameId, userId, e.getMessage());
@@ -431,19 +432,20 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             log.debug("sendMessage called: sessionId={}, messageType={}, sessionOpen={}, gameId={}, userId={}", 
                     session.getId(), message.type(), session.isOpen(), gameId, userId);
             
-            if (session.isOpen()) {
-                session.sendMessage(new TextMessage(json));
-                log.debug("WebSocket message sent: type={}, sessionId={}", 
-                        message.type(), session.getId());
-                
-                if (gameId != null && userId != null) {
-                    messageStorageService.storeMessage(gameId, userId, message);
-                    log.debug("Stored WebSocket message for gameId={}, userId={}, type={}", 
-                            gameId, userId, message.type());
-                }
-            } else {
+            if (!session.isOpen()) {
                 log.warn("Cannot send WebSocket message: session is CLOSED, sessionId={}", 
                         session.getId());
+                return;
+            }
+            
+            session.sendMessage(new TextMessage(json));
+            log.debug("WebSocket message sent: type={}, sessionId={}", 
+                    message.type(), session.getId());
+            
+            if (gameId != null && userId != null) {
+                messageStorageService.storeMessage(gameId, userId, message);
+                log.debug("Stored WebSocket message for gameId={}, userId={}, type={}", 
+                        gameId, userId, message.type());
             }
         } catch (IOException e) {
             log.error("EXCEPTION sending WebSocket message: sessionId={}, messageType={}, error={}", 
@@ -488,16 +490,19 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             String moverSessionId = sessions.get(userId);
             log.debug("Mover userId={}, sessionId={}", userId, moverSessionId);
             
-            if (moverSessionId != null) {
-                WebSocketSession moverSession = activeSessions.get(moverSessionId);
-                if (moverSession != null && moverSession.isOpen()) {
-                    sendMessage(moverSession, acceptedMessage);
-                    log.debug("MOVE_ACCEPTED sent to mover userId={}", userId);
-                } else {
-                    log.warn("Mover session not found or closed: userId={}, sessionId={}", 
-                            userId, moverSessionId);
-                }
+            if (moverSessionId == null) {
+                return;
             }
+            
+            WebSocketSession moverSession = activeSessions.get(moverSessionId);
+            if (moverSession == null || !moverSession.isOpen()) {
+                log.warn("Mover session not found or closed: userId={}, sessionId={}", 
+                        userId, moverSessionId);
+                return;
+            }
+            
+            sendMessage(moverSession, acceptedMessage);
+            log.debug("MOVE_ACCEPTED sent to mover userId={}", userId);
 
             for (Map.Entry<Long, String> entry : sessions.entrySet()) {
                 if (!entry.getKey().equals(userId)) {
@@ -506,23 +511,24 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                     
                     WebSocketSession opponentSession = activeSessions.get(opponentSessionId);
                     
-                    if (opponentSession != null && opponentSession.isOpen()) {
-                        OpponentMoveMessage opponentMove = new OpponentMoveMessage(
-                                new OpponentMoveMessage.OpponentMovePayload(
-                                        row,
-                                        col,
-                                        playerSymbol,
-                                        boardState,
-                                        currentPlayerSymbol,
-                                        Instant.now().plusSeconds(MOVE_TIMEOUT_SECONDS)
-                                )
-                        );
-                        sendMessage(opponentSession, opponentMove);
-                        log.debug("OPPONENT_MOVE sent to opponent userId={}", opponentUserId);
-                    } else {
+                    if (opponentSession == null || !opponentSession.isOpen()) {
                         log.warn("Opponent session not found or closed: userId={}, sessionId={}", 
                                 opponentUserId, opponentSessionId);
+                        continue;
                     }
+                    
+                    OpponentMoveMessage opponentMove = new OpponentMoveMessage(
+                            new OpponentMoveMessage.OpponentMovePayload(
+                                    row,
+                                    col,
+                                    playerSymbol,
+                                    boardState,
+                                    currentPlayerSymbol,
+                                    Instant.now().plusSeconds(MOVE_TIMEOUT_SECONDS)
+                            )
+                    );
+                    sendMessage(opponentSession, opponentMove);
+                    log.debug("OPPONENT_MOVE sent to opponent userId={}", opponentUserId);
                 }
             }
 

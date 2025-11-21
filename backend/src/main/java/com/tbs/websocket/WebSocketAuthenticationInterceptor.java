@@ -55,7 +55,9 @@ public class WebSocketAuthenticationInterceptor implements HandshakeInterceptor 
             if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)) {
                 token = authHeader.substring(BEARER_PREFIX.length()).trim();
                 log.debug("WebSocket: Token found in Authorization header");
-            } else {
+            }
+            
+            if (token == null || token.isEmpty()) {
                 String query = request.getURI().getQuery();
                 if (query != null && query.contains("token=")) {
                     String[] params = query.split("&");

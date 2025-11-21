@@ -55,17 +55,7 @@ public class RankingRefreshScheduler {
                     retries++;
                     int failures = consecutiveFailures.incrementAndGet();
                     
-                    if (retries < maxRetries) {
-                        log.warn("Error in scheduled refresh of player_rankings materialized view (attempt {}/{}), retrying in {}ms", 
-                                retries, maxRetries, retryDelayMs, e);
-                        try {
-                            TimeUnit.MILLISECONDS.sleep(retryDelayMs);
-                        } catch (InterruptedException ie) {
-                            Thread.currentThread().interrupt();
-                            log.error("Retry sleep interrupted", ie);
-                            break;
-                        }
-                    } else {
+                    if (retries >= maxRetries) {
                         log.error("Error in scheduled refresh of player_rankings materialized view after {} attempts", 
                                 maxRetries, e);
                         
@@ -73,6 +63,17 @@ public class RankingRefreshScheduler {
                             log.error("CRITICAL: {} consecutive failures in ranking refresh scheduler. Manual intervention may be required.", 
                                     failures);
                         }
+                        break;
+                    }
+                    
+                    log.warn("Error in scheduled refresh of player_rankings materialized view (attempt {}/{}), retrying in {}ms", 
+                            retries, maxRetries, retryDelayMs, e);
+                    try {
+                        TimeUnit.MILLISECONDS.sleep(retryDelayMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        log.error("Retry sleep interrupted", ie);
+                        break;
                     }
                 }
             }

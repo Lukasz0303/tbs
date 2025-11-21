@@ -30,7 +30,6 @@
           <th>{{ 'leaderboard.table.points' | translate }}</th>
           <th>{{ 'leaderboard.table.gamesPlayed' | translate }}</th>
           <th>{{ 'leaderboard.table.gamesWon' | translate }}</th>
-          <th>{{ 'leaderboard.table.actions' | translate }}</th>
         </tr>
       </ng-template>
 
@@ -41,20 +40,12 @@
           <td>{{ ranking.totalPoints }}</td>
           <td>{{ ranking.gamesPlayed }}</td>
           <td>{{ ranking.gamesWon }}</td>
-          <td>
-            <p-button
-              [label]="'leaderboard.challenge.button' | translate"
-              size="small"
-              (onClick)="onChallengePlayer(ranking.userId)"
-              [disabled]="isCurrentUser(ranking.userId) || isChallenging()">
-            </p-button>
-          </td>
         </tr>
       </ng-template>
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="6" class="text-center">
+          <td colspan="5" class="text-center">
             {{ 'leaderboard.table.empty' | translate }}
           </td>
         </tr>

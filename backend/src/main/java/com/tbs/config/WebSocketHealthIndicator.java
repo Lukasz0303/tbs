@@ -24,17 +24,17 @@ public class WebSocketHealthIndicator implements HealthIndicator {
             int activeConnections = sessionManager.getActiveConnectionCount();
             boolean isHealthy = sessionManager.hasActiveConnections() || activeConnections >= 0;
 
-            if (isHealthy) {
-                return Health.up()
-                        .withDetail("status", "UP")
-                        .withDetail("activeConnections", activeConnections)
-                        .build();
-            } else {
+            if (!isHealthy) {
                 return Health.down()
                         .withDetail("status", "DOWN")
                         .withDetail("reason", "WebSocket handler not properly initialized")
                         .build();
             }
+            
+            return Health.up()
+                    .withDetail("status", "UP")
+                    .withDetail("activeConnections", activeConnections)
+                    .build();
         } catch (Exception e) {
             log.error("Error checking WebSocket health", e);
             return Health.down()

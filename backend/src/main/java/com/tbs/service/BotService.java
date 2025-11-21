@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -102,13 +103,12 @@ public class BotService {
             return blockMove;
         }
 
-        BotMovePosition centerOpt = availablePositions.stream()
+        Optional<BotMovePosition> centerOpt = availablePositions.stream()
                 .filter(pos -> pos.row() == CENTER_POSITION_3X3 && pos.col() == CENTER_POSITION_3X3)
-                .findFirst()
-                .orElse(null);
+                .findFirst();
         
-        if (centerOpt != null) {
-            return centerOpt;
+        if (centerOpt.isPresent()) {
+            return centerOpt.get();
         }
 
         List<BotMovePosition> corners = List.of(

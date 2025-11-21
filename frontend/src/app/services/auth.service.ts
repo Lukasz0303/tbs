@@ -1,7 +1,7 @@
 import { inject, Injectable, computed, effect, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { toObservable } from '@angular/core/rxjs-interop';
-import { Observable, catchError, map, of, tap } from 'rxjs';
+import { Observable, catchError, map, of, tap, switchMap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { User } from '../models/user.model';
 import { GuestSessionResponse } from '../models/api.model';
@@ -74,8 +74,8 @@ export class AuthService {
         catchError((error) => {
           if (error.status === 401 || error.status === 403) {
             this.clearAuthToken();
+            this.currentUserSignal.set(null);
           }
-          this.currentUserSignal.set(null);
           return of(null);
         })
       );
@@ -114,14 +114,6 @@ export class AuthService {
       );
   }
 
-  getAuthToken(): string | null {
-    return localStorage.getItem('wow-auth-token');
-  }
-
-  clearAuthToken(): void {
-    localStorage.removeItem('wow-auth-token');
-  }
-
   updateCurrentUser(user: User | null): void {
     this.currentUserSignal.set(user);
   }
@@ -142,10 +134,10 @@ export class AuthService {
           this.currentUserSignal.set(user);
         }
       }),
-      map((response) => {
-        const user = this.mapToUser(response);
+      switchMap(() => this.loadCurrentUser()),
+      map((user) => {
         if (!user) {
-          throw new Error('Failed to map user from login response');
+          throw new Error('Failed to load user after login');
         }
         return user;
       })
@@ -164,19 +156,37 @@ export class AuthService {
           this.currentUserSignal.set(user);
         }
       }),
-      map((response) => {
-        const user = this.mapToUser(response);
+      switchMap(() => this.loadCurrentUser()),
+      map((user) => {
         if (!user) {
-          throw new Error('Failed to map user from register response');
+          throw new Error('Failed to load user after register');
         }
         return user;
       })
     );
   }
 
-  logout(): void {
-    this.currentUserSignal.set(null);
-    this.clearAuthToken();
+  logout(): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/v1/auth/logout`, {}).pipe(
+      tap(() => {
+        this.clearAuthToken();
+        this.currentUserSignal.set(null);
+      }),
+      catchError((error) => {
+        this.clearAuthToken();
+        this.currentUserSignal.set(null);
+        return of(undefined);
+      }),
+      map(() => undefined)
+    );
+  }
+
+  getAuthToken(): string | null {
+    return localStorage.getItem('wow-auth-token');
+  }
+
+  clearAuthToken(): void {
+    localStorage.removeItem('wow-auth-token');
   }
 
   private mapToUser(response: AuthUserResponse | null): User | null {

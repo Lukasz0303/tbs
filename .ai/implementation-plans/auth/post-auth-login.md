@@ -4,12 +4,13 @@
 
 **POST /api/auth/login** to endpoint uwierzytelniania służący do logowania zarejestrowanego użytkownika. Endpoint jest publiczny i nie wymaga uwierzytelnienia. Pozwala użytkownikowi zalogować się przez podanie adresu email i hasła.
 
-Endpoint integruje się z Supabase Auth dla uwierzytelniania użytkowników i zwraca token JWT po pomyślnym zalogowaniu. Po uwierzytelnieniu użytkownik otrzymuje token JWT oraz pełne informacje o profilu (statystyki gry, punkty).
+Endpoint wykorzystuje wewnętrzny serwis Spring Security do zweryfikowania poświadczeń użytkownika (hashowane hasła w tabeli `users`) i wydaje krótkotrwały token dostępu JWT (plus refresh token). Po pomyślnym zalogowaniu użytkownik otrzymuje również aktualne statystyki profilu (punkty, gry, avatar), a token jest dostarczany w nagłówku oraz w httpOnly cookie.
 
 Kluczowe zastosowania:
-- Logowanie zarejestrowanych użytkowników
-- Integracja z Supabase Auth dla walidacji hasła
-- Wydawanie tokenu JWT po pomyślnym logowaniu
+- Logowanie zarejestrowanych użytkowników przeciwko lokalnej bazie (`users`)
+- Hashowanie i walidacja haseł przy użyciu BCrypt (`PasswordEncoder`)
+- Wydawanie pary tokenów (access + refresh) przez `JwtTokenProvider`/`TokenService`
+- Opcjonalna rejestracja tokenów w Redis (blacklista / refresh store)
 - Pobranie aktualnych statystyk użytkownika
 
 ## 2. Szczegóły żądania
@@ -100,14 +101,14 @@ public record LoginResponse(
 ```
 
 **Uwagi implementacyjne:**
-- `userId` - String reprezentujący UUID lub BIGINT z `users.id`
+- `userId` - String reprezentujący BIGINT z `users.id`
 - `username` - Nazwa użytkownika z `users.username`
-- `email` - Email z Supabase Auth (`auth.users.email`)
+- `email` - Email z `users.email`
 - `isGuest` - Zawsze false dla zarejestrowanych użytkowników
 - `totalPoints` - Z `users.total_points`
 - `gamesPlayed` - Z `users.games_played`
 - `gamesWon` - Z `users.games_won`
-- `authToken` - Token JWT wydany przez Supabase Auth lub Spring Security
+- `authToken` - Token JWT wydany przez Spring Security (może być również przesłany jako httpOnly cookie)
 
 ### Enums
 - Brak bezpośredniego użycia enumów w tym endpoincie
@@ -120,8 +121,9 @@ public record LoginResponse(
 - **`com.tbs.exception.UserNotFoundException`** - wyjątek dla 404 Not Found
 
 ### Serwisy (do stworzenia lub wykorzystania)
-- **`com.tbs.service.AuthService`** - serwis obsługujący logowanie
-- **`com.tbs.service.SupabaseAuthService`** - integracja z Supabase Auth API
+- **`com.tbs.service.AuthService`** - serwis obsługujący logowanie (znajdowanie użytkownika, walidacja hasła)
+- **`com.tbs.security.JwtTokenProvider`** / **`com.tbs.service.TokenService`** - generowanie tokenów access/refresh
+- **`com.tbs.security.TokenBlacklistService`** - czarna lista tokenów (Redis)
 
 ## 4. Szczegóły odpowiedzi
 
@@ -214,53 +216,38 @@ public record LoginResponse(
    - Sprawdzenie obecności hasła (@NotBlank)
    - Jeśli błędy walidacji → 422 Unprocessable Entity
 
-3. **Uwierzytelnienie w Supabase Auth**
-   - Wywołanie Supabase Auth API: `POST /auth/v1/token`
-   - Przekazanie email i hasło (grant_type: password)
-   - Supabase Auth waliduje hasło i zwraca:
-     - `user.id` (UUID) - `auth_user_id`
-     - Token JWT (access_token i refresh_token)
-   - Jeśli nieprawidłowe hasło → 401 Unauthorized
-   - Jeśli użytkownik nie istnieje → 404 Not Found
+3. **Wyszukanie użytkownika i walidacja poświadczeń**
+   - `userRepository.findByEmail(request.email())`
+   - Jeśli wynik pusty → rzucić `UnauthorizedException` (ogólny komunikat)
+   - `passwordEncoder.matches(request.password(), user.getPasswordHash())`
+   - Brak/niepoprawny hash → `UnauthorizedException`
 
-4. **Pobranie profilu użytkownika z tabeli `users`**
-   - Zapytanie: `SELECT * FROM users WHERE auth_user_id = ?`
-   - Jeśli użytkownik nie istnieje w tabeli `users` (nieprawidłowy stan) → 404 Not Found
+4. **Generowanie tokenów i zapis w Redis**
+   - `jwtTokenProvider.generateAccessToken(userId, roles, jti)`
+   - `jwtTokenProvider.generateRefreshToken(userId, refreshJti)`
+   - Persist refresh token metadata w Redis (klucz `refresh:{refreshJti}`)
+   - Ewentualnie zaktualizować `lastSeenAt`
 
-5. **Generowanie odpowiedzi**
-   - Mapowanie encji `User` → `LoginResponse` DTO
-   - Dodanie tokenu JWT z Supabase Auth
+5. **Budowa odpowiedzi**
+   - Mapowanie `User` → `LoginResponse`
    - Ustawienie `isGuest = false`
+   - Dodanie nagłówków `Set-Cookie` dla `wow-access-token` i `wow-refresh-token` (HttpOnly, Secure, SameSite=Strict)
+   - Opcjonalne dodanie `Authorization: Bearer <accessToken>` w ciele/nagłówku
 
 6. **Zwrócenie odpowiedzi HTTP 200 OK**
    - Serializacja `LoginResponse` do JSON
+   - Ustawienie nagłówków bezpieczeństwa (np. `Cache-Control: no-store`)
 
 ### Integracja z bazą danych
 
 **Tabela: `users`**
-- SELECT rekord na podstawie `auth_user_id`
+- SELECT rekord na podstawie `email`
 - Kolumny pobierane:
   - `id` → `userId`
   - `username` → `username`
   - `total_points` → `totalPoints`
   - `games_played` → `gamesPlayed`
   - `games_won` → `gamesWon`
-
-**Supabase Auth: `auth.users`**
-- Użytkownik uwierzytelniany przez Supabase Auth API
-- Hasło walidowane przez Supabase Auth (bcrypt/argon2)
-
-### Integracja z Supabase Auth
-
-**Endpoint Supabase Auth:**
-- `POST https://{supabase-url}/auth/v1/token`
-- Body: `{ "email": "...", "password": "...", "grant_type": "password" }`
-- Response: `{ "access_token": "...", "refresh_token": "...", "user": {...} }`
-
-**Obsługa błędów Supabase Auth:**
-- Nieprawidłowe hasło → 401 Unauthorized
-- Użytkownik nie istnieje → 404 Not Found
-- Błąd serwera Supabase → 500 Internal Server Error
 
 ## 6. Względy bezpieczeństwa
 
@@ -270,10 +257,11 @@ public record LoginResponse(
 - Endpoint nie wymaga uwierzytelnienia (publiczny)
 - Jednak powinien mieć rate limiting, aby zapobiec brute force
 
-**Mechanizm Supabase Auth:**
-- Walidacja hasła przez Supabase Auth (bcrypt/argon2)
-- Hasło nigdy nie jest przesyłane ani przechowywane w niezaszyfrowanej formie
-- Token JWT wydawany po pomyślnej walidacji
+**Mechanizm uwierzytelniania aplikacji:**
+- Hasła przechowywane jako BCrypt (`users.password_hash`, cost ≥ 12)
+- Walidacja lokalna przez `PasswordEncoder.matches`
+- Tokeny access + refresh generowane przez `JwtTokenProvider`, wysyłane w httpOnly cookie + nagłówku
+- Refresh token ma własny identyfikator (JTI) i jest przechowywany w Redis w celu możliwości unieważnienia
 
 ### Ochrona przed atakami
 
@@ -292,7 +280,8 @@ public record LoginResponse(
 **Password security:**
 - Hasło nigdy nie jest logowane
 - Hasło nigdy nie jest zwracane w odpowiedzi
-- Walidacja przez Supabase Auth (nie lokalnie)
+- Przechowywany jest wyłącznie hash BCrypt
+- Można dodać zewnętrzny moduł analizy siły hasła (np. zxcvbn) po stronie klienta/serwera
 
 ### Rate Limiting
 
@@ -324,15 +313,13 @@ public ResponseEntity<ApiErrorResponse> handleValidationErrors(MethodArgumentNot
 ```
 
 #### 2. Nieprawidłowe dane uwierzytelniające (401 Unauthorized)
-**Scenariusz:** Nieprawidłowe hasło lub email nie istnieje w Supabase Auth
+**Scenariusz:** Nieprawidłowe hasło lub email nie istnieje w bazie
 ```java
-try {
-    SupabaseAuthResponse response = supabaseAuthService.signIn(email, password);
-} catch (SupabaseAuthException e) {
-    if (e.getStatusCode() == 401) {
-        throw new UnauthorizedException("Invalid email or password");
-    }
-    throw e;
+User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new UnauthorizedException("Invalid email or password"));
+
+if (user.getPasswordHash() == null || !passwordEncoder.matches(password, user.getPasswordHash())) {
+    throw new UnauthorizedException("Invalid email or password");
 }
 ```
 
@@ -341,9 +328,9 @@ try {
 - Logowanie próby logowania (bez szczegółów hasła)
 
 #### 3. Użytkownik nie znaleziony (404 Not Found)
-**Scenariusz:** Email istnieje w Supabase Auth, ale użytkownik nie istnieje w tabeli `users`
+**Scenariusz:** (opcjonalne) włączone logowanie błędu gdy konto zostało dezaktywowane / soft-delete
 ```java
-Optional<User> user = userRepository.findByAuthUserId(authUserId);
+Optional<User> user = userRepository.findByEmail(request.email());
 if (user.isEmpty()) {
     throw new UserNotFoundException("User not found");
 }
@@ -352,15 +339,16 @@ if (user.isEmpty()) {
 **Obsługa:**
 - Sprawdzenie czy użytkownik istnieje po pobraniu z bazy
 - Zwrócenie 404 Not Found z komunikatem "User not found"
-- Logowanie nieprawidłowego stanu (użytkownik w Supabase Auth, ale nie w `users`)
+- Logowanie nieprawidłowego stanu (np. konto usunięte)
 
-#### 4. Błąd Supabase Auth (500 Internal Server Error)
-**Scenariusz:** Błąd połączenia z Supabase Auth API, timeout, błąd serwera
+#### 4. Błąd generowania tokenów / zapisu w Redis (500 Internal Server Error)
+**Scenariusz:** Generator JWT zgłasza wyjątek albo Redis nie zapisuje refresh tokena
 ```java
 try {
-    SupabaseAuthResponse response = supabaseAuthService.signIn(email, password);
-} catch (SupabaseAuthException e) {
-    log.error("Supabase Auth login failed", e);
+    String accessToken = jwtTokenProvider.generateAccessToken(user.getId());
+    tokenStore.saveRefreshToken(refreshJti, user.getId(), refreshExpiry);
+} catch (JwtException | RedisConnectionFailureException e) {
+    log.error("Failed to generate or persist auth tokens", e);
     throw new InternalServerException("Authentication service unavailable");
 }
 ```
@@ -412,7 +400,7 @@ public class GlobalExceptionHandler {
 **Poziomy logowania:**
 - **INFO:** Pomyślne logowanie użytkownika (bez wrażliwych danych)
 - **WARN:** Nieudane próby logowania (dla monitoringu bezpieczeństwa)
-- **ERROR:** Błędy Supabase Auth, błędy bazy danych
+- **ERROR:** Błędy generowania tokenów, zapisu w Redis lub bazy danych
 
 **Strukturazowane logowanie:**
 - Format JSON dla łatwej integracji z systemami monitoringu
@@ -424,226 +412,71 @@ public class GlobalExceptionHandler {
 ### Optymalizacja zapytań do bazy danych
 
 **Indeksy:**
-- Tabela `users` powinna mieć indeks na `auth_user_id` (UNIQUE, partial)
-- Zapytania powinny używać indeksów (EXPLAIN ANALYZE)
+- Kluczowy indeks: `idx_users_email` (UNIQUE)
+- Dodatkowy indeks częściowy na `users.is_guest = false` (przyspiesza wyszukiwanie zarejestrowanych użytkowników)
 
 **Zapytania:**
-- Pobieranie tylko wymaganych kolumn (nie SELECT *)
-- Użycie `EXISTS` zamiast `COUNT` jeśli możliwe
+- Pobierać tylko wymagane kolumny (`id, username, email, stats`)
+- Unikać dodatkowych JOIN-ów – wszystkie dane logowania znajdują się w tabeli `users`
 
-### Integracja z Supabase Auth
+### Zarządzanie tokenami i Redis
 
 **Timeout i retry:**
-- Timeout dla zapytań do Supabase Auth: 5 sekund
-- Retry policy: 1 retry przy timeout/błędach sieciowych
-- Connection pooling dla HTTP client
+- Operacje Redis (Lettuce) z timeoutem 2s, retry 1 raz
+- W przypadku braku Redis login nadal może się udać, ale refresh token nie zostanie zapisany – należy zwrócić 500 (fail fast)
 
-**Cache'owanie:**
-- Nie cache'ować wyników logowania (zawsze fresh)
-- Cache konfiguracji Supabase Auth w Redis
+**Modele danych w Redis:**
+- `refresh:{jti}` → JSON `{ "userId": 123, "exp": 1700000000 }` (TTL = exp)
+- `auth:blacklist:{jti}` → `1` (TTL = exp access tokena)
+- `rate_limit:login:{scope}` → licznik prób z TTL = okno czasowe
 
 ### Rate Limiting
 
-**Implementacja:**
-- Redis-based rate limiting z algorytmem przesuwającego okna
-- Limit: 5 prób logowania na 15 minut z jednego IP
-- Klucz: `rate_limit:login:{ipAddress}`
-
-**Korzyści:**
-- Zapobieganie brute force attacks
-- Ochrona przed botami
-- Sprawiedliwy podział zasobów
+- Limit IP: 5 prób / 15 minut
+- Limit per email: 5 prób / 1 minuta (po normalizacji emaila do lower-case i hasha)
+- Po przekroczeniu: 429 + `Retry-After` i nagłówki `X-RateLimit-*`
 
 ### Monitoring i metryki
 
-**Metryki Prometheus:**
-- `http_requests_total{method="POST",endpoint="/api/auth/login",status="200"}` - liczba pomyślnych logowań
-- `http_requests_total{method="POST",endpoint="/api/auth/login",status="401"}` - liczba nieudanych prób
-- `http_request_duration_seconds{method="POST",endpoint="/api/auth/login"}` - czas odpowiedzi
-- `supabase_auth_calls_total{operation="signin",status="success|error"}` - metryki Supabase Auth
-
-**Alerty:**
-- Wysoki wskaźnik błędów 401 (>50% żądań) - możliwe brute force
-- Długi czas odpowiedzi (>2s) - problem z Supabase Auth lub bazą danych
-- Wysoki wskaźnik błędów 500 (>1% żądań) - problem z infrastrukturą
+- `auth_login_attempts_total{status="success|failure"}` – licznik prób logowania
+- `auth_login_duration_seconds` – histogram czasu obsługi żądania
+- `auth_refresh_tokens_active` – liczba aktywnych refresh tokenów (size of Redis set)
+- `redis_commands_total{command="set",entity="refresh_token"}` – licznik operacji na Redisie
+- Alert, gdy `failure/success > 0.5` w ciągu 15 minut lub brak możliwości zapisu do Redis
 
 ## 9. Etapy wdrożenia
 
-### Krok 1: Przygotowanie infrastruktury i zależności
+1. **Przygotowanie infrastruktury**
+   - Zapewnienie kolumny `password_hash` oraz indeksu na `users.email`
+   - Weryfikacja konfiguracji `PasswordEncoder`, `JwtTokenProvider`, `TokenBlacklistService`, `RateLimitingService`
 
-**1.1 Sprawdzenie istniejących komponentów:**
-- Weryfikacja czy `LoginRequest` i `LoginResponse` DTO istnieją
-- Sprawdzenie konfiguracji Supabase Auth
-- Weryfikacja struktury pakietów
+2. **Rozszerzenie `AuthService`**
+   - Implementacja logiki: znajdź użytkownika → sprawdź hasło → wygeneruj tokeny → zapisz refresh token w Redis
+   - Dodanie logowania audytowego i metryk
 
-**1.2 Utworzenie brakujących komponentów:**
-- `com.tbs.service.AuthService` - serwis obsługujący logowanie
-- `com.tbs.service.SupabaseAuthService` - integracja z Supabase Auth API
-- `com.tbs.exception.UnauthorizedException` - wyjątek dla 401
-- `com.tbs.exception.UserNotFoundException` - wyjątek dla 404
+3. **Aktualizacja `AuthController`**
+   - Obsługa nagłówków `Set-Cookie` (HttpOnly, Secure, SameSite=Strict/Lax)
+   - Dodanie nagłówków `Cache-Control: no-store` i `Pragma: no-cache`
 
-**1.3 Konfiguracja zależności:**
-- HTTP client dla Supabase Auth (RestTemplate/WebClient)
-- Konfiguracja Supabase URL i API keys
+4. **Rate limiting i bezpieczeństwo**
+   - Integracja `RateLimitingService` (klucze IP + email)
+   - Dodanie audytu prób logowania
 
-### Krok 2: Implementacja integracji z Supabase Auth
+5. **Testy**
+   - Jednostkowe (AuthService, JwtTokenProvider)
+   - Integracyjne (MockMvc + Testcontainers dla PostgreSQL/Redis)
+   - E2E (Cypress) – pozytywny scenariusz, błędne hasło, blokada rate limiting
 
-**2.1 Utworzenie SupabaseAuthService:**
-```java
-@Service
-public class SupabaseAuthService {
-    private final WebClient webClient;
-    private final String supabaseUrl;
-    private final String supabaseAnonKey;
-    
-    public SupabaseAuthResponse signIn(String email, String password) {
-        // Wywołanie POST /auth/v1/token
-        // Obsługa błędów
-    }
-}
-```
-
-**2.2 Testy integracyjne Supabase Auth:**
-- Test pomyślnego logowania
-- Test z nieprawidłowym hasłem
-- Test z nieistniejącym emailem
-
-### Krok 3: Implementacja serwisu logowania
-
-**3.1 Utworzenie AuthService:**
-```java
-@Service
-@Transactional(readOnly = true)
-public class AuthService {
-    private final SupabaseAuthService supabaseAuthService;
-    private final UserRepository userRepository;
-    
-    public LoginResponse login(LoginRequest request) {
-        // 1. Uwierzytelnienie w Supabase Auth
-        // 2. Pobranie profilu z users
-        // 3. Mapowanie do response
-    }
-}
-```
-
-**3.2 Testy serwisu:**
-- Test jednostkowy z Mockito dla pomyślnego logowania
-- Test dla przypadku nieprawidłowego hasła (401)
-- Test dla przypadku nieistniejącego użytkownika (404)
-- Test dla przypadku błędu Supabase Auth
-
-### Krok 4: Implementacja kontrolera
-
-**4.1 Utworzenie AuthController:**
-```java
-@RestController
-@RequestMapping("/api/auth")
-public class AuthController {
-    private final AuthService authService;
-    
-    @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        LoginResponse response = authService.login(request);
-        return ResponseEntity.ok(response);
-    }
-}
-```
-
-**4.2 Konfiguracja Spring Security:**
-- Upewnienie się, że `/api/auth/login` jest publiczny (permitAll)
-- Konfiguracja CORS jeśli potrzebne
-
-**4.3 Testy kontrolera:**
-- Test integracyjny z `@WebMvcTest` dla pomyślnego przypadku (200)
-- Test dla przypadku błędów walidacji (422)
-- Test dla przypadku nieprawidłowego hasła (401)
-- Test dla przypadku nieistniejącego użytkownika (404)
-
-### Krok 5: Implementacja obsługi błędów
-
-**5.1 Utworzenie global exception handler:**
-- Obsługa `MethodArgumentNotValidException` (422)
-- Obsługa `UnauthorizedException` (401)
-- Obsługa `UserNotFoundException` (404)
-- Obsługa `SupabaseAuthException` (500)
-
-**5.2 Testy exception handler:**
-- Test dla każdego typu wyjątku
-- Weryfikacja formatu odpowiedzi błędu
-
-### Krok 6: Implementacja rate limiting
-
-**6.1 Konfiguracja rate limiting:**
-- Implementacja filtru Spring Security lub interceptor
-- Integracja z Redis
-
-**6.2 Dodanie rate limiting do endpointu:**
-- Limit: 5 prób na 15 minut na IP
-- Obsługa przekroczenia limitu (429 Too Many Requests)
-
-### Krok 7: Konfiguracja Swagger/OpenAPI
-
-**7.1 Dodanie adnotacji Swagger:**
-```java
-@Operation(
-    summary = "Login user",
-    description = "Authenticates and logs in a registered user"
-)
-@ApiResponses(value = {
-    @ApiResponse(responseCode = "200", description = "User logged in successfully"),
-    @ApiResponse(responseCode = "401", description = "Invalid email or password"),
-    @ApiResponse(responseCode = "404", description = "User not found")
-})
-@PostMapping("/login")
-public ResponseEntity<LoginResponse> login(...) {
-    // ...
-}
-```
-
-### Krok 8: Testy integracyjne i E2E
-
-**8.1 Testy integracyjne:**
-- Test pełnego przepływu z Supabase Auth
-- Test z rzeczywistą bazą danych
-- Test rate limiting
-
-**8.2 Testy E2E (Cypress):**
-- Test logowania zarejestrowanego użytkownika
-- Test obsługi błędów walidacji
-- Test obsługi nieprawidłowego hasła
-
-### Krok 9: Dokumentacja i code review
-
-**9.1 Dokumentacja:**
-- Aktualizacja README z informacjami o endpoincie
-- Dokumentacja Swagger/OpenAPI
-- Dokumentacja integracji z Supabase Auth
-
-**9.2 Code review:**
-- Sprawdzenie zgodności z zasadami implementacji
-- Review bezpieczeństwa
-- Weryfikacja obsługi błędów
-
-### Krok 10: Wdrożenie i monitoring
-
-**10.1 Wdrożenie:**
-- Merge do głównej gałęzi przez PR
-- Weryfikacja w środowisku deweloperskim
-- Test integracji z Supabase Auth na dev
-
-**10.2 Monitoring:**
-- Konfiguracja metryk Prometheus
-- Konfiguracja alertów dla wysokiego wskaźnika błędów 401
-- Monitorowanie czasu odpowiedzi Supabase Auth
+6. **Monitoring i dokumentacja**
+   - Eksport metryk do Prometheus/Grafana
+   - Aktualizacja Swagger (`@Operation`), README, runbooków bezpieczeństwa
 
 ## 10. Podsumowanie
 
-Plan implementacji endpointu **POST /api/auth/login** obejmuje kompleksowe podejście do wdrożenia z integracją Supabase Auth. Kluczowe aspekty:
+Zmieniony plan dla **POST /api/auth/login** zakłada w pełni samodzielne uwierzytelnianie oparte na Spring Security: lokalne przechowywanie hashy BCrypt, generowanie tokenów JWT, przechowywanie refresh tokenów i czarnej listy w Redis, a także wymuszenie bezpiecznych ciasteczek httpOnly. Priorytety:
 
-- **Bezpieczeństwo:** Ochrona przed brute force, rate limiting, bezpieczne zarządzanie hasłami
-- **Integracja:** Supabase Auth dla uwierzytelniania
-- **Obsługa błędów:** Centralna obsługa z odpowiednimi kodami statusu
-- **Testowanie:** Testy jednostkowe, integracyjne i E2E
-- **Monitoring:** Metryki i alerty dla Supabase Auth i bezpieczeństwa
+- **Bezpieczeństwo:** hash BCrypt, httpOnly cookies, rate limiting, blacklista tokenów
+- **Spójność:** brak zewnętrznych zależności (Supabase Auth), jeden przepływ dla wszystkich środowisk
+- **Nadzór:** metryki Prometheus, logowanie audytowe i alerty
 
-Implementacja powinna być wykonywana krok po kroku zgodnie z sekcją "Etapy wdrożenia", z weryfikacją każdego etapu przed przejściem do następnego.
+Implementację należy prowadzić krok po kroku (sekcja 9), testując każdy element zanim przejdziemy do kolejnego, aby zachować spójność z wymaganiami PRD i standardami architektonicznymi projektu.

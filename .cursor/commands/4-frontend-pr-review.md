@@ -97,3 +97,10 @@ Przeanalizuj wszystkie zmiany w kodzie TypeScript, HTML i SCSS na aktualnym bran
 
 Skoncentruj się na konstruktywnej krytyce, która pomoże ulepszyć kod zgodnie z najwyższymi standardami branżowymi.
 
+---
+
+### Format i miejsce raportu
+
+- Raport przygotuj w formacie identycznym jak w pliku `FRONTEND_CODE_REVIEW.md` (linie 1-645), zachowując kontekst raportu dla frontendowych zmian.
+- Gotowy dokument zapisz w katalogu `reports` (np. `reports/frontend-pr-review-report.md`).
+

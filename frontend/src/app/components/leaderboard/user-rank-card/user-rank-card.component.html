@@ -45,11 +45,6 @@
                   <span class="player-username">{{ player.username }}</span>
                   <span class="player-points">{{ player.totalPoints }} {{ 'leaderboard.playersAround.points' | translate }}</span>
                 </div>
-                <p-button
-                  [label]="'leaderboard.challenge.button' | translate"
-                  size="small"
-                  (onClick)="onChallenge(player.userId)">
-                </p-button>
               </div>
             }
           </div>

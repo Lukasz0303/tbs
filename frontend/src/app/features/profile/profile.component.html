@@ -107,8 +107,9 @@
 
   @if (showAvatarDialog$ | async) {
     <app-avatar-selector
-      [visible]="true"
+      [visible]="!!(showAvatarDialog$ | async)"
       [currentAvatar]="user.avatar"
+      (visibleChange)="onAvatarDialogVisibleChange($event)"
       (close)="onCloseAvatarDialog()"
       (save)="onSaveAvatar($event)">
     </app-avatar-selector>

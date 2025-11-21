@@ -1,20 +1,28 @@
 <p-dialog
   [visible]="visible"
   [modal]="true"
-  [style]="{ width: '600px' }"
+  [style]="{ width: '600px', maxHeight: '90vh' }"
   [header]="translate.translate('profile.avatar.selectTitle')"
   [draggable]="false"
   [resizable]="false"
-  [closable]="true"
-  [dismissableMask]="true"
-  (onHide)="onClose()">
+  [closable]="false"
+  [closeOnEscape]="false"
+  [dismissableMask]="false"
+  (onHide)="onClose()"
+  styleClass="avatar-selector-dialog">
   <div class="avatar-selector">
     <div class="avatar-grid">
       @for (avatarType of availableAvatars; track avatarType) {
         <div
           class="avatar-item"
           [class.selected]="selectedAvatar === avatarType"
-          (click)="onAvatarSelect(avatarType)">
+          [attr.aria-label]="'Avatar ' + avatarType"
+          [attr.aria-pressed]="selectedAvatar === avatarType"
+          role="button"
+          tabindex="0"
+          (click)="onAvatarSelect(avatarType)"
+          (keydown.enter)="onAvatarSelect(avatarType)"
+          (keydown.space)="onAvatarSelect(avatarType)">
           <img [src]="getAvatarPath(avatarType)" [alt]="'Avatar ' + avatarType" class="avatar-preview" />
           @if (selectedAvatar === avatarType) {
             <div class="selected-indicator">
@@ -31,6 +39,7 @@
         pButton
         type="button"
         [label]="translate.translate('common.cancel')"
+        [attr.aria-label]="translate.translate('common.cancel')"
         icon="pi pi-times"
         severity="secondary"
         (click)="onClose()">
@@ -39,6 +48,7 @@
         pButton
         type="button"
         [label]="translate.translate('common.save')"
+        [attr.aria-label]="translate.translate('common.save')"
         icon="pi pi-check"
         [loading]="isLoading"
         [disabled]="isLoading"

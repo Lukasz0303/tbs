@@ -1,0 +1,36 @@
+Twoim zadaniem jest przygotowanie kompletnego workflow dla ComfyUI (@comfyui), który pozwoli wygenerować grafikę z treścią zmiennej `opis_problemu`.
+
+<opis_problemu>
+{{opis_problemu}}
+</opis_problemu>
+
+Najpierw wykonaj szczegółowy research:
+1. Pobierz aktualną dokumentację ComfyUI oraz opis kluczowych węzłów i parametrów renderingu.
+2. Przeanalizuj co najmniej trzy publicznie dostępne workflow tworzące logotypy lub grafikę brandingową i wypisz wnioski, jakich węzłów oraz modeli używają.
+3. Określ ograniczenia związane z rozdzielczością, formatem wyjścia oraz wymaganymi zasobami (modele, LoRA, kontrolery).
+
+Stosuj podejście iteracyjne:
+<workflow_approach>
+1. Analiza wymagań i kontekstu marki (na podstawie `opis_problemu`).
+2. Projekt pipeline'u i dobór zasobów.
+3. Konstrukcja workflow, walidacja, optymalizacja i dokumentacja.
+</workflow_approach>
+
+Podczas projektowania workflow uwzględnij następujące kroki:
+1. Analiza `opis_problemu`: wyodrębnij styl, kolorystykę, motywy, wymagania typograficzne i ograniczenia biznesowe.
+2. Struktura pipeline'u: określ sekcje (przygotowanie promptu, generowanie główne, kontrola stylu, postprocessing, eksport).
+3. Zasoby i modele: wybierz checkpointy, LoRA, ControlNet, embeddings; uzasadnij każdy wybór oraz alternatywy.
+4. Konfiguracja promptów: utwórz prompt dodatni i negatywny, mapując elementy `opis_problemu` na konkretne frazy; zadbaj o spójność językową.
+5. Parametry generacji: zdefiniuj rozdzielczość, seed, samplery, denoise, CFG, ilość kroków; wyjaśnij, jak wpływają na finalny rezultat.
+6. Warstwy i warianty: zaplanuj mechanizm iteracji (np. batch, różne seed, warianty kolorystyczne) oraz sposób wyboru najlepszego ujęcia.
+7. Postprocessing: dobierz węzły (VAE, upscale, filtr koloru, konwersja do PNG/SVG), opisując parametry i kolejność.
+8. Walidacja jakości: przygotuj listę kryteriów (czytelność, kontrast, skalowalność, zgodność z brandingiem) oraz sposób ręcznej/automatycznej oceny.
+9. Eksport i udostępnienie: zapewnij węzły zapisujące finalny obraz oraz ewentualne maski/warstwy, dodaj instrukcję zapisu presetów.
+10. Replikowalność: wskaż, jak zablokować losowość (seed), jakie zasoby należy pobrać i jak skonfigurować środowisko.
+
+Wynik końcowy musi zawierać:
+- Sekcję opisową w Markdown z nagłówkami: `Przegląd`, `Wejścia i ograniczenia`, `Struktura workflow`, `Parametry i zasoby`, `Walidacja i warianty`, `Instrukcja uruchomienia`.
+- Pole `workflow_json` zawierające kompletny eksport ComfyUI (w formacie JSON) gotowy do importu, z pełną listą węzłów, połączeń, parametrów i nazw zasobów.
+- Checklistę testową, która pozwoli zweryfikować, że workflow reprodukuje logo zgodne z `opis_problemu`.
+
+Zadbaj o spójność i dokładność wszystkich sekcji, tak aby inny twórca mógł bez dodatkowych pytań odtworzyć pipeline i wygenerować finalne logo.

@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, Input, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { User } from '../../models/user.model';
 import { Game, PlayerSymbol } from '../../models/game.model';
+import { Ranking } from '../../models/ranking.model';
 import { TranslateService } from '../../services/translate.service';
 import { UserService } from '../../services/user.service';
 import { AuthService } from '../../services/auth.service';
@@ -18,7 +20,7 @@ import { DestroyRef } from '@angular/core';
 @Component({
   selector: 'app-game-user-profile',
   standalone: true,
-  imports: [CommonModule, ButtonModule, TooltipModule, AvatarSelectorComponent, ToastModule],
+  imports: [CommonModule, RouterModule, ButtonModule, TooltipModule, AvatarSelectorComponent, ToastModule],
   providers: [MessageService],
   templateUrl: './game-user-profile.component.html',
   styleUrls: ['./game-user-profile.component.scss'],
@@ -27,12 +29,20 @@ import { DestroyRef } from '@angular/core';
 export class GameUserProfileComponent {
   private readonly userSignal = signal<User | null>(null);
   private readonly gameSignal = signal<Game | null>(null);
+  private readonly rankingSignal = signal<Ranking | null>(null);
 
   @Input() set user(value: User | null) {
     this.userSignal.set(value);
   }
   get user(): User | null {
     return this.userSignal();
+  }
+
+  @Input() set ranking(value: Ranking | null) {
+    this.rankingSignal.set(value);
+  }
+  get ranking(): Ranking | null {
+    return this.rankingSignal();
   }
 
   @Input() set game(value: Game | null) {
@@ -102,10 +112,27 @@ export class GameUserProfileComponent {
     return Math.round((user.gamesWon / user.gamesPlayed) * 100);
   });
 
+  readonly hasRanking = computed(() => this.rankingSignal() !== null);
+
+  readonly isCurrentUser = computed(() => {
+    const user = this.userSignal();
+    const currentUser = this.currentUserSignal();
+    
+    if (!user || !currentUser) {
+      return false;
+    }
+    
+    return Number(user.userId) === Number(currentUser.userId);
+  });
+
   onEditAvatar(): void {
     if (this.canEditAvatar()) {
       this.showAvatarDialog.set(true);
     }
+  }
+
+  onAvatarDialogVisibleChange(visible: boolean): void {
+    this.showAvatarDialog.set(visible);
   }
 
   onCloseAvatarDialog(): void {

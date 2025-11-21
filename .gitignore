@@ -72,3 +72,56 @@ dist/
 tmp/
 out-tsc/
 .angular/
+
+# Pliki konfiguracyjne z danymi wrażliwymi - Backend
+backend/src/main/resources/application-local.properties
+backend/bin/main/application-local.properties
+backend/bin/main/application.properties
+backend/build/resources/main/application-local.properties
+backend/build/resources/main/application.properties
+
+# Pliki konfiguracyjne z danymi wrażliwymi - Frontend
+frontend/src/environments/environment.prod.ts
+frontend/src/environments/environment.ts
+
+# Pliki konfiguracyjne Supabase z potencjalnymi kluczami
+supabase/config.toml
+
+# Pliki środowiskowe (jeśli istnieją)
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+.env.*.local
+
+# Certyfikaty i klucze prywatne
+*.pem
+*.key
+*.p12
+*.jks
+*.pfx
+*.crt
+*.cer
+
+# Pliki z sekretami
+*secret*
+*secrets*
+*.secret
+
+# Pliki z hasłami
+*password*
+*passwords*
+
+# Pliki z tokenami
+*token*
+*tokens*
+
+# Pliki z kluczami API
+*api-key*
+*apikey*
+*api_key*
+
+# Pliki konfiguracyjne z danymi wrażliwymi (ogólne)
+*credentials*
+*credential*
