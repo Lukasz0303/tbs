@@ -1,4 +1,5 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Observable, Subject, BehaviorSubject, throwError, EMPTY } from 'rxjs';
 import { catchError, filter, map, timeout } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
@@ -15,6 +16,7 @@ export class WebSocketService {
   private reconnectTimeout: number | null = null;
   private gameId: number | null = null;
   private readonly logger = inject(LoggerService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly isConnected$ = this.connectionStatus$.asObservable();
 
@@ -233,6 +235,7 @@ export class WebSocketService {
     this.reconnectTimeout = window.setTimeout(() => {
       this.connect(gameId, token)
         .pipe(
+          takeUntilDestroyed(this.destroyRef),
           catchError(() => {
             this.handleReconnect(gameId, token);
             return EMPTY;

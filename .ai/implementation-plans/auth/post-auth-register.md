@@ -4,13 +4,13 @@
 
 **POST /api/auth/register** to endpoint uwierzytelniania służący do rejestracji nowego konta użytkownika. Endpoint jest publiczny i nie wymaga uwierzytelnienia. Pozwala użytkownikowi utworzyć konto przez podanie adresu email, hasła i nazwy użytkownika.
 
-Endpoint integruje się z Supabase Auth dla zarządzania uwierzytelnianiem użytkowników i tworzy odpowiedni profil w tabeli `users` z powiązaniem do `auth.users`. Po pomyślnej rejestracji użytkownik otrzymuje token JWT i jest automatycznie zalogowany.
+Endpoint korzysta wyłącznie z wewnętrznego serwisu Spring Security: waliduje dane wejściowe, sprawdza unikalność w tabeli `users`, zapisuje hash hasła (BCrypt) i tworzy rekord profilu. Po pomyślnej rejestracji backend generuje parę tokenów JWT (access + refresh), zapisuje refresh token w Redis i automatycznie loguje użytkownika (httpOnly cookie).
 
 Kluczowe zastosowania:
-- Rejestracja nowych użytkowników
-- Integracja z Supabase Auth dla zarządzania hasłami i uwierzytelnianiem
-- Tworzenie profilu użytkownika z domyślnymi wartościami (punkty, statystyki)
-- Automatyczne logowanie po rejestracji
+- Rejestracja nowych użytkowników w bazie PostgreSQL (`users`)
+- Hashowanie haseł przy użyciu `PasswordEncoder` (BCrypt, cost ≥ 12)
+- Generowanie tokenów access/refresh przez `JwtTokenProvider`
+- Konfiguracja domyślnych statystyk/avatara i natychmiastowy login
 
 ## 2. Szczegóły żądania
 
@@ -108,23 +108,20 @@ public record RegisterResponse(
 ```
 
 **Uwagi implementacyjne:**
-- `userId` - String reprezentujący UUID z `users.id` lub `auth_user_id`
+- `userId` - String reprezentujący `users.id` (BIGINT) zwrócony po zapisie
 - `username` - Nazwa użytkownika z `users.username`
-- `email` - Email z Supabase Auth (`auth.users.email`)
+- `email` - Email z `users.email`
 - `isGuest` - Zawsze false dla zarejestrowanych użytkowników
-- `totalPoints` - Domyślnie 0 dla nowych użytkowników
-- `gamesPlayed` - Domyślnie 0
-- `gamesWon` - Domyślnie 0
-- `authToken` - Token JWT wydany przez Supabase Auth lub Spring Security
+- `totalPoints`/`gamesPlayed`/`gamesWon` - Ustawione na 0 przy tworzeniu
+- `authToken` - Access token JWT wygenerowany przez Spring Security (również wystawiany w httpOnly cookie)
 
 ### Enums
 - Brak bezpośredniego użycia enumów w tym endpoincie
 
 ### Modele domenowe (do stworzenia)
 - **`com.tbs.model.User`** - encja JPA/Hibernate dla tabeli `users`
-  - Pola zgodne z schematem bazy danych
-  - Mapowanie do tabeli `users`
-  - Powiązanie z `auth.users` przez `auth_user_id` (UUID)
+  - Pola: `id`, `email`, `username`, `passwordHash`, `isGuest`, `avatar`, `stats`, `createdAt`
+  - `authUserId` może pozostać `NULL` jako rezerwacja pod przyszłe integracje, ale nie bierze udziału w procesie
 
 ### Wyjątki (do stworzenia lub wykorzystania)
 - **`com.tbs.exception.BadRequestException`** - wyjątek dla 400 Bad Request
@@ -132,9 +129,10 @@ public record RegisterResponse(
 - **`com.tbs.exception.ValidationException`** - wyjątek dla 422 Unprocessable Entity (błędy walidacji)
 
 ### Serwisy (do stworzenia lub wykorzystania)
-- **`com.tbs.service.AuthService`** - serwis obsługujący rejestrację i logowanie
-- **`com.tbs.service.SupabaseAuthService`** - integracja z Supabase Auth API
-- **`com.tbs.service.UserService`** - serwis zarządzający użytkownikami w tabeli `users`
+- **`com.tbs.service.AuthService`** - rejestracja (walidacja, tworzenie użytkownika, tokeny)
+- **`org.springframework.security.crypto.password.PasswordEncoder`** - hashowanie haseł (BCrypt)
+- **`com.tbs.security.JwtTokenProvider`** / **TokenService** - generowanie access/refresh tokenów
+- **`com.tbs.security.TokenBlacklistService`** / Redis store – przechowywanie refresh tokenów, czarna lista
 
 ## 4. Szczegóły odpowiedzi
 
@@ -235,84 +233,62 @@ public record RegisterResponse(
    - Jeśli błędy walidacji → 422 Unprocessable Entity
 
 3. **Sprawdzenie unikalności email i username**
-   - Zapytanie do bazy danych: czy email już istnieje w Supabase Auth lub w tabeli `users`
-   - Zapytanie do bazy danych: czy username już istnieje w tabeli `users`
-   - Jeśli duplikat → 409 Conflict
+   - `userRepository.existsByEmail(request.email())`
+   - `userRepository.existsByUsername(request.username())`
+   - Jeśli duplikat → 409 Conflict z odpowiednim komunikatem
 
-4. **Rejestracja w Supabase Auth**
-   - Wywołanie Supabase Auth API: `POST /auth/v1/signup`
-   - Przekazanie email i hasło
-   - Supabase Auth tworzy użytkownika w `auth.users` i zwraca:
-     - `user.id` (UUID) - `auth_user_id`
-     - Token JWT (access_token i refresh_token)
-   - Jeśli błąd Supabase Auth → 400/409/500 w zależności od błędu
+4. **Hashowanie hasła**
+   - `passwordEncoder.encode(request.password())`
+   - Opcjonalnie: walidacja siły hasła (np. biblioteka zxcvbn)
 
 5. **Utworzenie profilu użytkownika w tabeli `users`**
-   - Wstawienie rekordu do tabeli `users`:
-     - `auth_user_id` = UUID z Supabase Auth
-     - `username` = z żądania
-     - `is_guest` = FALSE
-     - `total_points` = 0
-     - `games_played` = 0
-     - `games_won` = 0
-     - `created_at` = NOW()
-     - `updated_at` = NOW()
-   - Jeśli błąd bazy danych → 500 Internal Server Error
+   - Utworzenie encji `User`:
+     - `email` = request.email().trim().toLowerCase()
+     - `username` = request.username().trim()
+     - `passwordHash` = wynik BCrypt
+     - `isGuest` = FALSE
+     - `avatar` = request.avatar() lub domyślny (np. 1)
+     - Statystyki = 0
+   - Zapis przez `userRepository.save(user)`
 
-6. **Generowanie odpowiedzi**
-   - Mapowanie encji `User` → `RegisterResponse` DTO
-   - Dodanie tokenu JWT z Supabase Auth
-   - Ustawienie `isGuest = false`
+6. **Generowanie tokenów i odpowiedzi**
+   - `jwtTokenProvider.generateAccessToken(userId)`
+   - `jwtTokenProvider.generateRefreshToken(userId)`
+   - Zapis refresh tokena w Redis (klucz `refresh:{jti}`)
+   - Mapowanie `User` → `RegisterResponse`, ustawienie `isGuest=false`
+   - Ustawienie nagłówków `Set-Cookie` (httpOnly) dla obu tokenów
 
 7. **Zwrócenie odpowiedzi HTTP 201 Created**
    - Serializacja `RegisterResponse` do JSON
-   - Ustawienie nagłówka `Location: /api/v1/users/{userId}` (opcjonalne)
+   - Opcjonalny nagłówek `Location: /api/v1/users/{userId}`
 
 ### Integracja z bazą danych
 
 **Tabela: `users`**
 - INSERT nowego rekordu
-- Kolumny:
-  - `auth_user_id` (UUID) - z Supabase Auth
+- Kluczowe kolumny ustawiane podczas rejestracji:
+  - `email` (VARCHAR, UNIQUE, lower-case)
   - `username` (VARCHAR(50), UNIQUE)
+  - `password_hash` (VARCHAR, BCrypt)
   - `is_guest` = FALSE
-  - `total_points` = 0
-  - `games_played` = 0
-  - `games_won` = 0
-  - `created_at` = NOW()
-  - `updated_at` = NOW()
-
-**Supabase Auth: `auth.users`**
-- Użytkownik tworzony automatycznie przez Supabase Auth API
-- Zawiera: email, encrypted password, metadata
-- Foreign key: `users.auth_user_id` → `auth.users.id` (CASCADE DELETE)
+  - `avatar` = wartość z zakresu 1-6 (domyślnie 1)
+  - `total_points`, `games_played`, `games_won` = 0
+  - `created_at`, `updated_at` = automatyczne znaczniki
 
 **Sprawdzanie unikalności:**
-- `SELECT COUNT(*) FROM users WHERE username = ?` - sprawdzenie username
-- `SELECT COUNT(*) FROM users WHERE auth_user_id = ?` - sprawdzenie email przez Supabase Auth API
-
-### Integracja z Supabase Auth
-
-**Endpoint Supabase Auth:**
-- `POST https://{supabase-url}/auth/v1/signup`
-- Body: `{ "email": "...", "password": "..." }`
-- Response: `{ "user": { "id": "uuid", ... }, "access_token": "...", "refresh_token": "..." }`
-
-**Obsługa błędów Supabase Auth:**
-- Email już istnieje → 409 Conflict
-- Nieprawidłowy format → 400 Bad Request
-- Błąd serwera Supabase → 500 Internal Server Error
+- `SELECT 1 FROM users WHERE email = ?`
+- `SELECT 1 FROM users WHERE username = ?`
 
 ### Transakcyjność
 
 **Krytyczne operacje:**
-1. Rejestracja w Supabase Auth
-2. Utworzenie rekordu w tabeli `users`
+1. Walidacja i zapis użytkownika w tabeli `users`
+2. Generowanie tokenów + zapis refresh tokena w Redis
 
 **Strategia:**
-- Jeśli Supabase Auth się powiedzie, ale INSERT do `users` się nie powiedzie:
-  - Należy usunąć użytkownika z Supabase Auth (rollback)
-  - Alternatywnie: zaimplementować zadanie czyszczące dla niekompletnych rejestracji
+- Operacje bazodanowe wykonujemy w `@Transactional` – w razie błędu zapis zostanie wycofany
+- Jeśli zapis do Redis się nie powiedzie po udanym INSERT, rzucamy wyjątek, aby transakcja została wycofana (użytkownik nie zostanie utworzony bez poprawnego tokena)
+- Po sukcesie transakcji wysyłamy tokeny w cookie oraz odświeżamy cache profilu (jeśli istnieje)
 
 ## 6. Względy bezpieczeństwa
 
@@ -326,13 +302,13 @@ public record RegisterResponse(
 
 **Email:**
 - Walidacja formatu przez Bean Validation (@Email)
-- Sanityzacja: trim whitespace, lowercase conversion (opcjonalne)
-- Sprawdzenie unikalności w Supabase Auth
+- Sanityzacja: `trim()` i konwersja do lower-case
+- Sprawdzenie unikalności w tabeli `users` (SQL index)
 
 **Hasło:**
-- Minimalna długość: 8 znaków (@Size(min = 8))
-- Hashowanie przez Supabase Auth (bcrypt/argon2)
-- Hasło nigdy nie jest przechowywane w niezaszyfrowanej formie
+- Minimalna długość: 8 znaków (@Size(min = 8)); można wymusić większą
+- Hashowane lokalnie przy użyciu `PasswordEncoder` (BCrypt)
+- Hasło nigdy nie jest przechowywane ani logowane w postaci jawnej
 
 **Username:**
 - Długość: 3-50 znaków
@@ -364,11 +340,10 @@ public record RegisterResponse(
 
 ### Bezpieczeństwo tokenów
 
-**JWT Token:**
-- Token wydawany przez Supabase Auth lub Spring Security
-- Wygaśnięcie: 15 minut (konfigurowalne)
-- Refresh token: dla przedłużenia sesji
-- Token w odpowiedzi powinien być bezpiecznie przekazywany (HTTPS)
+- Access token: ważność ~15 minut, podpisany `app.jwt.secret`
+- Refresh token: ważność np. 7 dni, przechowywany w Redis (JTI → userId, exp)
+- Tokeny wysyłane w httpOnly + Secure cookies (`wow-access-token`, `wow-refresh-token`) z nagłówkiem `Set-Cookie`
+- Wymagane HTTPS/SameSite, aby zminimalizować ryzyko XSS/CSRF
 
 ## 7. Obsługa błędów
 
@@ -412,14 +387,15 @@ if (existingUser.isPresent()) {
 }
 ```
 
-#### 4. Błąd Supabase Auth (500 Internal Server Error)
-**Scenariusz:** Błąd połączenia z Supabase Auth API, timeout, błąd serwera
+#### 4. Błąd generowania tokenów / zapisu w Redis (500 Internal Server Error)
+**Scenariusz:** Generator JWT zgłasza wyjątek albo Redis nie zapisuje refresh tokena
 ```java
 try {
-    SupabaseAuthResponse response = supabaseAuthService.signUp(email, password);
-} catch (SupabaseAuthException e) {
-    log.error("Supabase Auth registration failed", e);
-    throw new InternalServerException("Registration service unavailable");
+    String accessToken = jwtTokenProvider.generateAccessToken(user.getId());
+    tokenStore.saveRefreshToken(refreshJti, user.getId(), refreshExpiry);
+} catch (JwtException | RedisConnectionFailureException e) {
+    log.error("Failed to generate or persist auth tokens", e);
+    throw new InternalServerException("Authentication service unavailable");
 }
 ```
 
@@ -431,23 +407,6 @@ try {
 } catch (DataIntegrityViolationException e) {
     log.error("Database error during user creation", e);
     throw new InternalServerException("Database error occurred");
-}
-```
-
-#### 6. Niekompletna transakcja (rollback)
-**Scenariusz:** Supabase Auth się powiodło, ale INSERT do `users` się nie powiódł
-```java
-@Transactional
-public RegisterResponse register(RegisterRequest request) {
-    try {
-        SupabaseAuthResponse authResponse = supabaseAuthService.signUp(...);
-        User user = userRepository.save(newUser);
-        return mapToResponse(user, authResponse.accessToken());
-    } catch (Exception e) {
-        // Rollback Supabase Auth user
-        supabaseAuthService.deleteUser(authResponse.userId());
-        throw e;
-    }
 }
 ```
 
@@ -479,8 +438,8 @@ public class GlobalExceptionHandler {
 
 **Poziomy logowania:**
 - **INFO:** Pomyślna rejestracja użytkownika (bez wrażliwych danych)
-- **WARN:** Próba rejestracji z istniejącym email/username
-- **ERROR:** Błędy Supabase Auth, błędy bazy danych, niekompletne transakcje
+- **WARN:** Próba rejestracji z istniejącym email/username lub przekroczony limit
+- **ERROR:** Błędy bazy danych, generowania tokenów lub zapisu w Redis
 
 **Strukturazowane logowanie:**
 - Format JSON dla łatwej integracji z systemami monitoringu
@@ -492,12 +451,12 @@ public class GlobalExceptionHandler {
 ### Optymalizacja zapytań do bazy danych
 
 **Sprawdzanie unikalności:**
-- Użycie indeksów UNIQUE na `username` i `auth_user_id`
-- Zapytania sprawdzające unikalność powinny być szybkie dzięki indeksom
+- Użycie indeksów UNIQUE na `email` i `username`
+- Zapytania powinny korzystać z `EXISTS`, aby zatrzymać się przy pierwszym dopasowaniu
 
 **Zapytania:**
-- Sprawdzenie unikalności username: `SELECT EXISTS(SELECT 1 FROM users WHERE username = ?)`
-- Użycie EXISTS zamiast COUNT dla lepszej wydajności
+- Sprawdzenie unikalności username: `SELECT 1 FROM users WHERE username = ?`
+- Sprawdzenie unikalności email: `SELECT 1 FROM users WHERE email = ?`
 
 ### Rate Limiting
 
@@ -511,213 +470,63 @@ public class GlobalExceptionHandler {
 - Ochrona przed botami
 - Sprawiedliwy podział zasobów
 
-### Integracja z Supabase Auth
+### Operacje Redis / tokeny
 
-**Timeout i retry:**
-- Timeout dla zapytań do Supabase Auth: 5 sekund
-- Retry policy: 1 retry przy timeout/błędach sieciowych
-- Connection pooling dla HTTP client
-
-**Cache'owanie:**
-- Nie cache'ować wyników rejestracji (zawsze fresh)
-- Cache konfiguracji Supabase Auth (URL, klucze API) w Redis
+- Wszystkie operacje Redis powinny mieć timeout 2s i pojedynczy retry
+- Refresh token przechowywany jako `refresh:{jti}` z TTL równym dacie wygaśnięcia
+- Czarna lista access tokenów nie jest tworzona podczas rejestracji, ale refresh tokeny muszą być gotowe do unieważnienia (logout)
 
 ### Monitoring i metryki
 
 **Metryki Prometheus:**
-- `http_requests_total{method="POST",endpoint="/api/auth/register",status="201"}` - liczba pomyślnych rejestracji
-- `http_requests_total{method="POST",endpoint="/api/auth/register",status="409"}` - liczba prób duplikacji
-- `http_request_duration_seconds{method="POST",endpoint="/api/auth/register"}` - czas odpowiedzi
-- `supabase_auth_calls_total{operation="signup",status="success|error"}` - metryki Supabase Auth
+- `auth_register_attempts_total{status="success|conflict|error"}`
+- `auth_register_duration_seconds`
+- `rate_limit_registrations_blocked_total`
+- `redis_commands_total{entity="refresh_token",command="set"}` – obserwacja stabilności Redis
 
 **Alerty:**
-- Wysoki wskaźnik błędów 409 (>50% żądań) - możliwe problemy z duplikacją
-- Długi czas odpowiedzi (>2s) - problem z Supabase Auth lub bazą danych
-- Wysoki wskaźnik błędów 500 (>1% żądań) - problem z infrastrukturą
+- Wysoki wskaźnik błędów 409 (>50%) – możliwy bot lub problem UX
+- Brak możliwości zapisu do Redis (spadek `redis_commands_total`, wzrost błędów)
+- P95 czasu odpowiedzi > 1s
 
 ## 9. Etapy wdrożenia
 
-### Krok 1: Przygotowanie infrastruktury i zależności
+1. **Infrastruktura**
+   - Upewnij się, że tabela `users` posiada kolumnę `password_hash` oraz indeksy UNIQUE (`email`, `username`)
+   - Skonfiguruj `PasswordEncoder`, `JwtTokenProvider`, `TokenBlacklistService`, `RedisTemplate` oraz `RateLimitingService`
 
-**1.1 Sprawdzenie istniejących komponentów:**
-- Weryfikacja czy `RegisterRequest` i `RegisterResponse` DTO istnieją
-- Sprawdzenie konfiguracji Supabase Auth
-- Weryfikacja struktury pakietów
+2. **Logika serwisowa (`AuthService.register`)**
+   - Walidacja biznesowa: `existsByEmail`, `existsByUsername`
+   - Hashowanie hasła (BCrypt) i utworzenie encji `User`
+   - Zapis użytkownika (`@Transactional`)
+   - Generacja tokenów access/refresh + zapis refresh tokena w Redis
+   - Mapowanie `User` → `RegisterResponse`
 
-**1.2 Utworzenie brakujących komponentów:**
-- `com.tbs.service.AuthService` - serwis obsługujący rejestrację
-- `com.tbs.service.SupabaseAuthService` - integracja z Supabase Auth API
-- `com.tbs.exception.ConflictException` - wyjątek dla 409
-- `com.tbs.exception.ValidationException` - wyjątek dla 422
+3. **Warstwa HTTP (`AuthController`)**
+   - Endpoint `POST /api/v1/auth/register`
+   - Integracja z `RateLimitingService` (IP/email)
+   - Ustawienie `Set-Cookie` (HttpOnly, Secure, SameSite) dla obu tokenów oraz `Location`
 
-**1.3 Konfiguracja zależności:**
-- HTTP client dla Supabase Auth (RestTemplate/WebClient)
-- Konfiguracja Supabase URL i API keys (application.properties)
+4. **Obsługa błędów i metryki**
+   - Rozszerzenie `GlobalExceptionHandler` (400/409/422/500)
+   - Dodanie liczników Prometheus (`auth_register_attempts_total`, `auth_register_duration_seconds`, `rate_limit_registrations_blocked_total`)
 
-### Krok 2: Implementacja integracji z Supabase Auth
+5. **Testy**
+   - Jednostkowe: sukces, duplikaty, błędy DB, błędy Redis/JWT
+   - Integracyjne: MockMvc + Testcontainers (PostgreSQL + Redis)
+   - E2E: Cypress – formularz rejestracji, błędy walidacji, komunikaty konfliktów
 
-**2.1 Utworzenie SupabaseAuthService:**
-```java
-@Service
-public class SupabaseAuthService {
-    private final WebClient webClient;
-    private final String supabaseUrl;
-    private final String supabaseAnonKey;
-    
-    public SupabaseAuthResponse signUp(String email, String password) {
-        // Wywołanie POST /auth/v1/signup
-        // Obsługa błędów
-    }
-    
-    public void deleteUser(UUID userId) {
-        // Usunięcie użytkownika z Supabase Auth (rollback)
-    }
-}
-```
-
-**2.2 Testy integracyjne Supabase Auth:**
-- Test pomyślnej rejestracji
-- Test z istniejącym emailem
-- Test z nieprawidłowym formatem
-
-### Krok 3: Implementacja serwisu rejestracji
-
-**3.1 Utworzenie AuthService:**
-```java
-@Service
-@Transactional
-public class AuthService {
-    private final SupabaseAuthService supabaseAuthService;
-    private final UserRepository userRepository;
-    
-    public RegisterResponse register(RegisterRequest request) {
-        // 1. Walidacja unikalności
-        // 2. Rejestracja w Supabase Auth
-        // 3. Utworzenie profilu w users
-        // 4. Mapowanie do response
-    }
-}
-```
-
-**3.2 Testy serwisu:**
-- Test jednostkowy z Mockito dla pomyślnej rejestracji
-- Test dla przypadku duplikatu email/username
-- Test dla przypadku błędu Supabase Auth
-- Test dla przypadku błędu bazy danych
-
-### Krok 4: Implementacja kontrolera
-
-**4.1 Utworzenie AuthController:**
-```java
-@RestController
-@RequestMapping("/api/auth")
-public class AuthController {
-    private final AuthService authService;
-    
-    @PostMapping("/register")
-    public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
-        RegisterResponse response = authService.register(request);
-        return ResponseEntity.status(201).body(response);
-    }
-}
-```
-
-**4.2 Konfiguracja Spring Security:**
-- Upewnienie się, że `/api/auth/register` jest publiczny (permitAll)
-- Konfiguracja CORS jeśli potrzebne
-
-**4.3 Testy kontrolera:**
-- Test integracyjny z `@WebMvcTest` dla pomyślnego przypadku (201)
-- Test dla przypadku błędów walidacji (422)
-- Test dla przypadku duplikatu (409)
-- Test dla przypadku błędu serwera (500)
-
-### Krok 5: Implementacja obsługi błędów
-
-**5.1 Utworzenie global exception handler:**
-- Obsługa `MethodArgumentNotValidException` (422)
-- Obsługa `ConflictException` (409)
-- Obsługa `DataAccessException` (500)
-- Obsługa `SupabaseAuthException` (500)
-
-**5.2 Testy exception handler:**
-- Test dla każdego typu wyjątku
-- Weryfikacja formatu odpowiedzi błędu
-
-### Krok 6: Implementacja rate limiting
-
-**6.1 Konfiguracja rate limiting:**
-- Implementacja filtru Spring Security lub interceptor
-- Integracja z Redis
-
-**6.2 Dodanie rate limiting do endpointu:**
-- Limit: 5 rejestracji/godzinę na IP
-- Obsługa przekroczenia limitu (429 Too Many Requests)
-
-### Krok 7: Konfiguracja Swagger/OpenAPI
-
-**7.1 Dodanie adnotacji Swagger:**
-```java
-@Operation(
-    summary = "Register new user",
-    description = "Creates a new user account with email, password, and username"
-)
-@ApiResponses(value = {
-    @ApiResponse(responseCode = "201", description = "User registered successfully"),
-    @ApiResponse(responseCode = "409", description = "Username or email already exists"),
-    @ApiResponse(responseCode = "422", description = "Validation errors")
-})
-@PostMapping("/register")
-public ResponseEntity<RegisterResponse> register(...) {
-    // ...
-}
-```
-
-### Krok 8: Testy integracyjne i E2E
-
-**8.1 Testy integracyjne:**
-- Test pełnego przepływu z Supabase Auth (testcontainers lub mock)
-- Test z rzeczywistą bazą danych
-- Test transakcyjności (rollback)
-
-**8.2 Testy E2E (Cypress):**
-- Test rejestracji nowego użytkownika
-- Test obsługi błędów walidacji
-- Test obsługi duplikatu email/username
-
-### Krok 9: Dokumentacja i code review
-
-**9.1 Dokumentacja:**
-- Aktualizacja README z informacjami o endpoincie
-- Dokumentacja Swagger/OpenAPI
-- Dokumentacja integracji z Supabase Auth
-
-**9.2 Code review:**
-- Sprawdzenie zgodności z zasadami implementacji
-- Review bezpieczeństwa
-- Weryfikacja obsługi błędów
-
-### Krok 10: Wdrożenie i monitoring
-
-**10.1 Wdrożenie:**
-- Merge do głównej gałęzi przez PR
-- Weryfikacja w środowisku deweloperskim
-- Test integracji z Supabase Auth na dev
-
-**10.2 Monitoring:**
-- Konfiguracja metryk Prometheus
-- Konfiguracja alertów dla wysokiego wskaźnika błędów
-- Monitorowanie czasu odpowiedzi Supabase Auth
+6. **Dokumentacja i monitoring**
+   - Aktualizacja Swagger (`@Operation`, `@ApiResponses`), README i runbooków (np. procedura rotacji sekretów JWT)
+   - Konfiguracja alertów (wzrost 409/500, awarie Redis)
+   - Przygotowanie dashboardu z metrykami `auth_register_*`
 
 ## 10. Podsumowanie
 
-Plan implementacji endpointu **POST /api/auth/register** obejmuje kompleksowe podejście do wdrożenia z integracją Supabase Auth. Kluczowe aspekty:
+Proces rejestracji jest teraz w pełni obsługiwany wewnętrznie przez Spring Security z wykorzystaniem PostgreSQL (przechowywanie profilu i hashy BCrypt) oraz Redis (refresh tokeny, rate limiting). Kluczowe filary:
 
-- **Bezpieczeństwo:** Walidacja danych, ochrona przed spamem, rate limiting
-- **Integracja:** Supabase Auth dla zarządzania uwierzytelnianiem
-- **Transakcyjność:** Obsługa rollback dla niekompletnych rejestracji
-- **Obsługa błędów:** Centralna obsługa z odpowiednimi kodami statusu
-- **Testowanie:** Testy jednostkowe, integracyjne i E2E
-- **Monitoring:** Metryki i alerty dla Supabase Auth i bazy danych
+- **Bezpieczeństwo:** Walidacja danych, hashowanie BCrypt, httpOnly cookies, rate limiting i audyt
+- **Spójność:** Brak zależności od zewnętrznych dostawców – jeden przepływ w dev/test/prod
+- **Operacyjność:** Metryki i alerty dla prób rejestracji, awarii DB/Redis oraz tokenów
 
-Implementacja powinna być wykonywana krok po kroku zgodnie z sekcją "Etapy wdrożenia", z weryfikacją każdego etapu przed przejściem do następnego.
+Wdrożenie należy prowadzić krok po kroku zgodnie z sekcją 9, pilnując testów i monitoringu na każdym etapie, aby spełnić wymagania PRD dotyczące produkcyjnej gotowości systemu uwierzytelniania.

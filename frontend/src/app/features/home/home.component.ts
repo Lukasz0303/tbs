@@ -45,11 +45,7 @@ export class HomeComponent implements OnInit {
       .pipe(
         take(1),
         switchMap((user) => {
-          if (!user || user.isGuest) {
-            return of(null);
-          }
-          const token = this.authService.getAuthToken();
-          if (!token) {
+          if (!user || user.isGuest || !this.authService.isAuthenticated()) {
             return of(null);
           }
           this.isLoadingSavedGame.set(true);
@@ -109,10 +105,20 @@ export class HomeComponent implements OnInit {
   }
 
   logout(): void {
-    this.authService.logout();
-    this.router.navigate(['/']).catch((error) => {
-      this.notifyError('home.error.navigation');
-      this.handleError(error);
+    this.authService.logout().subscribe({
+      next: () => {
+        this.router.navigate(['/']).catch((error) => {
+          this.notifyError('home.error.navigation');
+          this.handleError(error);
+        });
+      },
+      error: (error) => {
+        this.handleError(error);
+        this.router.navigate(['/']).catch((navError) => {
+          this.notifyError('home.error.navigation');
+          this.handleError(navError);
+        });
+      }
     });
   }
 

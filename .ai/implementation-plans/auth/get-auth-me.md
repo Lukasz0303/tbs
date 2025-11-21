@@ -4,7 +4,7 @@
 
 **GET /api/auth/me** to endpoint uwierzytelniania służący do pobrania profilu bieżącego zalogowanego użytkownika. Endpoint wymaga ważnego tokenu JWT w nagłówku Authorization i zwraca szczegółowe informacje o profilu użytkownika, w tym statystyki gry (punkty, rozegrane gry, wygrane) oraz metadane (data utworzenia, ostatnia aktywność).
 
-Endpoint obsługuje zarówno zarejestrowanych użytkowników (powiązanych z Supabase Auth przez `auth_user_id`), jak i gości (identyfikowanych przez IP). Kluczowe zastosowania:
+Endpoint obsługuje zarówno zarejestrowanych użytkowników (rekord w tabeli `users`, `auth_user_id` opcjonalne/NULL), jak i gości (identyfikowanych po IP). Kluczowe zastosowania:
 - Weryfikacja statusu uwierzytelnienia użytkownika
 - Pobranie aktualnych statystyk użytkownika do wyświetlenia w UI
 - Sprawdzenie typu użytkownika (gość vs zarejestrowany)
@@ -185,7 +185,7 @@ public record UserProfileResponse(
 3. **Wyodrębnienie identyfikatora użytkownika**
    - Z `SecurityContext.getAuthentication()` lub z tokenu JWT claims
    - Możliwe źródła:
-     - Dla zarejestrowanych: `auth_user_id` (UUID z Supabase Auth) lub `user_id` (BIGINT z tabeli users)
+     - Dla zarejestrowanych: `user_id` (BIGINT z tabeli users); `auth_user_id` pozostaje opcjonalne (NULL)
      - Dla gości: `user_id` (BIGINT) z sesji lub tokenu
 
 4. **Pobranie użytkownika z bazy danych**
@@ -218,7 +218,7 @@ public record UserProfileResponse(
 
 **Row Level Security (RLS):**
 - Polityki RLS w PostgreSQL powinny zapewnić, że użytkownik może pobrać tylko swoje własne dane
-- Dla zarejestrowanych: `auth_user_id = auth.uid()` (Supabase Auth)
+- Dla zarejestrowanych: identyfikacja po `user_id` zakodowanym w tokenie JWT (Spring Security)
 - Dla gości: `id = current_setting('app.guest_user_id')::BIGINT`
 
 ### Integracja z Spring Security

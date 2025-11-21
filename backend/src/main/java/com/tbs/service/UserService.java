@@ -75,8 +75,11 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        if (request.username() != null && !request.username().equals(user.getUsername())) {
-            user.setUsername(request.username());
+        if (request.username() != null) {
+            String trimmedUsername = request.username().trim();
+            if (!trimmedUsername.isEmpty() && !trimmedUsername.equals(user.getUsername())) {
+                user.setUsername(trimmedUsername);
+            }
         }
 
         if (request.avatar() != null) {

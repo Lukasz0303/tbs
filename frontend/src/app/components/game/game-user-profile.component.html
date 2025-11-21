@@ -1,7 +1,7 @@
 <p-toast key="game-avatar" position="top-right"></p-toast>
 
 @if (user; as userData) {
-  <div class="game-user-profile">
+  <div class="game-user-profile" [class.guest-user]="userData.isGuest">
     <div class="profile-content">
       <div class="avatar-section">
         <div class="profile-name">{{ displayName() }}</div>
@@ -24,57 +24,62 @@
             </button>
           }
         </div>
-        @if (playerSymbol(); as symbol) {
+      </div>
+      @if (!userData.isGuest) {
+        <div class="stats-section">
+          <div class="stat-item">
+            <span class="stat-label">{{ translate.translate('profile.stats.points') }}</span>
+            <span class="stat-value">{{ userData.totalPoints || 0 }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">{{ translate.translate('profile.stats.gamesPlayed') }}</span>
+            <span class="stat-value">{{ userData.gamesPlayed || 0 }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">{{ translate.translate('profile.stats.gamesWon') }}</span>
+            <span class="stat-value">{{ userData.gamesWon || 0 }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">{{ translate.translate('profile.stats.winRate') }}</span>
+            <span class="stat-value">{{ winRate() }}%</span>
+          </div>
+        </div>
+      }
+      
+      @if (playerSymbol(); as symbol) {
+        <div class="symbol-section">
           <div class="player-symbol" [class.symbol-x]="symbol.toLowerCase() === 'x'" [class.symbol-o]="symbol.toLowerCase() === 'o'">
             <span class="symbol-value">{{ symbol.toUpperCase() }}</span>
           </div>
-        }
-      </div>
-      <div class="stats-section">
-        <div class="stat-item">
-          <span class="stat-label">{{ translate.translate('profile.stats.points') }}</span>
-          <span class="stat-value">{{ userData.totalPoints || 0 }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">{{ translate.translate('profile.stats.gamesPlayed') }}</span>
-          <span class="stat-value">{{ userData.gamesPlayed || 0 }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">{{ translate.translate('profile.stats.gamesWon') }}</span>
-          <span class="stat-value">{{ userData.gamesWon || 0 }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">{{ translate.translate('profile.stats.winRate') }}</span>
-          <span class="stat-value">{{ winRate() }}%</span>
-        </div>
-      </div>
-      
-      @if (isActiveTurn && game && game.gameType === 'pvp' && game.status === 'in_progress') {
-        <div class="turn-indicator">
-          <div class="turn-info">
-            <span class="turn-text">
-              {{ translate.translate('game.turn.label') }}: {{ playerSymbol()?.toUpperCase() || '-' }} 
-              {{ translate.translate('game.timer.label') }}: {{ remainingSeconds.toString().padStart(2, '0') }}
-            </span>
-          </div>
-          @if (gameId && onSurrender) {
-            <button
-              type="button"
-              class="surrender-btn"
-              (click)="onSurrender(gameId)">
-              {{ translate.translate('game.action.surrender') }}
-            </button>
+          @if (hasRanking() && ranking; as rankingData) {
+            <div class="ranking-position">
+              <span class="ranking-label">#{{ rankingData.rankPosition }}</span>
+            </div>
           }
         </div>
       }
+      
+      @if (userData.isGuest && isCurrentUser()) {
+        <div class="guest-info-column">
+          <div class="guest-info">
+            <i class="pi pi-exclamation-triangle guest-icon"></i>
+            <p>{{ translate.translate('profile.guest.info') }}</p>
+            <a routerLink="/auth/register" class="register-link">
+              {{ translate.translate('profile.registerButton') }}
+            </a>
+          </div>
+        </div>
+      }
+      
     </div>
   </div>
 
   @if (showAvatarDialog() && user) {
     <app-avatar-selector
-      [visible]="true"
+      [visible]="showAvatarDialog()"
       [currentAvatar]="user.avatar"
       [isLoading]="isSavingAvatar()"
+      (visibleChange)="onAvatarDialogVisibleChange($event)"
       (close)="onCloseAvatarDialog()"
       (save)="onSaveAvatar($event)">
     </app-avatar-selector>

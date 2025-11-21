@@ -19,6 +19,7 @@ export class AvatarSelectorComponent implements OnChanges {
   @Input() visible = false;
   @Input() currentAvatar: number | null = 1;
   @Input() isLoading = false;
+  @Output() visibleChange = new EventEmitter<boolean>();
   @Output() close = new EventEmitter<void>();
   @Output() save = new EventEmitter<number>();
 
@@ -42,6 +43,7 @@ export class AvatarSelectorComponent implements OnChanges {
   }
 
   onClose(): void {
+    this.visibleChange.emit(false);
     this.close.emit();
     this.selectedAvatar = this.currentAvatar ?? 1;
   }

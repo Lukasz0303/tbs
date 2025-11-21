@@ -9,22 +9,25 @@
 
     @if (!state.loading && state.game; as game) {
       <div class="game-content">
-        <div class="players-section">
+        <div class="players-section" [class.guest-layout]="isGuestSignal()">
           <app-game-user-profile 
             [user]="currentUser$ | async"
             [game]="game"
             [remainingSeconds]="remainingSeconds()"
             [isActiveTurn]="isCurrentPlayerTurn(game)"
             [gameId]="game.gameId"
-            [onSurrender]="surrender.bind(this)">
+            [onSurrender]="surrender.bind(this)"
+            [ranking]="currentUserRanking()">
           </app-game-user-profile>
           
-          <div class="vs-divider">
-            <span class="vs-text">VS</span>
-            <div class="vs-points">
-              {{ translate.translate('game.pvp.points') }}: +{{ getPointsAtStake(game) }}
+          @if (!isGuestSignal()) {
+            <div class="vs-divider">
+              <span class="vs-text">VS</span>
+              <div class="vs-points">
+                {{ translate.translate('game.pvp.points') }}: +{{ getPointsAtStake(game) }}
+              </div>
             </div>
-          </div>
+          }
           
           @if (game.gameType === 'pvp') {
             <app-game-user-profile 
@@ -33,24 +36,58 @@
               [remainingSeconds]="remainingSeconds()"
               [isActiveTurn]="isOpponentTurn(game)"
               [gameId]="null"
-              [onSurrender]="null">
+              [onSurrender]="null"
+              [ranking]="opponentUserRanking()">
             </app-game-user-profile>
           } @else {
             <app-game-bot-info [game]="game"></app-game-bot-info>
           }
         </div>
 
-        <div class="game-board-container">
-          <app-game-board
-            [boardSize]="game.boardSize"
-            [boardState]="game.boardState"
-            [currentPlayerSymbol]="game.currentPlayerSymbol"
-            [disabled]="isMoveDisabled(game)"
-            [gameStatus]="game.status"
-            [gameType]="game.gameType"
-            [winningCells]="winningCells()"
-            (move)="onMove($event, game)">
-          </app-game-board>
+        <div class="board-with-timers">
+          @if (game.gameType === 'pvp' && isCurrentPlayerTurn(game) && game.status === 'in_progress') {
+            <div class="turn-indicator turn-indicator-left">
+              <div class="turn-info">
+                <span class="turn-text">
+                  {{ translate.translate('game.turn.label') }}: {{ getCurrentPlayerSymbol(game)?.toUpperCase() || '-' }} 
+                  {{ translate.translate('game.timer.label') }}: {{ remainingSeconds().toString().padStart(2, '0') }}
+                </span>
+              </div>
+              @if (game.gameId) {
+                <button
+                  type="button"
+                  class="surrender-btn"
+                  [attr.aria-label]="translate.translate('game.action.surrender')"
+                  (click)="surrender(game.gameId)">
+                  {{ translate.translate('game.action.surrender') }}
+                </button>
+              }
+            </div>
+          }
+
+          <div class="game-board-container">
+            <app-game-board
+              [boardSize]="game.boardSize"
+              [boardState]="game.boardState"
+              [currentPlayerSymbol]="game.currentPlayerSymbol"
+              [disabled]="isMoveDisabled(game)"
+              [gameStatus]="game.status"
+              [gameType]="game.gameType"
+              [winningCells]="winningCells()"
+              (move)="onMove($event, game)">
+            </app-game-board>
+          </div>
+
+          @if (game.gameType === 'pvp' && isOpponentTurn(game) && game.status === 'in_progress') {
+            <div class="turn-indicator turn-indicator-right">
+              <div class="turn-info">
+                <span class="turn-text">
+                  {{ translate.translate('game.turn.label') }}: {{ getOpponentSymbol(game)?.toUpperCase() || '-' }} 
+                  {{ translate.translate('game.timer.label') }}: {{ remainingSeconds().toString().padStart(2, '0') }}
+                </span>
+              </div>
+            </div>
+          }
         </div>
 
         <app-game-result-dialog

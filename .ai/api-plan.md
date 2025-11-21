@@ -24,10 +24,10 @@ Reprezentuje indywidualne ruchy/akcje w grach. Stan planszy jest generowany dyna
 
 Reprezentuje globalny ranking z pre-obliczonymi pozycjami tylko dla zarejestrowanych użytkowników.
 
-### 1.5 Zasób Auth (Supabase Auth)
-**Baza danych**: `auth.users` (zarządzana przez Supabase Auth)
+### 1.5 Zasób Auth (Spring Security JWT)
+**Baza danych**: `users`
 
-Uwierzytelnianie i autoryzacja użytkowników zarządzane przez system Supabase Auth.
+Uwierzytelnianie i autoryzacja zarządzane są wewnętrznie przez Spring Security. Hasła są przechowywane w tabeli `users` w postaci hashy (BCrypt), a tokeny dostępu/odświeżania JWT są generowane przez backend i przechowywane w httpOnly cookie.
 
 ---
 
@@ -745,13 +745,13 @@ Metryki w formacie Prometheus
 
 ### 3.1 Mechanizm uwierzytelniania
 
-**Główne**: Tokeny JWT wydawane przez Spring Security po walidacji Supabase Auth
+**Główne**: Tokeny JWT (access + refresh) wydawane bezpośrednio przez Spring Security
 
 **Przepływ**:
-1. Użytkownik rejestruje się/loguje przez Supabase Auth
-2. Supabase Auth waliduje dane uwierzytelniające i zwraca JWT
-3. Backend waliduje JWT i tworzy/generuje token sesji
-4. Klient dołącza token w nagłówku `Authorization`: `Bearer <token>`
+1. Użytkownik rejestruje się/loguje przez endpoint backendu (`/api/v1/auth/register|login`)
+2. Spring Security waliduje dane uwierzytelniające przeciwko hashom (BCrypt) przechowywanym w tabeli `users`
+3. Backend generuje nowy access token (krótko żyjący) oraz refresh token (dłuższy), zapisuje ich identyfikatory (JTI) do Redis i wysyła w httpOnly cookie
+4. Klient przy kolejnych żądaniach korzysta z cookie (lub dodaje nagłówek `Authorization: Bearer <token>`)
 
 **Uwierzytelnianie gości**:
 - Goście identyfikowani przez adres IP
@@ -786,7 +786,7 @@ Polityki Row Level Security w PostgreSQL wymuszają:
 **Implementacja**:
 - Backend waliduje JWT i wyodrębnia kontekst użytkownika
 - Ustawia zmienną sesji `app.guest_user_id` dla użytkowników gości
-- Używa `auth.uid()` z Supabase Auth dla zarejestrowanych użytkowników
+- Dla zarejestrowanych użytkowników ustawia zmienną `app.current_user_id`, którą wymuszają polityki RLS w PostgreSQL
 
 ---
 
@@ -1275,7 +1275,7 @@ interface Ranking {
 - Tokeny JWT z wygaśnięciem (15 minut)
 - Tokeny odświeżające dla przedłużonych sesji
 - Bezpieczne przechowywanie ciasteczek (HttpOnly, Secure, SameSite)
-- Hashowanie haseł przez Supabase Auth (bcrypt/argon2)
+- Hashowanie haseł po stronie aplikacji (BCrypt, cost ≥ 12)
 
 ---
 
@@ -1301,7 +1301,7 @@ interface Ranking {
 ### 9.4 Ochrona danych
 
 - Row Level Security na poziomie bazy danych
-- Integracja Supabase Auth do zarządzania użytkownikami
+- Zarządzanie użytkownikami przez Spring Security oraz tabelę `users`
 - Anonimizacja IP gości po sesji
 - Brak wrażliwych danych w logach
 
@@ -1431,8 +1431,8 @@ interface Ranking {
 
 ### 15.1 Założenia
 
-1. Supabase Auth obsługuje rejestrację użytkowników, uwierzytelnianie i zarządzanie hasłami
-2. Frontend wyodrębnia i zarządza tokenami JWT z odpowiedzi Supabase Auth
+1. Spring Security obsługuje rejestrację użytkowników, uwierzytelnianie i zarządzanie hashami haseł (BCrypt)
+2. Frontend korzysta z endpointów `/api/v1/auth/*`, a tokeny JWT są utrzymywane w httpOnly cookie (opcjonalnie w nagłówku Authorization)
 3. Połączenia WebSocket zarządzane przez Spring WebSocket z subprotokołem STOMP
 4. Ruchy bota wykonywane po stronie serwera jako zautomatyzowane procesy w tle
 5. Redis używany do zarządzania sesjami, cache'owania i ograniczania szybkości

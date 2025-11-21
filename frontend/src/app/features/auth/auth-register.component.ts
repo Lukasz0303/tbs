@@ -171,17 +171,29 @@ export class AuthRegisterComponent implements OnInit {
   }
 
   private handleValidationErrors(errors: unknown): void {
-    if (errors && typeof errors === 'object' && 'errors' in errors) {
-      const validationErrors = errors as { errors: Record<string, string> };
-      Object.keys(validationErrors.errors).forEach((key) => {
-        const control = this.registerForm.get(key);
-        if (control) {
-          control.setErrors({ serverError: validationErrors.errors[key] });
-          control.markAsTouched();
-        }
-      });
-      this.cdr.markForCheck();
+    if (!this.isValidationErrorResponse(errors)) {
+      return;
     }
+    
+    Object.keys(errors.errors).forEach((key) => {
+      const control = this.registerForm.get(key);
+      if (control) {
+        control.setErrors({ serverError: errors.errors[key] });
+        control.markAsTouched();
+      }
+    });
+    this.cdr.markForCheck();
+  }
+
+  private isValidationErrorResponse(errors: unknown): errors is { errors: Record<string, string> } {
+    return (
+      typeof errors === 'object' &&
+      errors !== null &&
+      'errors' in errors &&
+      typeof (errors as { errors: unknown }).errors === 'object' &&
+      (errors as { errors: unknown }).errors !== null &&
+      !Array.isArray((errors as { errors: unknown }).errors)
+    );
   }
 
   isFieldInvalid(fieldName: string): boolean {

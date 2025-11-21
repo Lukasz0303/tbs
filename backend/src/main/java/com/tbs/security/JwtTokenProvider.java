@@ -5,6 +5,7 @@ import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -19,6 +20,7 @@ public class JwtTokenProvider {
 
     private static final Logger log = LoggerFactory.getLogger(JwtTokenProvider.class);
     private static final int MIN_KEY_LENGTH_BITS = 256;
+    private static final int MIN_TOKEN_LENGTH = 10;
 
     private final SecretKey secretKey;
     private final long validityInMilliseconds;
@@ -96,14 +98,23 @@ public class JwtTokenProvider {
     }
 
     private Claims parseClaims(String token) {
-        if (token == null) {
-            throw new IllegalArgumentException("Token cannot be null");
+        if (token == null || token.trim().isEmpty()) {
+            throw new IllegalArgumentException("Token cannot be null or empty");
+        }
+        
+        if (token.length() < MIN_TOKEN_LENGTH) {
+            throw new IllegalArgumentException("Token is too short to be valid");
         }
         
         Claims cachedClaims = claimsCache.get(token);
         
         if (cachedClaims != null) {
-            return cachedClaims;
+            Date expiration = cachedClaims.getExpiration();
+            if (expiration != null && expiration.before(new Date())) {
+                claimsCache.remove(token);
+            } else if (expiration == null || expiration.after(new Date())) {
+                return cachedClaims;
+            }
         }
         
         try {
@@ -113,7 +124,11 @@ public class JwtTokenProvider {
                     .parseSignedClaims(token)
                     .getPayload();
             
-            claimsCache.put(token, claims);
+            Date expiration = claims.getExpiration();
+            if (expiration != null && expiration.after(new Date())) {
+                claimsCache.put(token, claims);
+            }
+            
             return claims;
         } catch (ExpiredJwtException e) {
             log.warn("Token expired: {}", e.getMessage());
@@ -121,6 +136,26 @@ public class JwtTokenProvider {
         } catch (JwtException e) {
             log.warn("JWT parsing failed: {}", e.getMessage());
             throw e;
+        }
+    }
+
+    @Scheduled(fixedRate = 3600000)
+    public void clearExpiredTokens() {
+        Date now = new Date();
+        int removedCount = 0;
+        
+        claimsCache.entrySet().removeIf(entry -> {
+            try {
+                Claims claims = entry.getValue();
+                Date expiration = claims.getExpiration();
+                return expiration != null && expiration.before(now);
+            } catch (Exception e) {
+                return true;
+            }
+        });
+        
+        if (removedCount > 0) {
+            log.debug("Cleared {} expired tokens from cache", removedCount);
         }
     }
 

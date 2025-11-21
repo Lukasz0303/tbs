@@ -57,3 +57,10 @@ Przeanalizuj wszystkie zmiany w kodzie Java na aktualnym branchu i przygotuj szc
 
 Skoncentruj się na konstruktywnej krytyce, która pomoże ulepszyć kod zgodnie z najwyższymi standardami branżowymi.
 
+---
+
+### Format i miejsce raportu
+
+- Raport przygotuj w formacie identycznym jak w pliku `backend-pr-review-report.md` (linie 1-547).
+- Gotowy dokument zapisz w katalogu `reports` w repozytorium (np. `reports/backend-pr-review-report.md`).
+

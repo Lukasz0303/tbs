@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { AsyncPipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { BehaviorSubject, catchError, filter, switchMap, take, map } from 'rxjs';
+import { BehaviorSubject, catchError, filter, switchMap, take, map, Observable } from 'rxjs';
 import { of } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ButtonModule } from 'primeng/button';
@@ -16,6 +16,7 @@ import { GameService } from '../../services/game.service';
 import { UserService } from '../../services/user.service';
 import { TranslateService } from '../../services/translate.service';
 import { User } from '../../models/user.model';
+import { UpdateUserResponse } from '../../services/user.service';
 import { getAvatarPath } from '../../utils/avatar.util';
 import { Ranking } from '../../models/ranking.model';
 import { Game } from '../../models/game.model';
@@ -86,63 +87,40 @@ export class ProfileComponent implements OnInit {
     this.showAvatarDialog$.next(true);
   }
 
+  onAvatarDialogVisibleChange(visible: boolean): void {
+    this.showAvatarDialog$.next(visible);
+  }
+
   onCloseAvatarDialog(): void {
     this.showAvatarDialog$.next(false);
   }
 
   onSaveAvatar(newAvatar: number): void {
-    this.currentUser$
-      .pipe(
-        filter((user): user is User => user !== null && !user.isGuest),
-        switchMap((user) => {
-          return this.userService.updateAvatar(user.userId, newAvatar).pipe(
-            switchMap((updatedUser) => {
-              return this.currentUser$.pipe(
-                filter((currentUser): currentUser is User => currentUser !== null),
-                take(1),
-                map((currentUser) => ({ updatedUser, currentUser }))
-              );
-            })
-          );
-        }),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe({
-        next: ({ updatedUser, currentUser }) => {
-          if (updatedUser && currentUser) {
-            const user: User = {
-              userId: updatedUser.userId,
-              username: updatedUser.username,
-              email: currentUser.email,
-              isGuest: updatedUser.isGuest,
-              avatar: updatedUser.avatar,
-              totalPoints: updatedUser.totalPoints,
-              gamesPlayed: updatedUser.gamesPlayed,
-              gamesWon: updatedUser.gamesWon,
-              createdAt: currentUser.createdAt,
-              lastSeenAt: currentUser.lastSeenAt,
-            };
-            this.authService.updateCurrentUser(user);
-            this.showAvatarDialog$.next(false);
-            this.messageService.add({
-              severity: 'success',
-              summary: this.translate.translate('profile.update.success'),
-              detail: this.translate.translate('profile.avatar.updateSuccess'),
-            });
-          }
-        },
-        error: (error: HttpErrorResponse) => {
-          this.handleUpdateError(error);
-        },
-      });
+    this.updateUserAndShowSuccess(
+      (user) => this.userService.updateAvatar(user.userId, newAvatar),
+      'profile.avatar.updateSuccess',
+      () => this.showAvatarDialog$.next(false)
+    );
   }
 
   onSaveUsername(newUsername: string): void {
+    this.updateUserAndShowSuccess(
+      (user) => this.userService.updateUser(user.userId, { username: newUsername }),
+      'profile.update.successDetail',
+      () => this.showEditDialog$.next(false)
+    );
+  }
+
+  private updateUserAndShowSuccess(
+    updateFn: (user: User) => Observable<UpdateUserResponse>,
+    successMessageKey: string,
+    onSuccess?: () => void
+  ): void {
     this.currentUser$
       .pipe(
         filter((user): user is User => user !== null && !user.isGuest),
         switchMap((user) => {
-          return this.userService.updateUser(user.userId, { username: newUsername }).pipe(
+          return updateFn(user).pipe(
             switchMap((updatedUser) => {
               return this.currentUser$.pipe(
                 filter((currentUser): currentUser is User => currentUser !== null),
@@ -170,11 +148,13 @@ export class ProfileComponent implements OnInit {
               lastSeenAt: currentUser.lastSeenAt,
             };
             this.authService.updateCurrentUser(user);
-            this.showEditDialog$.next(false);
+            if (onSuccess) {
+              onSuccess();
+            }
             this.messageService.add({
               severity: 'success',
               summary: this.translate.translate('profile.update.success'),
-              detail: this.translate.translate('profile.update.successDetail'),
+              detail: this.translate.translate(successMessageKey),
             });
           }
         },

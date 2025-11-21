@@ -1,16 +1,17 @@
 <div class="board" [style.--size]="boardSize">
-  <div
-    class="cell"
-    *ngFor="let index of getCellsArray(); trackBy: trackByIndex"
-    (click)="onCellClick(index)"
-    [class.cell--win]="isWinningCell(index)"
-    [class.cell--disabled]="isCellDisabled(index)">
-    <span class="symbol"
-      [class.symbol--x]="getCellValue(index) === 'x'"
-      [class.symbol--o]="getCellValue(index) === 'o'">
-      {{ getCellValue(index) || '' }}
-    </span>
-  </div>
+  @for (index of getCellsArray(); track trackByIndex(index)) {
+    <div
+      class="cell"
+      (click)="onCellClick(index)"
+      [class.cell--win]="isWinningCell(index)"
+      [class.cell--disabled]="isCellDisabled(index)">
+      <span class="symbol"
+        [class.symbol--x]="getCellValue(index) === 'x'"
+        [class.symbol--o]="getCellValue(index) === 'o'">
+        {{ getCellValue(index) || '' }}
+      </span>
+    </div>
+  }
 </div>
 
 

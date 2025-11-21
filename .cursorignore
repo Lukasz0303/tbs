@@ -1,0 +1,69 @@
+# Pliki konfiguracyjne z danymi wrażliwymi - Backend
+backend/src/main/resources/application-local.properties
+backend/bin/main/application-local.properties
+backend/bin/main/application.properties
+backend/build/resources/main/application-local.properties
+backend/build/resources/main/application.properties
+
+# Pliki konfiguracyjne z danymi wrażliwymi - Frontend
+frontend/src/environments/environment.prod.ts
+frontend/src/environments/environment.ts
+
+# Pliki konfiguracyjne Supabase z potencjalnymi kluczami
+supabase/config.toml
+
+# Pliki logów mogą zawierać dane wrażliwe
+*.log
+*.log.*
+backend/application.log*
+backend/*.log*
+
+# Pliki build mogą zawierać skompilowane konfiguracje
+backend/build/
+backend/bin/
+frontend/dist/
+
+# Pliki środowiskowe (jeśli istnieją)
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Certyfikaty i klucze prywatne
+*.pem
+*.key
+*.p12
+*.jks
+*.pfx
+*.crt
+*.cer
+
+# Pliki z sekretami
+*secret*
+*secrets*
+*.secret
+
+# Pliki z hasłami
+*password*
+*passwords*
+
+# Pliki z tokenami (wyklucz pliki źródłowe Java)
+*token*.properties
+*token*.json
+*token*.txt
+*token*.env
+*tokens*.properties
+*tokens*.json
+*tokens*.txt
+*tokens*.env
+
+# Pliki z kluczami API
+*api-key*
+*apikey*
+*api_key*
+
+# Pliki konfiguracyjne z danymi wrażliwymi (ogólne)
+*credentials*
+*credential*
+

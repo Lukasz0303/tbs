@@ -1,12 +1,12 @@
 .avatar-selector {
-  padding: 1rem;
+  padding: 0.75rem;
 }
 
 .avatar-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  padding: 1rem 0;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
 }
 
 .avatar-item {
@@ -16,6 +16,8 @@
   overflow: hidden;
   border: 3px solid transparent;
   transition: all 0.2s ease;
+  aspect-ratio: 1;
+  min-height: 0;
 
   &:hover {
     border-color: #78a0ff;
@@ -55,7 +57,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
-  padding-top: 1rem;
+  padding-top: 0.5rem;
 }
 
 ::ng-deep {
@@ -65,22 +67,35 @@
     -webkit-backdrop-filter: blur(4px);
   }
 
+  .avatar-selector-dialog {
+    .p-dialog-header {
+      .p-dialog-header-icon {
+        display: none !important;
+      }
+    }
+
+    .p-dialog-content {
+      overflow: hidden !important;
+      max-height: none;
+    }
+  }
+
   .p-dialog {
     .p-dialog-header {
       background: var(--p-surface-card);
       border-bottom: 1px solid var(--p-surface-border);
-      padding: 1.25rem;
+      padding: 1rem 1.25rem;
     }
 
     .p-dialog-content {
       background: var(--p-surface-card);
-      padding: 1.5rem;
+      padding: 1rem;
     }
 
     .p-dialog-footer {
       background: var(--p-surface-card);
       border-top: 1px solid var(--p-surface-border);
-      padding: 1.25rem;
+      padding: 1rem 1.25rem;
     }
 
     .dialog-footer {
@@ -93,6 +108,17 @@
         line-height: 1 !important;
         box-sizing: border-box !important;
         transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease, outline-color 160ms ease, border-color 160ms ease !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.5rem !important;
+
+        .p-button-icon {
+          margin-right: 0 !important;
+        }
+
+        .p-button-label {
+          margin-left: 0 !important;
+        }
 
         &.p-button-secondary {
           border: 1px solid rgba(120, 160, 255, 0.5) !important;

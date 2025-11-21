@@ -32,9 +32,10 @@ public class CacheErrorHandler implements org.springframework.cache.interceptor.
         if (isRedisError(exception)) {
             log.debug("Redis unavailable for cache get '{}' key '{}', continuing without cache: {}", 
                 cache.getName(), key, exception.getMessage());
-        } else {
-            log.warn("Cache get error for cache '{}' and key '{}': {}", cache.getName(), key, exception.getMessage());
+            return;
         }
+        
+        log.warn("Cache get error for cache '{}' and key '{}': {}", cache.getName(), key, exception.getMessage());
     }
 
     @Override
@@ -42,9 +43,10 @@ public class CacheErrorHandler implements org.springframework.cache.interceptor.
         if (isRedisError(exception)) {
             log.debug("Redis unavailable for cache put '{}' key '{}', continuing without cache: {}", 
                 cache.getName(), key, exception.getMessage());
-        } else {
-            log.warn("Cache put error for cache '{}' and key '{}': {}", cache.getName(), key, exception.getMessage());
+            return;
         }
+        
+        log.warn("Cache put error for cache '{}' and key '{}': {}", cache.getName(), key, exception.getMessage());
     }
 
     @Override
@@ -52,9 +54,10 @@ public class CacheErrorHandler implements org.springframework.cache.interceptor.
         if (isRedisError(exception)) {
             log.debug("Redis unavailable for cache evict '{}' key '{}', continuing without cache: {}", 
                 cache.getName(), key, exception.getMessage());
-        } else {
-            log.warn("Cache evict error for cache '{}' and key '{}': {}", cache.getName(), key, exception.getMessage());
+            return;
         }
+        
+        log.warn("Cache evict error for cache '{}' and key '{}': {}", cache.getName(), key, exception.getMessage());
     }
 
     @Override
@@ -62,9 +65,10 @@ public class CacheErrorHandler implements org.springframework.cache.interceptor.
         if (isRedisError(exception)) {
             log.debug("Redis unavailable for cache clear '{}', continuing without cache: {}", 
                 cache.getName(), exception.getMessage());
-        } else {
-            log.warn("Cache clear error for cache '{}': {}", cache.getName(), exception.getMessage());
+            return;
         }
+        
+        log.warn("Cache clear error for cache '{}': {}", cache.getName(), exception.getMessage());
     }
 }
 

@@ -66,6 +66,10 @@ Gracze potrzebują platformy, która pozwoli im szybko dołączyć do gry, rywal
 - Rejestracja nowych użytkowników (nazwa, email, hasło)
 - Logowanie zarejestrowanych użytkowników
 - Profil gracza z podstawowymi informacjami
+- Hashowanie haseł (BCrypt) i weryfikacja siły hasła po stronie backendu
+- Stateless autentykacja w Spring Security z tokenami JWT (access + refresh)
+- Przechowywanie tokenów w httpOnly/SameSite cookie oraz blacklista w Redis zapewniająca natychmiastowe unieważnianie
+- Ograniczenia liczby prób logowania/rejestracji (rate limiting per IP i per konto)
 
 ### System zapisywania gier
 - Automatyczny zapis stanu gry w trybie jednoosobowym
@@ -252,6 +256,24 @@ Gracze potrzebują platformy, która pozwoli im szybko dołączyć do gry, rywal
 - Wszystkie elementy są czytelne i łatwo dostępne
 - Aplikacja działa stabilnie na przeglądarkach PC
 
+### US-016: Bezpieczne logowanie i przechowywanie tokenów
+**Opis:** Jako zarejestrowany użytkownik chcę, aby proces logowania był bezpieczny i żeby mój token był chroniony przed atakami XSS/CSRF.
+
+**Kryteria akceptacji:**
+- Dane logowania przesyłane wyłącznie po HTTPS z walidacją po stronie backendu
+- Token JWT zwracany w httpOnly + SameSite cookie z czasem życia ≤ 60 minut
+- Odświeżanie sesji realizowane przez dedykowany endpoint `/auth/refresh` z rotacją refresh tokenów
+- Nieudane logowania są limitowane (min. 5 prób / min / IP), a użytkownik otrzymuje przyjazny komunikat o blokadzie
+
+### US-017: Wylogowanie i unieważnianie sesji
+**Opis:** Jako użytkownik chcę móc wylogować się z aplikacji, aby natychmiast zakończyć sesję na wszystkich urządzeniach.
+
+**Kryteria akceptacji:**
+- Endpoint `/auth/logout` dodaje bieżący access token (oraz refresh token) do black-listy w Redisie
+- Blacklista jest egzekwowana przez filtr Spring Security przed obsłużeniem kolejnych żądań
+- Frontend usuwa dane użytkownika z pamięci lokalnej po sukcesie żądania
+- Po wylogowaniu kolejne żądania chronionych zasobów kończą się błędem 401
+
 ## 6. Metryki sukcesu
 
 ### Metryki funkcjonalne
@@ -264,6 +286,7 @@ Gracze potrzebują platformy, która pozwoli im szybko dołączyć do gry, rywal
 - Wydajność: obsługa 100-500 jednoczesnych użytkowników bez spadku wydajności
 - Stabilność: system WebSocket z mechanizmami reconnect działa niezawodnie
 - Czas odpowiedzi: limit 10 sekund na ruch w grach PvP jest respektowany
+- Bezpieczeństwo: 100% tokenów access trafiających na blacklistę staje się nieważnych < 1 s; logowania limitowane do 5/min/IP
 
 ### Metryki jakości
 - Wysokiej jakości UI z animacjami Angular i CSS transitions

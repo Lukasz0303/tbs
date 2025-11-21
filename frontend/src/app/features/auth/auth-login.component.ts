@@ -57,7 +57,7 @@ export class AuthLoginComponent implements OnInit {
       .getCurrentUser()
       .pipe(take(1), takeUntilDestroyed(this.destroyRef))
       .subscribe((user: User | null) => {
-        if (user && !user.isGuest && this.authService.getAuthToken()) {
+        if (user && this.authService.isAuthenticated()) {
           this.router.navigate(['/']);
           return;
         }

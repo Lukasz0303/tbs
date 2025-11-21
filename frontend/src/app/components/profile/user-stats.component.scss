@@ -7,6 +7,21 @@
   }
 }
 
+.guest-info {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--p-warn-color-bg);
+  border: 1px solid var(--p-warn-color-border);
+  border-radius: var(--p-border-radius);
+  
+  p {
+    color: var(--p-warn-color-text);
+    font-size: 0.875rem;
+    margin: 0;
+    line-height: 1.5;
+  }
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -32,32 +47,6 @@
     color: var(--p-text-color);
     font-size: 1.5rem;
     font-weight: 600;
-  }
-}
-
-.ranking-section {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--p-surface-border);
-}
-
-.ranking-badge {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
-  background: var(--p-primary-color);
-  border-radius: var(--p-border-radius);
-  color: var(--p-primary-contrast-text);
-
-  .ranking-label {
-    font-size: 0.875rem;
-    font-weight: 500;
-  }
-
-  .ranking-value {
-    font-size: 1.5rem;
-    font-weight: 700;
   }
 }
 

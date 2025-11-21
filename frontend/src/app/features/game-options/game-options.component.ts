@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal, OnInit, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -28,7 +28,7 @@ const VALID_BOARD_SIZES: readonly BoardSize[] = [3, 4, 5] as const;
   styleUrls: ['./game-options.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GameOptionsComponent {
+export class GameOptionsComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -42,6 +42,31 @@ export class GameOptionsComponent {
   selectedBoardSize = signal<BoardSize>(3);
   readonly isCreatingGuestSession = signal<boolean>(false);
   readonly isStartingGame = signal<boolean>(false);
+  readonly isAuthenticated = signal<boolean>(false);
+
+  constructor() {
+    effect(() => {
+      const authenticated = this.isAuthenticated();
+      const selectedMode = this.selectedGameMode();
+      
+      if (!authenticated && selectedMode === 'pvp') {
+        this.selectedGameMode.set('easy');
+      }
+    });
+  }
+
+  ngOnInit(): void {
+    this.updateAuthStatus();
+    this.authService.getCurrentUser()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.updateAuthStatus();
+      });
+  }
+
+  private updateAuthStatus(): void {
+    this.isAuthenticated.set(this.authService.isAuthenticated());
+  }
 
   selectGameMode(mode: GameMode): void {
     if (!VALID_GAME_MODES.includes(mode as typeof VALID_GAME_MODES[number])) {
@@ -83,12 +108,7 @@ export class GameOptionsComponent {
       .pipe(take(1), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (user) => {
-          if (user) {
-            const token = this.authService.getAuthToken();
-            if (!token) {
-              this.createGuestSession();
-              return;
-            }
+          if (user && this.authService.isAuthenticated()) {
             this.resumeOrCreateGame();
             return;
           }
@@ -106,14 +126,6 @@ export class GameOptionsComponent {
       .createGuestSession()
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        delay(0),
-        switchMap(() => {
-          const token = this.authService.getAuthToken();
-          if (!token) {
-            return throwError(() => new Error('Failed to create guest session'));
-          }
-          return of(null);
-        }),
         finalize(() => this.isCreatingGuestSession.set(false))
       )
       .subscribe({
@@ -136,14 +148,6 @@ export class GameOptionsComponent {
   private resumeOrCreateGame(): void {
     const selectedMode = this.selectedGameMode();
     const selectedSize = this.selectedBoardSize();
-    
-    const token = this.authService.getAuthToken();
-    if (!token) {
-      this.isStartingGame.set(false);
-      this.notifyError('home.error.connection');
-      return;
-    }
-    
     const shouldCreateNew = this.route.snapshot.queryParams['new'] === 'true';
     
     if (shouldCreateNew) {

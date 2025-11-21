@@ -92,13 +92,22 @@ public class RankingServiceImpl implements RankingService {
                     .stream()
                     .map(this::mapToRankingItem)
                     .collect(Collectors.toUnmodifiableList());
-        } else {
-            int offset = (int) pageable.getOffset();
-            items = rankingRepository.findRankingsRaw(offset, pageable.getPageSize())
-                    .stream()
-                    .map(this::mapToRankingItem)
-                    .collect(Collectors.toUnmodifiableList());
+            return new RankingListResponse(
+                    items,
+                    totalCount,
+                    totalPages,
+                    pageable.getPageSize(),
+                    pageable.getPageNumber(),
+                    pageable.getPageNumber() == 0,
+                    pageable.getPageNumber() >= totalPages - 1
+            );
         }
+        
+        int offset = (int) pageable.getOffset();
+        items = rankingRepository.findRankingsRaw(offset, pageable.getPageSize())
+                .stream()
+                .map(this::mapToRankingItem)
+                .collect(Collectors.toUnmodifiableList());
 
         return new RankingListResponse(
                 items,
@@ -201,9 +210,10 @@ public class RankingServiceImpl implements RankingService {
 
         if (items.isEmpty()) {
             log.debug("No players found around user for userId: {} with range: {}", userId, range);
-        } else {
-            log.debug("Found {} players around user for userId: {} with range: {}", items.size(), userId, range);
+            return new RankingAroundResponse(items);
         }
+        
+        log.debug("Found {} players around user for userId: {} with range: {}", items.size(), userId, range);
 
         return new RankingAroundResponse(items);
     }
@@ -368,9 +378,10 @@ public class RankingServiceImpl implements RankingService {
             if (e.getCause() instanceof org.springframework.data.redis.RedisConnectionFailureException ||
                 e.getCause() != null && e.getCause().getClass().getName().contains("redis")) {
                 log.warn("Redis unavailable during cache evict, continuing without cache: {}", e.getMessage());
-            } else {
-                log.warn("Error clearing cache (non-critical): {}", e.getMessage());
+                return;
             }
+            
+            log.warn("Error clearing cache (non-critical): {}", e.getMessage());
         }
     }
 

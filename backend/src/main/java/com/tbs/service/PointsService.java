@@ -301,24 +301,27 @@ public class PointsService {
     }
 
     private long calculatePoints(Game game) {
-        long basePoints = 0L;
-        
         if (game.getGameType() == GameType.PVP) {
-            basePoints = pointsPvp;
-        } else if (game.getGameType() == GameType.VS_BOT) {
-            BotDifficulty difficulty = game.getBotDifficulty();
-            if (difficulty == null) {
-                log.warn("Game {} is VS_BOT but botDifficulty is null", game.getId());
-                return 0L;
-            }
-            basePoints = switch (difficulty) {
-                case EASY -> pointsEasyBot;
-                case MEDIUM -> pointsMediumBot;
-                case HARD -> pointsHardBot;
-            };
-        } else {
+            long basePoints = pointsPvp;
+            double multiplier = getBoardSizeMultiplier(game.getBoardSize());
+            return Math.round(basePoints * multiplier);
+        }
+        
+        if (game.getGameType() != GameType.VS_BOT) {
             return 0L;
         }
+        
+        BotDifficulty difficulty = game.getBotDifficulty();
+        if (difficulty == null) {
+            log.warn("Game {} is VS_BOT but botDifficulty is null", game.getId());
+            return 0L;
+        }
+        
+        long basePoints = switch (difficulty) {
+            case EASY -> pointsEasyBot;
+            case MEDIUM -> pointsMediumBot;
+            case HARD -> pointsHardBot;
+        };
         
         double multiplier = getBoardSizeMultiplier(game.getBoardSize());
         return Math.round(basePoints * multiplier);

@@ -1,6 +1,14 @@
 @if (game; as gameData) {
   <div class="game-bot-info">
     <div class="bot-content">
+      <div class="avatar-section">
+        <div class="bot-title">{{ botDifficultyLabel() }}</div>
+        @if (botAvatar(); as avatar) {
+          <div class="avatar-container">
+            <img [src]="avatar" alt="Bot Avatar" class="avatar-image" />
+          </div>
+        }
+      </div>
       <div class="bot-info-section">
         <div class="bot-details">
           <div class="detail-item">
@@ -23,19 +31,13 @@
           }
         </div>
       </div>
-      <div class="avatar-section">
-        <div class="bot-title">{{ botDifficultyLabel() }}</div>
-        @if (botAvatar(); as avatar) {
-          <div class="avatar-container">
-            <img [src]="avatar" alt="Bot Avatar" class="avatar-image" />
-          </div>
-        }
-        @if (botSymbol(); as symbol) {
+      @if (botSymbol(); as symbol) {
+        <div class="symbol-section">
           <div class="player-symbol symbol-o">
             <span class="symbol-value">{{ symbol }}</span>
           </div>
-        }
-      </div>
+        </div>
+      }
     </div>
   </div>
 } @else {
