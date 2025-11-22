@@ -101,6 +101,41 @@ Skoncentruj się na konstruktywnej krytyce, która pomoże ulepszyć kod zgodnie
 
 ### Format i miejsce raportu
 
-- Raport przygotuj w formacie identycznym jak w pliku `FRONTEND_CODE_REVIEW.md` (linie 1-645), zachowując kontekst raportu dla frontendowych zmian.
-- Gotowy dokument zapisz w katalogu `reports` (np. `reports/frontend-pr-review-report.md`).
+**WAŻNE:** Wszystkie raporty code review muszą być zapisane w katalogu `reports/` w głównym katalogu projektu.
+
+- Raport przygotuj w formacie identycznym jak w pliku `reports/frontend-pr-review-report.md`.
+- Gotowy dokument zapisz **zawsze** w katalogu `reports/` (ścieżka: `reports/frontend-pr-review-report.md`).
+- Nazwa pliku: `reports/frontend-pr-review-report.md` (lub z datą/git-hash jeśli potrzebne).
+
+**Format raportu:**
+1. **Nagłówek z kontekstem:**
+   - Branch, commit, data, zakres zmian
+
+2. **Checklista błędów na górze:**
+   - Używaj ikon: `[❌🔴]` dla niewykonanych błędów krytycznych
+   - `[❌🟠]` dla wysokich, `[❌🟡]` dla średnich, `[❌🔵]` dla niskich
+   - `[✅🔴]` dla wykonanych (po naprawie zmień ❌ na ✅)
+   - Legenda wyjaśniająca ikony
+
+3. **Szczegółowy opis błędów:**
+   - Każdy błąd ma nagłówek: `[❌🔴] #1. KRYTYCZNY - Tytuł`
+   - Lokalizacja: ścieżka pliku i linie
+   - Problem: opis problemu
+   - Aktualny kod: blok kodu w formacie ```typescript lub ```scss
+   - Rozwiązanie: bloki kodu w formacie ```typescript, ```html, ```scss
+
+4. **Priorytety:**
+   - 🔴 Krytyczny - napraw natychmiast (błędy runtime, security, data loss)
+   - 🟠 Wysoki - wpływ na wydajność/stabilność (memory leaks, race conditions)
+   - 🟡 Średni - kwestie UX/konfiguracji (responsywność, accessibility)
+   - 🔵 Niski - refaktoryzacja, optymalizacja kodu
+
+5. **Zasady:**
+   - Tylko błędy do naprawy (bez pozytywnych aspektów)
+   - Czytelny format tekstowy, bez nadmiernego formatowania Markdown
+   - Bloki kodu z odpowiednimi językami (```typescript, ```html, ```scss)
+   - Konkretne rozwiązania z przykładami kodu
+
+6. **Podsumowanie priorytetów:**
+   - Sekcja na końcu z priorytetami naprawy
 

@@ -21,6 +21,5 @@ export interface GuestSessionResponse {
   gamesPlayed: number;
   gamesWon: number;
   createdAt: string;
-  authToken: string;
 }
 

@@ -24,8 +24,6 @@ import java.util.Map;
 public class WebSocketAuthenticationInterceptor implements HandshakeInterceptor {
 
     private static final Logger log = LoggerFactory.getLogger(WebSocketAuthenticationInterceptor.class);
-    private static final String AUTHORIZATION_HEADER = "Authorization";
-    private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtTokenProvider jwtTokenProvider;
     private final GameRepository gameRepository;
@@ -49,77 +47,27 @@ public class WebSocketAuthenticationInterceptor implements HandshakeInterceptor 
             URI uri = request.getURI();
             log.debug("WebSocket handshake attempt: path={}, query={}", uri.getPath(), uri.getQuery());
             
-            String authHeader = request.getHeaders().getFirst(AUTHORIZATION_HEADER);
-            String token = null;
-            
-            if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)) {
-                token = authHeader.substring(BEARER_PREFIX.length()).trim();
-                log.debug("WebSocket: Token found in Authorization header");
-            }
-            
-            if (token == null || token.isEmpty()) {
-                String query = request.getURI().getQuery();
-                if (query != null && query.contains("token=")) {
-                    String[] params = query.split("&");
-                    for (String param : params) {
-                        if (param.startsWith("token=")) {
-                            try {
-                                token = java.net.URLDecoder.decode(param.substring(6), "UTF-8");
-                            } catch (Exception e) {
-                                token = param.substring(6);
-                            }
-                            log.debug("WebSocket: Token found in query parameter");
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            if (token == null || token.isEmpty()) {
-                log.warn("WebSocket handshake rejected: Missing or invalid Authorization header or token query parameter. Path={}, Query={}", uri.getPath(), uri.getQuery());
-                response.setStatusCode(org.springframework.http.HttpStatus.UNAUTHORIZED);
+            String token = extractTokenFromRequest(request);
+            if (!isTokenValid(token, response)) {
                 return false;
             }
             
-            if (!jwtTokenProvider.validateToken(token)) {
-                log.warn("WebSocket handshake rejected: Invalid JWT token");
-                response.setStatusCode(org.springframework.http.HttpStatus.UNAUTHORIZED);
+            Long userId = extractUserIdFromToken(token, response);
+            if (userId == null) {
                 return false;
             }
-
-            Long userId = jwtTokenProvider.getUserIdFromToken(token);
-            Long gameId = extractGameIdFromPath(request.getURI());
-
-            log.debug("WebSocket handshake: userId={}, gameId={}, path={}", userId, gameId, uri.getPath());
-
-            if (gameId == null || gameId <= 0) {
-                log.warn("WebSocket handshake rejected: Invalid gameId in path. Path={}, gameId={}", uri.getPath(), gameId);
-                response.setStatusCode(org.springframework.http.HttpStatus.BAD_REQUEST);
+            
+            Long gameId = extractGameIdFromPath(uri, response);
+            if (gameId == null) {
                 return false;
             }
-
-            Game game = gameRepository.findByIdWithPlayers(gameId)
-                    .orElseThrow(() -> {
-                        log.warn("WebSocket handshake rejected: Game not found, gameId={}", gameId);
-                        return new com.tbs.exception.GameNotFoundException("Game not found: " + gameId);
-                    });
-
-            try {
-                validateGameAccess(game, userId);
-            } catch (ForbiddenException e) {
-                log.warn("WebSocket handshake rejected: {}", e.getMessage());
-                response.setStatusCode(org.springframework.http.HttpStatus.FORBIDDEN);
-                return false;
-            } catch (BadRequestException e) {
-                log.warn("WebSocket handshake rejected: {}", e.getMessage());
-                response.setStatusCode(org.springframework.http.HttpStatus.BAD_REQUEST);
+            
+            Game game = findAndValidateGame(gameId, userId, response);
+            if (game == null) {
                 return false;
             }
-
-            attributes.put("userId", userId);
-            attributes.put("gameId", gameId);
-            attributes.put("game", game);
-
+            
+            setHandshakeAttributes(attributes, userId, gameId, game);
             log.info("WebSocket handshake accepted: userId={}, gameId={}", userId, gameId);
             return true;
         } catch (Exception e) {
@@ -127,6 +75,92 @@ public class WebSocketAuthenticationInterceptor implements HandshakeInterceptor 
             response.setStatusCode(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
             return false;
         }
+    }
+
+    private String extractTokenFromRequest(ServerHttpRequest request) {
+        if (request instanceof org.springframework.http.server.ServletServerHttpRequest) {
+            jakarta.servlet.http.HttpServletRequest servletRequest = 
+                ((org.springframework.http.server.ServletServerHttpRequest) request).getServletRequest();
+            jakarta.servlet.http.Cookie[] cookies = servletRequest.getCookies();
+            if (cookies != null) {
+                for (jakarta.servlet.http.Cookie cookie : cookies) {
+                    if ("authToken".equals(cookie.getName())) {
+                        String token = cookie.getValue();
+                        if (token != null && !token.trim().isEmpty()) {
+                            return token.trim();
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean isTokenValid(String token, ServerHttpResponse response) {
+        if (token == null || token.isEmpty()) {
+            log.warn("WebSocket handshake rejected: Missing or invalid token in cookie");
+            response.setStatusCode(org.springframework.http.HttpStatus.UNAUTHORIZED);
+            return false;
+        }
+        
+        if (!jwtTokenProvider.validateToken(token)) {
+            log.warn("WebSocket handshake rejected: Invalid JWT token");
+            response.setStatusCode(org.springframework.http.HttpStatus.UNAUTHORIZED);
+            return false;
+        }
+        
+        return true;
+    }
+
+    private Long extractUserIdFromToken(String token, ServerHttpResponse response) {
+        try {
+            return jwtTokenProvider.getUserIdFromToken(token);
+        } catch (Exception e) {
+            log.warn("WebSocket handshake rejected: Failed to extract userId from token", e);
+            response.setStatusCode(org.springframework.http.HttpStatus.UNAUTHORIZED);
+            return null;
+        }
+    }
+
+    private Long extractGameIdFromPath(URI uri, ServerHttpResponse response) {
+        Long gameId = extractGameIdFromPath(uri);
+        if (gameId == null || gameId <= 0) {
+            log.warn("WebSocket handshake rejected: Invalid gameId in path. Path={}, gameId={}", uri.getPath(), gameId);
+            response.setStatusCode(org.springframework.http.HttpStatus.BAD_REQUEST);
+            return null;
+        }
+        return gameId;
+    }
+
+    private Game findAndValidateGame(Long gameId, Long userId, ServerHttpResponse response) {
+        try {
+            Game game = gameRepository.findByIdWithPlayers(gameId)
+                    .orElseThrow(() -> {
+                        log.warn("WebSocket handshake rejected: Game not found, gameId={}", gameId);
+                        return new com.tbs.exception.GameNotFoundException("Game not found: " + gameId);
+                    });
+            
+            validateGameAccess(game, userId);
+            return game;
+        } catch (ForbiddenException e) {
+            log.warn("WebSocket handshake rejected: {}", e.getMessage());
+            response.setStatusCode(org.springframework.http.HttpStatus.FORBIDDEN);
+            return null;
+        } catch (BadRequestException e) {
+            log.warn("WebSocket handshake rejected: {}", e.getMessage());
+            response.setStatusCode(org.springframework.http.HttpStatus.BAD_REQUEST);
+            return null;
+        } catch (com.tbs.exception.GameNotFoundException e) {
+            log.warn("WebSocket handshake rejected: {}", e.getMessage());
+            response.setStatusCode(org.springframework.http.HttpStatus.NOT_FOUND);
+            return null;
+        }
+    }
+
+    private void setHandshakeAttributes(Map<String, Object> attributes, Long userId, Long gameId, Game game) {
+        attributes.put("userId", userId);
+        attributes.put("gameId", gameId);
+        attributes.put("game", game);
     }
 
     @Override

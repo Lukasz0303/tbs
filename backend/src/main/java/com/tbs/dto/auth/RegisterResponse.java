@@ -1,15 +1,14 @@
 package com.tbs.dto.auth;
 
 public record RegisterResponse(
-        String userId,
+        Long userId,
         String username,
         String email,
         boolean isGuest,
         Integer avatar,
         long totalPoints,
         int gamesPlayed,
-        int gamesWon,
-        String authToken
+        int gamesWon
 ) {
     public RegisterResponse {
         isGuest = false;

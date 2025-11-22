@@ -12,6 +12,7 @@ describe('GameBannerComponent', () => {
     gameType: 'vs_bot',
     boardSize: 4,
     status: 'in_progress',
+    boardState: Array(4).fill(null).map(() => Array(4).fill(null)),
     player1Id: 7,
     player2Id: null,
     botDifficulty: 'medium',
@@ -52,7 +53,7 @@ describe('GameBannerComponent', () => {
   it('powinien wyświetlać informacje o poziomie trudności bota', () => {
     const tags = Array.from(
       fixture.nativeElement.querySelectorAll('.p-tag')
-    ).map((tag: Element) => tag.textContent?.trim());
+    ).map((tag: unknown) => (tag as Element).textContent?.trim());
 
     expect(tags).toContain('Bot średni');
   });

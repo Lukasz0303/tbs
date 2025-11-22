@@ -15,6 +15,13 @@
   flex-direction: column;
   overflow: hidden;
   box-sizing: border-box;
+
+  :host-context(.guest-layout) & {
+    min-width: 0;
+    max-width: none;
+    width: auto;
+    flex: 0 0 48%;
+  }
 }
 
 .bot-content {

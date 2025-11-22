@@ -1,4 +1,4 @@
-adpackage com.tbs.service;
+package com.tbs.service;
 
 import com.tbs.dto.auth.LoginRequest;
 import com.tbs.dto.auth.LoginResponse;
@@ -75,7 +75,6 @@ class AuthServiceLoginRegisterTest {
                 new LoginRequest("test@example.com", "password123")
         );
 
-        assertThat(response.authToken()).isEqualTo(validToken);
         assertThat(response.userId()).isEqualTo("1");
         assertThat(response.email()).isEqualTo("test@example.com");
         assertThat(response.username()).isEqualTo("testuser");
@@ -158,7 +157,6 @@ class AuthServiceLoginRegisterTest {
                 new RegisterRequest("newuser@example.com", "securePass123", "newuser", null)
         );
 
-        assertThat(response.authToken()).isEqualTo(validToken);
         assertThat(response.userId()).isEqualTo("2");
         assertThat(response.email()).isEqualTo("newuser@example.com");
         assertThat(response.username()).isEqualTo("newuser");

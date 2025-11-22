@@ -21,6 +21,7 @@ describe('HomeComponent', () => {
   const guestResponse = {
     userId: 1,
     isGuest: true,
+    avatar: 1,
     totalPoints: 0,
     gamesPlayed: 0,
     gamesWon: 0,
@@ -32,6 +33,7 @@ describe('HomeComponent', () => {
     gameType: 'vs_bot',
     boardSize: 3,
     status: 'in_progress',
+    boardState: Array(3).fill(null).map(() => Array(3).fill(null)),
     player1Id: 1,
     player2Id: null,
     botDifficulty: 'easy',
@@ -90,26 +92,22 @@ describe('HomeComponent', () => {
     expect(banner).toBeTruthy();
   }));
 
-  it('powinien nawigować do trybu bot przy wyborze karty', () => {
+  it('powinien nawigować do opcji gry przy wyborze gry jako gość', () => {
     initializeComponent();
     const navigateSpy = spyOn(router, 'navigate').and.returnValue(Promise.resolve(true));
 
-    component.onGameModeSelected(component.gameModes[1]);
+    component.playAsGuest();
 
-    expect(navigateSpy).toHaveBeenCalledWith(['/game/mode-selection']);
+    expect(navigateSpy).toHaveBeenCalledWith(['/game-options']);
   });
 
-  it('powinien wyświetlić toast przy błędzie utworzenia sesji gościa', fakeAsync(() => {
+  it('powinien nawigować do opcji gry przy starcie nowej gry', () => {
     initializeComponent();
-    authService.createGuestSession.and.returnValue(throwError(() => new Error('fail')));
-    const toastSpy = spyOn(messageService, 'add');
     const navigateSpy = spyOn(router, 'navigate').and.returnValue(Promise.resolve(true));
 
-    component.onGameModeSelected(component.gameModes[0]);
-    tick();
+    component.startNewGame();
 
-    expect(toastSpy).toHaveBeenCalled();
-    expect(navigateSpy).not.toHaveBeenCalled();
-  }));
+    expect(navigateSpy).toHaveBeenCalledWith(['/game-options'], { queryParams: { new: true } });
+  });
 });
 

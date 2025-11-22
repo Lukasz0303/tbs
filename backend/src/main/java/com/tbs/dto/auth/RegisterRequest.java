@@ -11,11 +11,12 @@ import org.springframework.lang.Nullable;
 public record RegisterRequest(
         @NotBlank(message = "Email is required")
         @Email(message = "Email must be valid")
+        @Size(max = 255, message = "Email cannot exceed 255 characters")
         @Schema(example = "user@example.com", description = "User email address")
         String email,
 
         @NotBlank(message = "Password is required")
-        @Size(min = 8, message = "Password must be at least 8 characters")
+        @Size(min = 8, max = 128, message = "Password must be between 8 and 128 characters")
         @Schema(example = "securePassword123", description = "User password (minimum 8 characters)")
         String password,
 

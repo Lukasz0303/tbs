@@ -20,13 +20,9 @@ export class WebSocketService {
 
   readonly isConnected$ = this.connectionStatus$.asObservable();
 
-  connect(gameId: number, token: string): Observable<void> {
+  connect(gameId: number): Observable<void> {
     if (!gameId || gameId <= 0) {
       return throwError(() => new Error('Invalid gameId: must be a positive number'));
-    }
-
-    if (!token || token.trim().length === 0) {
-      return throwError(() => new Error('Invalid token: token cannot be empty'));
     }
     if (this.ws?.readyState === WebSocket.OPEN && this.gameId === gameId) {
       return new Observable((observer) => {
@@ -39,12 +35,12 @@ export class WebSocketService {
     this.gameId = gameId;
 
     const baseUrl = environment.apiBaseUrl.replace('http', 'ws');
-    const url = `${baseUrl}/ws/game/${gameId}?token=${encodeURIComponent(token)}`;
+    const url = `${baseUrl}/ws/game/${gameId}`;
     const connectionTimeout = 10000;
 
     this.logger.debug('WebSocket: Attempting to connect', {
       gameId,
-      url: url.replace(/\?token=.*$/, '?token=***'),
+      url,
       baseUrl,
       apiBaseUrl: environment.apiBaseUrl
     });
@@ -98,7 +94,7 @@ export class WebSocketService {
             error,
             gameId,
             readyState: this.ws?.readyState,
-            url: url.replace(/\?token=.*$/, '?token=***')
+            url
           });
           if (timeoutId !== null) {
             clearTimeout(timeoutId);
@@ -120,7 +116,7 @@ export class WebSocketService {
           this.connectionStatus$.next(false);
           
           if (event.code !== 1000 && event.code !== 1001) {
-            this.handleReconnect(gameId, token);
+            this.handleReconnect(gameId);
           }
         };
       } catch (error) {
@@ -223,9 +219,11 @@ export class WebSocketService {
     return this.messages$.asObservable();
   }
 
-  private handleReconnect(gameId: number, token: string): void {
+  private handleReconnect(gameId: number): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      this.messages$.error(new Error('Max reconnect attempts reached'));
+      this.logger.error('WebSocket: Max reconnect attempts reached', { gameId });
+      this.disconnect();
+      this.reconnectAttempts = 0;
       return;
     }
 
@@ -233,11 +231,11 @@ export class WebSocketService {
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 10000);
 
     this.reconnectTimeout = window.setTimeout(() => {
-      this.connect(gameId, token)
+      this.connect(gameId)
         .pipe(
           takeUntilDestroyed(this.destroyRef),
           catchError(() => {
-            this.handleReconnect(gameId, token);
+            this.handleReconnect(gameId);
             return EMPTY;
           })
         )

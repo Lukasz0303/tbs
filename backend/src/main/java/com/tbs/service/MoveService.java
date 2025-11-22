@@ -9,6 +9,7 @@ import com.tbs.dto.user.WinnerInfo;
 import com.tbs.enums.GameStatus;
 import com.tbs.enums.GameType;
 import com.tbs.enums.PlayerSymbol;
+import com.tbs.event.MoveCreatedEvent;
 import com.tbs.exception.ForbiddenException;
 import com.tbs.exception.GameNotFoundException;
 import com.tbs.exception.GameNotInProgressException;
@@ -24,13 +25,13 @@ import com.tbs.repository.MoveRepository;
 import com.tbs.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -41,39 +42,21 @@ public class MoveService {
     private final MoveRepository moveRepository;
     private final GameRepository gameRepository;
     private final UserRepository userRepository;
-    private final BoardStateService boardStateService;
-    private final GameLogicService gameLogicService;
-    private final BotService botService;
-    private final GameValidationService gameValidationService;
-    private final com.tbs.websocket.GameWebSocketHandler gameWebSocketHandler;
-    private final TurnValidationService turnValidationService;
-    private final MoveCreationService moveCreationService;
-    private final TurnDeterminationService turnDeterminationService;
-    private final BotUserService botUserService;
-    private final PointsService pointsService;
+    private final MoveOperationContext moveOperationContext;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public MoveService(MoveRepository moveRepository, GameRepository gameRepository,
-                       UserRepository userRepository, BoardStateService boardStateService,
-                       GameLogicService gameLogicService, BotService botService,
-                       GameValidationService gameValidationService,
-                       com.tbs.websocket.GameWebSocketHandler gameWebSocketHandler,
-                       TurnValidationService turnValidationService,
-                       MoveCreationService moveCreationService,
-                       TurnDeterminationService turnDeterminationService,
-                       BotUserService botUserService, PointsService pointsService) {
+    public MoveService(
+            MoveRepository moveRepository,
+            GameRepository gameRepository,
+            UserRepository userRepository,
+            MoveOperationContext moveOperationContext,
+            ApplicationEventPublisher eventPublisher
+    ) {
         this.moveRepository = Objects.requireNonNull(moveRepository, "MoveRepository cannot be null");
         this.gameRepository = Objects.requireNonNull(gameRepository, "GameRepository cannot be null");
         this.userRepository = Objects.requireNonNull(userRepository, "UserRepository cannot be null");
-        this.boardStateService = Objects.requireNonNull(boardStateService, "BoardStateService cannot be null");
-        this.gameLogicService = Objects.requireNonNull(gameLogicService, "GameLogicService cannot be null");
-        this.botService = Objects.requireNonNull(botService, "BotService cannot be null");
-        this.gameValidationService = Objects.requireNonNull(gameValidationService, "GameValidationService cannot be null");
-        this.gameWebSocketHandler = Objects.requireNonNull(gameWebSocketHandler, "GameWebSocketHandler cannot be null");
-        this.turnValidationService = Objects.requireNonNull(turnValidationService, "TurnValidationService cannot be null");
-        this.moveCreationService = Objects.requireNonNull(moveCreationService, "MoveCreationService cannot be null");
-        this.turnDeterminationService = Objects.requireNonNull(turnDeterminationService, "TurnDeterminationService cannot be null");
-        this.botUserService = Objects.requireNonNull(botUserService, "BotUserService cannot be null");
-        this.pointsService = Objects.requireNonNull(pointsService, "PointsService cannot be null");
+        this.moveOperationContext = Objects.requireNonNull(moveOperationContext, "MoveOperationContext cannot be null");
+        this.eventPublisher = Objects.requireNonNull(eventPublisher, "ApplicationEventPublisher cannot be null");
     }
 
     @Transactional(readOnly = true)
@@ -81,7 +64,7 @@ public class MoveService {
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new GameNotFoundException("Game not found"));
 
-        gameValidationService.validateParticipation(game, userId);
+        moveOperationContext.getGameValidationService().validateParticipation(game, userId);
 
         List<Move> moves = moveRepository.findByGameIdOrderByMoveOrderAsc(gameId);
 
@@ -97,7 +80,7 @@ public class MoveService {
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new GameNotFoundException("Game not found"));
 
-        gameValidationService.validateParticipation(game, userId);
+        moveOperationContext.getGameValidationService().validateParticipation(game, userId);
 
         if (game.getStatus() != GameStatus.WAITING && game.getStatus() != GameStatus.IN_PROGRESS) {
             throw new GameNotInProgressException("Game is not in progress");
@@ -120,18 +103,18 @@ public class MoveService {
             }
         }
         
-        turnValidationService.validatePlayerTurn(game, existingMoves, request.playerSymbol(), userId);
+        moveOperationContext.getTurnValidationService().validatePlayerTurn(game, existingMoves, request.playerSymbol(), userId);
         
-        gameLogicService.validateMove(game, existingMoves, request.row(), request.col(), request.playerSymbol());
+        moveOperationContext.getGameLogicService().validateMove(game, existingMoves, request.row(), request.col(), request.playerSymbol());
 
         User player = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        Move savedMove = moveCreationService.createAndSaveMove(game, request.row(), request.col(), request.playerSymbol(), player);
+        Move savedMove = moveOperationContext.getMoveCreationService().createAndSaveMove(game, request.row(), request.col(), request.playerSymbol(), player);
         log.info("Created move {} for game {} by user {}", savedMove.getId(), gameId, userId);
 
         List<Move> allMoves = moveRepository.findByGameIdOrderByMoveOrderAsc(gameId);
-        BoardState boardState = boardStateService.generateBoardState(game, allMoves);
+        BoardState boardState = moveOperationContext.getBoardStateService().generateBoardState(game, allMoves);
 
         GameStateUpdateResult stateUpdate = updateGameStateAfterMove(
                 game, boardState, request.playerSymbol(), player, userId
@@ -158,11 +141,17 @@ public class MoveService {
         );
 
         if (game.getGameType() == GameType.PVP) {
-            CompletableFuture.runAsync(() -> 
-                notifyWebSocket(gameId, userId, savedMove.getId(), request.row(), request.col(),
-                    request.playerSymbol(), boardState, updatedGame.getCurrentPlayerSymbol(),
-                    updatedGame.getStatus())
-            );
+            eventPublisher.publishEvent(new MoveCreatedEvent(
+                    gameId,
+                    userId,
+                    savedMove.getId(),
+                    request.row(),
+                    request.col(),
+                    request.playerSymbol(),
+                    boardState,
+                    updatedGame.getCurrentPlayerSymbol(),
+                    updatedGame.getStatus()
+            ));
         }
 
         return response;
@@ -173,7 +162,7 @@ public class MoveService {
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new GameNotFoundException("Game not found"));
 
-        gameValidationService.validateParticipation(game, userId);
+        moveOperationContext.getGameValidationService().validateParticipation(game, userId);
 
         if (game.getPlayer1() == null) {
             throw new IllegalStateException("Game must have player1");
@@ -193,21 +182,21 @@ public class MoveService {
         }
 
         List<Move> existingMoves = moveRepository.findByGameIdOrderByMoveOrderAsc(gameId);
-        BoardState boardState = boardStateService.generateBoardState(game, existingMoves);
+        BoardState boardState = moveOperationContext.getBoardStateService().generateBoardState(game, existingMoves);
 
         PlayerSymbol currentSymbol = game.getCurrentPlayerSymbol();
         if (currentSymbol == null) {
             throw new GameNotInProgressException("Game has not started yet");
         }
 
-        PlayerSymbol player1Symbol = turnDeterminationService.determinePlayer1Symbol(game, existingMoves);
-        PlayerSymbol botSymbol = gameLogicService.getOppositeSymbol(player1Symbol);
+        PlayerSymbol player1Symbol = moveOperationContext.getTurnDeterminationService().determinePlayer1Symbol(game, existingMoves);
+        PlayerSymbol botSymbol = moveOperationContext.getGameLogicService().getOppositeSymbol(player1Symbol);
 
         if (currentSymbol != botSymbol) {
             throw new InvalidMoveException("It's not bot's turn");
         }
         
-        BotService.BotMovePosition botPosition = botService.generateBotMove(
+        BotService.BotMovePosition botPosition = moveOperationContext.getBotService().generateBotMove(
                 boardState, 
                 game.getBotDifficulty(), 
                 botSymbol, 
@@ -215,12 +204,12 @@ public class MoveService {
                 game
         );
 
-        User botUser = botUserService.getBotUser();
-        Move savedMove = moveCreationService.createAndSaveMove(game, botPosition.row(), botPosition.col(), botSymbol, botUser);
+        User botUser = moveOperationContext.getBotUserService().getBotUser();
+        Move savedMove = moveOperationContext.getMoveCreationService().createAndSaveMove(game, botPosition.row(), botPosition.col(), botSymbol, botUser);
         log.info("Created bot move {} for game {} with difficulty {}", savedMove.getId(), gameId, game.getBotDifficulty());
 
         List<Move> allMoves = moveRepository.findByGameIdOrderByMoveOrderAsc(gameId);
-        boardState = boardStateService.generateBoardState(game, allMoves);
+        boardState = moveOperationContext.getBoardStateService().generateBoardState(game, allMoves);
 
         GameStateUpdateResult stateUpdate = updateGameStateAfterBotMove(
                 game, boardState, botSymbol, gameId
@@ -251,13 +240,13 @@ public class MoveService {
 
     private GameStateUpdateResult updateGameStateAfterBotMove(
             Game game, BoardState boardState, PlayerSymbol botSymbol, Long gameId) {
-        User botUser = botUserService.getBotUser();
+        User botUser = moveOperationContext.getBotUserService().getBotUser();
         return updateGameStateAfterMoveInternal(game, boardState, botSymbol, botUser);
     }
 
     private GameStateUpdateResult updateGameStateAfterMoveInternal(
             Game game, BoardState boardState, PlayerSymbol moveSymbol, User winnerUser) {
-        boolean isWin = gameLogicService.checkWinCondition(game, boardState, moveSymbol);
+        boolean isWin = moveOperationContext.getGameLogicService().checkWinCondition(game, boardState, moveSymbol);
 
         if (isWin) {
             if (winnerUser == null) {
@@ -269,48 +258,24 @@ public class MoveService {
             game.setWinner(winnerUser);
             game.setFinishedAt(Instant.now());
 
-            pointsService.awardPointsForWin(game, winnerUser);
+            moveOperationContext.getPointsService().awardPointsForWin(game, winnerUser);
 
             WinnerInfo winner = new WinnerInfo(winnerUser.getId(), winnerUser.getUsername());
             log.info("Game {} finished. Winner: user {}", game.getId(), winnerUser.getId());
             return new GameStateUpdateResult(winner);
         }
 
-        if (gameLogicService.checkDrawCondition(game, boardState)) {
+        if (moveOperationContext.getGameLogicService().checkDrawCondition(game, boardState)) {
             game.setStatus(GameStatus.DRAW);
             game.setFinishedAt(Instant.now());
-            pointsService.awardPointsForDraw(game);
+            moveOperationContext.getPointsService().awardPointsForDraw(game);
             log.info("Game {} ended in draw", game.getId());
             return new GameStateUpdateResult(null);
         }
 
-        PlayerSymbol nextPlayerSymbol = gameLogicService.getOppositeSymbol(moveSymbol);
+        PlayerSymbol nextPlayerSymbol = moveOperationContext.getGameLogicService().getOppositeSymbol(moveSymbol);
         game.setCurrentPlayerSymbol(nextPlayerSymbol);
         return new GameStateUpdateResult(null);
-    }
-
-    private void notifyWebSocket(Long gameId, Long userId, Long moveId, int row, int col,
-                                 PlayerSymbol playerSymbol, BoardState boardState,
-                                 PlayerSymbol currentPlayerSymbol, GameStatus gameStatus) {
-        try {
-            log.info("Game is PVP, calling notifyMoveFromRestApi: gameId={}, userId={}, moveId={}", 
-                    gameId, userId, moveId);
-            gameWebSocketHandler.notifyMoveFromRestApi(
-                    gameId,
-                    userId,
-                    moveId,
-                    row,
-                    col,
-                    playerSymbol,
-                    boardState,
-                    currentPlayerSymbol,
-                    gameStatus
-            );
-            log.info("Successfully called notifyMoveFromRestApi for gameId={}, userId={}", gameId, userId);
-        } catch (Exception e) {
-            log.error("Failed to notify WebSocket about move from REST API: gameId={}, userId={}", 
-                    gameId, userId, e);
-        }
     }
 
     private static record GameStateUpdateResult(WinnerInfo winner) {}

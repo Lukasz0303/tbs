@@ -23,9 +23,10 @@
   }
   
   :host-context(.guest-layout) &.guest-user {
-    min-width: 550px;
-    max-width: 550px;
-    width: 550px;
+    min-width: 0;
+    max-width: none;
+    width: auto;
+    flex: 0 0 48%;
   }
 }
 
@@ -39,6 +40,11 @@
   
   .game-user-profile.guest-user & {
     align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  :host-context(.guest-layout) & {
+    gap: 0.5rem;
   }
 }
 
@@ -50,6 +56,10 @@
   flex-shrink: 0;
   min-width: 80px;
   gap: 0.5rem;
+
+  :host-context(.guest-layout) & {
+    min-width: 70px;
+  }
 }
 
 .ranking-position {
@@ -71,6 +81,11 @@
   align-items: center;
   gap: 0.75rem;
   min-width: 110px;
+
+  :host-context(.guest-layout) & {
+    min-width: 90px;
+    gap: 0.5rem;
+  }
 }
 
 .profile-name {
@@ -98,6 +113,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
+
+  :host-context(.guest-layout) & {
+    width: 80px;
+    height: 80px;
+  }
 }
 
 .avatar-image {
@@ -164,6 +184,15 @@
   border: 3px solid rgba(255, 255, 255, 0.3);
   position: relative;
 
+  :host-context(.guest-layout) & {
+    width: 56px;
+    height: 56px;
+
+    .symbol-value {
+      font-size: 1.75rem;
+    }
+  }
+
   .symbol-value {
     font-size: 2rem;
     font-weight: 700;
@@ -227,6 +256,12 @@
   flex-shrink: 0;
   overflow: visible;
   height: 100%;
+
+  :host-context(.guest-layout) & {
+    min-width: 180px;
+    max-width: 200px;
+    flex-shrink: 1;
+  }
 }
 
 .guest-info {
@@ -274,6 +309,24 @@
     
     &:hover {
       color: #bf360c;
+    }
+  }
+
+  :host-context(.guest-layout) & {
+    padding: 0.75rem 1rem;
+    gap: 0.625rem;
+
+    .guest-icon {
+      font-size: 1.5rem;
+    }
+
+    p {
+      font-size: 0.75rem;
+      line-height: 1.4;
+    }
+
+    .register-link {
+      font-size: 0.75rem;
     }
   }
 }

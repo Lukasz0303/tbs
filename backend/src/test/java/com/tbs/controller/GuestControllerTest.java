@@ -5,6 +5,7 @@ import com.tbs.dto.guest.GuestResponse;
 import com.tbs.service.GuestService;
 import com.tbs.service.IpAddressService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +33,9 @@ class GuestControllerTest {
     @Mock
     private HttpServletRequest httpServletRequest;
 
+    @Mock
+    private HttpServletResponse httpServletResponse;
+
     @InjectMocks
     private GuestController guestController;
 
@@ -48,8 +52,7 @@ class GuestControllerTest {
                 0L,
                 0,
                 0,
-                Instant.now(),
-                testToken
+                Instant.now()
         );
     }
 
@@ -62,21 +65,20 @@ class GuestControllerTest {
                 0L,
                 0,
                 0,
-                Instant.now(),
-                testToken
+                Instant.now()
         );
 
         when(ipAddressService.extractIpAddress(any(HttpServletRequest.class), anyString()))
                 .thenReturn(testIpAddress);
         when(guestService.findOrCreateGuest(testIpAddress)).thenReturn(newGuestResponse);
+        when(guestService.generateTokenForGuest(1L)).thenReturn(testToken);
 
-        ResponseEntity<GuestResponse> response = guestController.createOrGetGuest(null);
+        ResponseEntity<GuestResponse> response = guestController.createOrGetGuest(null, httpServletResponse);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         GuestResponse body = response.getBody();
         assertThat(body).isNotNull();
         assertThat(body.userId()).isEqualTo(1L);
-        assertThat(body.authToken()).isEqualTo(testToken);
     }
 
     @Test
@@ -88,15 +90,15 @@ class GuestControllerTest {
                 100L,
                 5,
                 3,
-                Instant.now().minusSeconds(10),
-                testToken
+                Instant.now().minusSeconds(10)
         );
 
         when(ipAddressService.extractIpAddress(any(HttpServletRequest.class), anyString()))
                 .thenReturn(testIpAddress);
         when(guestService.findOrCreateGuest(testIpAddress)).thenReturn(existingGuestResponse);
+        when(guestService.generateTokenForGuest(1L)).thenReturn(testToken);
 
-        ResponseEntity<GuestResponse> response = guestController.createOrGetGuest(null);
+        ResponseEntity<GuestResponse> response = guestController.createOrGetGuest(null, httpServletResponse);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         GuestResponse body = response.getBody();
@@ -112,7 +114,9 @@ class GuestControllerTest {
                 .thenReturn("10.0.0.1");
         when(guestService.findOrCreateGuest("10.0.0.1")).thenReturn(guestResponse);
 
-        ResponseEntity<GuestResponse> response = guestController.createOrGetGuest(guestRequest);
+        when(guestService.generateTokenForGuest(1L)).thenReturn(testToken);
+
+        ResponseEntity<GuestResponse> response = guestController.createOrGetGuest(guestRequest, httpServletResponse);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         GuestResponse body = response.getBody();
@@ -126,8 +130,9 @@ class GuestControllerTest {
         when(ipAddressService.extractIpAddress(any(HttpServletRequest.class), isNull()))
                 .thenReturn(testIpAddress);
         when(guestService.findOrCreateGuest(testIpAddress)).thenReturn(guestResponse);
+        when(guestService.generateTokenForGuest(1L)).thenReturn(testToken);
 
-        ResponseEntity<GuestResponse> response = guestController.createOrGetGuest(null);
+        ResponseEntity<GuestResponse> response = guestController.createOrGetGuest(null, httpServletResponse);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         verify(ipAddressService).extractIpAddress(httpServletRequest, null);
@@ -141,8 +146,9 @@ class GuestControllerTest {
         when(ipAddressService.extractIpAddress(any(HttpServletRequest.class), isNull()))
                 .thenReturn(testIpAddress);
         when(guestService.findOrCreateGuest(testIpAddress)).thenReturn(guestResponse);
+        when(guestService.generateTokenForGuest(1L)).thenReturn(testToken);
 
-        ResponseEntity<GuestResponse> response = guestController.createOrGetGuest(guestRequest);
+        ResponseEntity<GuestResponse> response = guestController.createOrGetGuest(guestRequest, httpServletResponse);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         verify(ipAddressService).extractIpAddress(httpServletRequest, null);

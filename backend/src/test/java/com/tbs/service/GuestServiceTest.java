@@ -63,7 +63,6 @@ class GuestServiceTest {
 
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.isGuest()).isTrue();
-        assertThat(response.authToken()).isEqualTo(testToken);
         verify(userRepository, never()).save(any(User.class));
     }
 
@@ -79,7 +78,6 @@ class GuestServiceTest {
 
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.isGuest()).isTrue();
-        assertThat(response.authToken()).isEqualTo(testToken);
         verify(userRepository).save(any(User.class));
     }
 
@@ -97,7 +95,6 @@ class GuestServiceTest {
 
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.isGuest()).isTrue();
-        assertThat(response.authToken()).isEqualTo(testToken);
         verify(userRepository, times(2)).findByIpAddressAndIsGuest(testIpAddress, true);
     }
 

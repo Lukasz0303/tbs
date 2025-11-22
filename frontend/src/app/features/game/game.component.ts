@@ -2,7 +2,7 @@ import { AsyncPipe, CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { interval, BehaviorSubject, EMPTY, switchMap, map, catchError, of, take, filter, timer } from 'rxjs';
+import { interval, BehaviorSubject, EMPTY, switchMap, map, catchError, of, take, filter, timer, finalize } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { ToastModule } from 'primeng/toast';
@@ -326,18 +326,8 @@ export class GameComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const token = this.authService.getAuthToken();
-    if (!token) {
-      this.messageService.add({
-        severity: 'error',
-        summary: this.translate.translate('game.error.title'),
-        detail: this.translate.translate('game.error.missingToken'),
-      });
-      return;
-    }
-
     this.websocketService
-      .connect(this.gameId, token)
+      .connect(this.gameId)
       .pipe(
         switchMap(() => this.websocketService.getMessages()),
         takeUntilDestroyed(this.destroyRef)
@@ -615,73 +605,87 @@ export class GameComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.websocketService.isConnected$.pipe(
-      take(1),
-      switchMap((isConnected) => {
-        this.logger.debug('GAME_WS_CONNECTION_STATUS', {
-          isConnected,
-          gameId: this.gameId,
-        });
-        
-        if (!isConnected) {
+    this.websocketService.isConnected$
+      .pipe(
+        take(1),
+        switchMap((isConnected) => {
+          this.logger.debug('GAME_WS_CONNECTION_STATUS', {
+            isConnected,
+            gameId: this.gameId,
+          });
+
+          if (isConnected) {
+            const playerSymbol = Number(game.player1Id) === Number(user.userId) ? 'x' : 'o';
+            this.logger.debug('Sending move via WebSocket', {
+              row: move.row,
+              col: move.col,
+              playerSymbol,
+              userId: user.userId,
+              player1Id: game.player1Id,
+              player2Id: game.player2Id,
+            });
+            return this.websocketService.sendMove(move.row, move.col, playerSymbol);
+          }
+
           this.logger.debug('GAME_MOVE_BLOCKED', {
             reason: 'websocket_not_connected',
-            gameId: this.gameId
+            gameId: this.gameId,
           });
           this.messageService.add({
             severity: 'warn',
             summary: this.translate.translate('game.error.title'),
             detail: this.translate.translate('game.error.websocketReconnecting'),
           });
-          
+
           if (!this.authService.isAuthenticated() || !this.gameId) {
+            this.isMovePending.set(false);
+            this.messageService.add({
+              severity: 'error',
+              summary: this.translate.translate('game.error.title'),
+              detail: this.translate.translate('game.error.websocketConnectionFailed'),
+            });
             return EMPTY;
           }
-          
-          const token = this.authService.getAuthToken();
-          if (token) {
-            return this.websocketService.connect(this.gameId, token).pipe(
-              catchError((error) => {
-                this.logger.error('Failed to reconnect WebSocket:', error);
-                this.isMovePending.set(false);
-                this.messageService.add({
-                  severity: 'error',
-                  summary: this.translate.translate('game.error.title'),
-                  detail: this.translate.translate('game.error.websocketConnectionFailed'),
-                });
-                return EMPTY;
-              })
-            );
-          }
+
+          return this.websocketService.connect(this.gameId).pipe(
+            switchMap(() => {
+              const playerSymbol = Number(game.player1Id) === Number(user.userId) ? 'x' : 'o';
+              this.logger.debug('Sending move via WebSocket after reconnect', {
+                row: move.row,
+                col: move.col,
+                playerSymbol,
+                userId: user.userId,
+                player1Id: game.player1Id,
+                player2Id: game.player2Id,
+              });
+              return this.websocketService.sendMove(move.row, move.col, playerSymbol);
+            }),
+            catchError((error) => {
+              this.logger.error('Failed to reconnect WebSocket:', error);
+              this.isMovePending.set(false);
+              this.messageService.add({
+                severity: 'error',
+                summary: this.translate.translate('game.error.title'),
+                detail: this.translate.translate('game.error.websocketConnectionFailed'),
+              });
+              return EMPTY;
+            })
+          );
+        }),
+        finalize(() => {
           this.isMovePending.set(false);
-          return EMPTY;
-        }
-
-        const playerSymbol = Number(game.player1Id) === Number(user.userId) ? 'x' : 'o';
-        
-        this.logger.debug('Sending move via WebSocket', {
-          row: move.row,
-          col: move.col,
-          playerSymbol,
-          userId: user.userId,
-          player1Id: game.player1Id,
-          player2Id: game.player2Id,
-          isConnected
-        });
-
-        return this.websocketService.sendMove(move.row, move.col, playerSymbol);
-      }),
-      takeUntilDestroyed(this.destroyRef)
-    ).subscribe({
-      next: () => {
-        this.logger.debug('Move sent successfully via WebSocket');
-      },
-      error: (error) => {
-        this.isMovePending.set(false);
-        this.logger.error('Error sending move via WebSocket:', error);
-        this.handleMoveError(error);
-      },
-    });
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: () => {
+          this.logger.debug('Move sent successfully via WebSocket');
+        },
+        error: (error) => {
+          this.logger.error('Error sending move via WebSocket:', error);
+          this.handleMoveError(error);
+        },
+      });
   }
 
   private makeBotMove(): void {
@@ -1344,7 +1348,8 @@ export class GameComponent implements OnInit, OnDestroy {
     lines.push(Array.from({ length: size }, (_, i) => ({ row: i, col: size - 1 - i })));
     for (const line of lines) {
       const symbols = line.map((p) => board[p.row]?.[p.col] ?? null);
-      if (symbols.every((s) => s != null && s === symbols[0])) {
+      const firstSymbol = symbols[0];
+      if (firstSymbol != null && symbols.every((s) => s != null && s === firstSymbol)) {
         this.winningCells.set(line);
         return;
       }
