@@ -59,19 +59,24 @@ public class AuthService {
             throw new UnauthorizedException("Invalid email or password");
         }
 
-        String token = jwtTokenProvider.generateToken(user.getId());
-
         return new LoginResponse(
-                user.getId().toString(),
+                user.getId(),
                 user.getUsername(),
                 user.getEmail(),
                 false,
                 Optional.ofNullable(user.getAvatar()).orElse(1),
                 user.getTotalPoints(),
                 user.getGamesPlayed(),
-                user.getGamesWon(),
-                token
+                user.getGamesWon()
         );
+    }
+
+    public String generateTokenForUser(Long userId) {
+        Objects.requireNonNull(userId, "UserId cannot be null");
+        if (userId <= 0) {
+            throw new IllegalArgumentException("UserId must be positive");
+        }
+        return jwtTokenProvider.generateToken(userId);
     }
 
     public RegisterResponse register(RegisterRequest request) {
@@ -86,8 +91,7 @@ public class AuthService {
         
         try {
             User savedUser = createAndSaveUser(request);
-            String token = jwtTokenProvider.generateToken(savedUser.getId());
-            return buildRegisterResponse(savedUser, token);
+            return buildRegisterResponse(savedUser);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             handleDataIntegrityViolation(e, request);
             throw new BadRequestException("Registration failed due to constraint violation");
@@ -129,17 +133,16 @@ public class AuthService {
         return user;
     }
 
-    private RegisterResponse buildRegisterResponse(User savedUser, String token) {
+    private RegisterResponse buildRegisterResponse(User savedUser) {
         return new RegisterResponse(
-                savedUser.getId().toString(),
+                savedUser.getId(),
                 savedUser.getUsername(),
                 savedUser.getEmail(),
                 false,
                 Optional.ofNullable(savedUser.getAvatar()).orElse(1),
                 savedUser.getTotalPoints(),
                 savedUser.getGamesPlayed(),
-                savedUser.getGamesWon(),
-                token
+                savedUser.getGamesWon()
         );
     }
 
@@ -204,6 +207,7 @@ public class AuthService {
 
     public LogoutResponse logout(String token) {
         if (token == null || token.trim().isEmpty()) {
+            log.warn("Logout attempt with null or empty token");
             throw new UnauthorizedException("Token is required");
         }
 

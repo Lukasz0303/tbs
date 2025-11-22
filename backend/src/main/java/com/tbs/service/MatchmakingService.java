@@ -47,12 +47,11 @@ public class MatchmakingService {
         }
 
         try {
-            if (gameRepository.hasActivePvpGame(userId)) {
-                throw new UserHasActiveGameException("User already has an active PvP game");
-            }
-
-            boolean added = redisService.addToQueueIfNotExists(userId, request.boardSize());
+            boolean added = redisService.addToQueueIfNotActive(userId, request.boardSize());
             if (!added) {
+                if (gameRepository.hasActivePvpGame(userId)) {
+                    throw new UserHasActiveGameException("User already has an active PvP game");
+                }
                 throw new UserAlreadyInQueueException("User is already in the matchmaking queue");
             }
 

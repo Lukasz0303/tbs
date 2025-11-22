@@ -3,6 +3,7 @@ package com.tbs.repository;
 import com.tbs.model.Game;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,12 +22,10 @@ public interface GameRepository extends JpaRepository<Game, Long> {
     Optional<Game> findByIdWithPlayers(@Param("gameId") Long gameId);
 
     @Query("SELECT g FROM Game g " +
-           "LEFT JOIN FETCH g.player1 p1 " +
-           "LEFT JOIN FETCH g.player2 p2 " +
-           "LEFT JOIN FETCH g.winner w " +
            "WHERE (g.player1.id = :userId OR g.player2.id = :userId) " +
            "AND (:status IS NULL OR g.status IN :status) " +
            "AND (:gameType IS NULL OR g.gameType = :gameType)")
+    @EntityGraph(attributePaths = {"player1", "player2", "winner"})
     Page<Game> findByUserIdAndFilters(
         @Param("userId") Long userId,
         @Param("status") java.util.List<com.tbs.enums.GameStatus> status,

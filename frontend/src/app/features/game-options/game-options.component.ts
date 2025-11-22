@@ -204,9 +204,16 @@ export class GameOptionsComponent implements OnInit {
     }
     
     if (this.isAuthError(error)) {
-      this.authService.clearAuthToken();
-      this.authService.updateCurrentUser(null);
-      this.createGuestSession();
+      this.authService.logout().pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError(() => {
+          this.authService.forceLogout();
+          return EMPTY;
+        }),
+        finalize(() => {
+          this.createGuestSession();
+        })
+      ).subscribe();
       return EMPTY;
     }
     
@@ -222,7 +229,7 @@ export class GameOptionsComponent implements OnInit {
   }
 
   private isConnectionError(error: unknown): boolean {
-    return error instanceof HttpErrorResponse && (error.status === 0 || error.status === 404);
+    return error instanceof HttpErrorResponse && (error.status === 0 || error.status >= 500);
   }
 
   private isAuthError(error: unknown): boolean {

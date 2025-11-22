@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import com.tbs.exception.BadRequestException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -18,6 +19,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+
+import jakarta.validation.constraints.Min;
 
 import java.net.URI;
 import java.util.List;
@@ -26,7 +30,10 @@ import java.util.List;
 @RequestMapping("/api/v1/games")
 @Tag(name = "Games", description = "API endpoints for game management")
 @PreAuthorize("isAuthenticated()")
+@Validated
 public class GameController {
+
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final GameService gameService;
     private final AuthenticationService authenticationService;
@@ -68,6 +75,9 @@ public class GameController {
             @RequestParam(required = false) GameType gameType,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
+        if (pageable.getPageSize() > MAX_PAGE_SIZE) {
+            throw new BadRequestException("Page size cannot exceed " + MAX_PAGE_SIZE);
+        }
         Long userId = authenticationService.getCurrentUserId();
         GameListResponse response = gameService.getGames(userId, status, gameType, pageable);
         return ResponseEntity.ok(response);
@@ -84,7 +94,7 @@ public class GameController {
             @ApiResponse(responseCode = "404", description = "Game not found")
     })
     @SecurityRequirement(name = "bearerAuth")
-    public ResponseEntity<GameDetailResponse> getGameDetail(@PathVariable Long gameId) {
+    public ResponseEntity<GameDetailResponse> getGameDetail(@PathVariable @Min(1) Long gameId) {
         Long userId = authenticationService.getCurrentUserId();
         GameDetailResponse response = gameService.getGameDetail(gameId, userId);
         return ResponseEntity.ok(response);
@@ -98,7 +108,7 @@ public class GameController {
             @ApiResponse(responseCode = "404", description = "Game not found")
     })
     @SecurityRequirement(name = "bearerAuth")
-    public ResponseEntity<BoardStateResponse> getBoardState(@PathVariable Long gameId) {
+    public ResponseEntity<BoardStateResponse> getBoardState(@PathVariable @Min(1) Long gameId) {
         Long userId = authenticationService.getCurrentUserId();
         BoardStateResponse response = gameService.getBoardState(gameId, userId);
         return ResponseEntity.ok(response);
@@ -114,7 +124,7 @@ public class GameController {
     })
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<UpdateGameStatusResponse> updateGameStatus(
-            @PathVariable Long gameId,
+            @PathVariable @Min(1) Long gameId,
             @Valid @RequestBody UpdateGameStatusRequest request
     ) {
         Long userId = authenticationService.getCurrentUserId();

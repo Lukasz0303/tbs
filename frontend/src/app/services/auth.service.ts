@@ -17,7 +17,6 @@ interface AuthUserResponse {
   gamesWon: number;
   createdAt: string;
   lastSeenAt: string | null;
-  authToken?: string;
 }
 
 interface LoginRequest {
@@ -73,8 +72,7 @@ export class AuthService {
         tap((user) => this.currentUserSignal.set(user)),
         catchError((error) => {
           if (error.status === 401 || error.status === 403) {
-            this.clearAuthToken();
-            this.currentUserSignal.set(null);
+            this.forceLogout();
           }
           return of(null);
         })
@@ -94,9 +92,6 @@ export class AuthService {
       .post<GuestSessionResponse>(`${this.apiUrl}/v1/guests`, {})
       .pipe(
         tap((response) => {
-          if (response.authToken) {
-            localStorage.setItem('wow-auth-token', response.authToken);
-          }
           const guestUser: User = {
             userId: response.userId,
             username: null,
@@ -119,16 +114,13 @@ export class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!this.getAuthToken() && !!this.currentUserSignal() && !this.currentUserSignal()?.isGuest;
+    return !!this.currentUserSignal() && !this.currentUserSignal()?.isGuest;
   }
 
   login(email: string, password: string): Observable<User> {
     const request: LoginRequest = { email, password };
     return this.http.post<AuthUserResponse>(`${this.apiUrl}/v1/auth/login`, request).pipe(
       tap((response) => {
-        if (response.authToken) {
-          localStorage.setItem('wow-auth-token', response.authToken);
-        }
         const user = this.mapToUser(response);
         if (user) {
           this.currentUserSignal.set(user);
@@ -148,9 +140,6 @@ export class AuthService {
     const request: RegisterRequest = { username, email, password, avatar };
     return this.http.post<AuthUserResponse>(`${this.apiUrl}/v1/auth/register`, request).pipe(
       tap((response) => {
-        if (response.authToken) {
-          localStorage.setItem('wow-auth-token', response.authToken);
-        }
         const user = this.mapToUser(response);
         if (user) {
           this.currentUserSignal.set(user);
@@ -167,13 +156,19 @@ export class AuthService {
   }
 
   logout(): Observable<void> {
+    const currentUser = this.currentUserSignal();
+    const isGuest = currentUser?.isGuest ?? false;
+    
+    if (isGuest) {
+      this.currentUserSignal.set(null);
+      return of(undefined);
+    }
+
     return this.http.post<void>(`${this.apiUrl}/v1/auth/logout`, {}).pipe(
       tap(() => {
-        this.clearAuthToken();
         this.currentUserSignal.set(null);
       }),
       catchError((error) => {
-        this.clearAuthToken();
         this.currentUserSignal.set(null);
         return of(undefined);
       }),
@@ -181,12 +176,8 @@ export class AuthService {
     );
   }
 
-  getAuthToken(): string | null {
-    return localStorage.getItem('wow-auth-token');
-  }
-
-  clearAuthToken(): void {
-    localStorage.removeItem('wow-auth-token');
+  forceLogout(): void {
+    this.currentUserSignal.set(null);
   }
 
   private mapToUser(response: AuthUserResponse | null): User | null {

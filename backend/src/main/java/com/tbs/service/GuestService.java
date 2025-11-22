@@ -77,7 +77,6 @@ public class GuestService {
             throw new IllegalStateException("User ID cannot be null");
         }
 
-        String token = jwtTokenProvider.generateToken(user.getId());
         return new GuestResponse(
                 user.getId(),
                 true,
@@ -85,9 +84,12 @@ public class GuestService {
                 Optional.ofNullable(user.getTotalPoints()).orElse(0L),
                 Optional.ofNullable(user.getGamesPlayed()).orElse(0),
                 Optional.ofNullable(user.getGamesWon()).orElse(0),
-                Optional.ofNullable(user.getCreatedAt()).orElseGet(Instant::now),
-                token
+                Optional.ofNullable(user.getCreatedAt()).orElseGet(Instant::now)
         );
+    }
+
+    public String generateTokenForGuest(Long userId) {
+        return jwtTokenProvider.generateToken(userId);
     }
 
     private String maskIpAddress(String ipAddress) {

@@ -12,6 +12,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import com.tbs.util.CookieTokenExtractor;
 
 import java.io.IOException;
 import java.util.List;
@@ -20,8 +21,6 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
-    private static final String AUTH_HEADER = "Authorization";
-    private static final String TOKEN_PREFIX = "Bearer ";
 
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenBlacklistService tokenBlacklistService;
@@ -72,15 +71,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private String extractToken(HttpServletRequest request) {
-        String authHeader = request.getHeader(AUTH_HEADER);
-        if (authHeader == null || !authHeader.startsWith(TOKEN_PREFIX)) {
-            return null;
-        }
-        return authHeader.substring(TOKEN_PREFIX.length()).trim();
+        return CookieTokenExtractor.extractToken(request);
     }
 
     private boolean validateAndSetAuthentication(String token) {
-        if (token.isEmpty()) {
+        if (token == null || token.isEmpty()) {
             log.warn("Empty token in Authorization header");
             return false;
         }
@@ -91,7 +86,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         try {
-            String tokenId = jwtTokenProvider.getTokenId(token);
+            String tokenId;
+            try {
+                tokenId = jwtTokenProvider.getTokenId(token);
+            } catch (Exception e) {
+                log.warn("Failed to extract token ID from token: {}", e.getMessage());
+                return false;
+            }
+            
             if (tokenBlacklistService.isBlacklisted(tokenId)) {
                 log.warn("Attempted access with blacklisted token: {}", tokenId);
                 return false;
