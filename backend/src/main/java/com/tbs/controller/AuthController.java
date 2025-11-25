@@ -6,7 +6,10 @@ import com.tbs.dto.auth.LogoutResponse;
 import com.tbs.dto.auth.RegisterRequest;
 import com.tbs.dto.auth.RegisterResponse;
 import com.tbs.dto.auth.UserProfileResponse;
+import com.tbs.exception.RateLimitExceededException;
 import com.tbs.service.AuthService;
+import com.tbs.service.IpAddressService;
+import com.tbs.service.RateLimitingService;
 import com.tbs.service.UserService;
 import com.tbs.util.CookieTokenExtractor;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +29,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.lang.NonNull;
 
+import java.time.Duration;
+import java.util.Objects;
+
 @RestController
 @RequestMapping("/api/v1/auth")
 @Tag(name = "Authentication", description = "API endpoints for user authentication and profile management")
@@ -33,49 +39,99 @@ public class AuthController {
 
     private final AuthService authService;
     private final UserService userService;
+    private final RateLimitingService rateLimitingService;
+    private final IpAddressService ipAddressService;
     private final boolean cookieSecure;
+    private final int loginRateLimitPerIp;
+    private final int loginRateLimitPerAccount;
+    private final int registerRateLimitPerIp;
+    private final int registerRateLimitPerAccount;
 
     public AuthController(
             AuthService authService, 
             UserService userService,
-            @Value("${app.cookie.secure:false}") boolean cookieSecure
+            RateLimitingService rateLimitingService,
+            IpAddressService ipAddressService,
+            @Value("${app.cookie.secure:false}") boolean cookieSecure,
+            @Value("${app.rate-limit.login-per-ip:5}") int loginRateLimitPerIp,
+            @Value("${app.rate-limit.login-per-account:5}") int loginRateLimitPerAccount,
+            @Value("${app.rate-limit.register-per-ip:3}") int registerRateLimitPerIp,
+            @Value("${app.rate-limit.register-per-account:3}") int registerRateLimitPerAccount
     ) {
         this.authService = authService;
         this.userService = userService;
+        this.rateLimitingService = rateLimitingService;
+        this.ipAddressService = ipAddressService;
         this.cookieSecure = cookieSecure;
+        this.loginRateLimitPerIp = loginRateLimitPerIp;
+        this.loginRateLimitPerAccount = loginRateLimitPerAccount;
+        this.registerRateLimitPerIp = registerRateLimitPerIp;
+        this.registerRateLimitPerAccount = registerRateLimitPerAccount;
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Login user", description = "Authenticates a user and sets JWT token in httpOnly cookie")
+    @Operation(summary = "Login user", description = "Authenticates a user and sets JWT token in httpOnly cookie. Rate limited: 5 attempts per IP and per account per 15 minutes.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Successfully logged in"),
             @ApiResponse(responseCode = "401", description = "Invalid credentials"),
-            @ApiResponse(responseCode = "400", description = "Validation error")
+            @ApiResponse(responseCode = "400", description = "Validation error"),
+            @ApiResponse(responseCode = "429", description = "Rate limit exceeded - too many login attempts")
     })
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletResponse httpResponse) {
+    public ResponseEntity<LoginResponse> login(
+            @Valid @RequestBody LoginRequest request, 
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse
+    ) {
+        String clientIp = ipAddressService.getClientIpAddress(httpRequest);
+        String ipRateLimitKey = "auth:login:ip:" + clientIp;
+        checkRateLimit(ipRateLimitKey, loginRateLimitPerIp, Duration.ofMinutes(15), 
+                "Too many login attempts from this IP. Please try again later.");
+
+        String accountRateLimitKey = "auth:login:account:" + request.email().toLowerCase();
+        checkRateLimit(accountRateLimitKey, loginRateLimitPerAccount, Duration.ofMinutes(15), 
+                "Too many login attempts for this account. Please try again later.");
+
         LoginResponse response = authService.login(request);
         if (response.userId() == null) {
             throw new IllegalStateException("User ID is missing in response");
         }
-        String token = authService.generateTokenForUser(response.userId());
+        String token = Objects.requireNonNull(authService.generateTokenForUser(response.userId()), "Token cannot be null");
         setAuthCookie(httpResponse, token);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/register")
-    @Operation(summary = "Register new user", description = "Creates a new user account and sets JWT token in httpOnly cookie")
+    @Operation(summary = "Register new user", description = "Creates a new user account and sets JWT token in httpOnly cookie. Rate limited: 3 attempts per IP and per account per hour.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "User successfully created"),
             @ApiResponse(responseCode = "400", description = "Bad request - invalid input"),
             @ApiResponse(responseCode = "409", description = "Email or username already exists"),
-            @ApiResponse(responseCode = "422", description = "Validation error")
+            @ApiResponse(responseCode = "422", description = "Validation error"),
+            @ApiResponse(responseCode = "429", description = "Rate limit exceeded - too many registration attempts")
     })
-    public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request, HttpServletResponse httpResponse) {
+    public ResponseEntity<RegisterResponse> register(
+            @Valid @RequestBody RegisterRequest request, 
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse
+    ) {
+        String clientIp = ipAddressService.getClientIpAddress(httpRequest);
+        String ipRateLimitKey = "auth:register:ip:" + clientIp;
+        checkRateLimit(ipRateLimitKey, registerRateLimitPerIp, Duration.ofHours(1), 
+                "Too many registration attempts from this IP. Please try again later.");
+
+        String emailRateLimitKey = "auth:register:email:" + request.email().toLowerCase();
+        checkRateLimit(emailRateLimitKey, registerRateLimitPerAccount, Duration.ofHours(1), 
+                "Too many registration attempts for this email. Please try again later.");
+
+        String usernameRateLimitKey = "auth:register:username:" + request.username().toLowerCase();
+        checkRateLimit(usernameRateLimitKey, registerRateLimitPerAccount, Duration.ofHours(1), 
+                "Too many registration attempts for this username. Please try again later.");
+
         RegisterResponse response = authService.register(request);
         if (response.userId() == null) {
             throw new IllegalStateException("User ID is missing in response");
         }
-        String token = authService.generateTokenForUser(response.userId());
+        String token = Objects.requireNonNull(authService.generateTokenForUser(response.userId()), "Token cannot be null");
         setAuthCookie(httpResponse, token);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -153,6 +209,14 @@ public class AuthController {
                 .maxAge(0)
                 .build();
         response.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private void checkRateLimit(String key, int limit, Duration window, String errorMessage) {
+        if (!rateLimitingService.isAllowed(key, limit, window)) {
+            long remaining = rateLimitingService.getRemainingRequests(key, limit);
+            long timeToReset = rateLimitingService.getTimeToReset(key).getSeconds();
+            throw new RateLimitExceededException(errorMessage, remaining, timeToReset);
+        }
     }
 }
 

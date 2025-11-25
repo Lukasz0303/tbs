@@ -27,6 +27,9 @@ import { BackgroundMusicService } from '../../services/background-music.service'
 import { GameResultSoundService } from '../../services/game-result-sound.service';
 import { AudioSettingsService } from '../../services/audio-settings.service';
 
+const MOVE_TIMEOUT_SECONDS = 20;
+const MOVE_TIMEOUT_MS = MOVE_TIMEOUT_SECONDS * 1000;
+
 @Component({
   selector: 'app-game',
   standalone: true,
@@ -353,7 +356,7 @@ export class GameComponent implements OnInit, OnDestroy {
           const game = state?.game;
           if (game && game.gameType === 'pvp' && game.status === 'in_progress' && game.lastMoveAt) {
             const elapsed = (Date.now() - new Date(game.lastMoveAt).getTime()) / 1000;
-            const remaining = Math.max(0, 20 - elapsed);
+            const remaining = Math.max(0, MOVE_TIMEOUT_SECONDS - elapsed);
             this.remainingSeconds.set(Math.floor(remaining));
 
             if (remaining <= 0) {
@@ -916,11 +919,17 @@ export class GameComponent implements OnInit, OnDestroy {
       const boardState = this.normalizeBoardStateFromPayload(payload.boardState);
       const currentPlayerSymbol = this.normalizePlayerSymbol(payload.currentPlayerSymbol);
       
+      const nextMoveAtDate = payload.nextMoveAt ? new Date(payload.nextMoveAt) : null;
+      const computedLastMoveAt =
+        nextMoveAtDate && !Number.isNaN(nextMoveAtDate.getTime())
+          ? new Date(nextMoveAtDate.getTime() - MOVE_TIMEOUT_MS).toISOString()
+          : game.lastMoveAt ?? null;
+
       const updated: Game = {
         ...game,
         boardState,
         currentPlayerSymbol,
-        lastMoveAt: payload.nextMoveAt,
+        lastMoveAt: computedLastMoveAt,
         totalMoves: game.totalMoves + 1,
       };
       
