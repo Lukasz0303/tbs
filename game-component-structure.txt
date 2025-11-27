@@ -1,0 +1,167 @@
+STRUKTURA KOMPONENTÓW I ZALEŻNOŚCI
+====================================
+Rozpoczynając od: game.component.html
+====================================
+
+GameComponent (game.component.ts)
+├── Template: game.component.html
+│   │
+│   ├── [PrimeNG] p-toast (key="game")
+│   │   └── Zależności: ToastModule
+│   │
+│   ├── [PrimeNG] p-progressSpinner
+│   │   └── Zależności: ProgressSpinnerModule
+│   │
+│   ├── app-game-user-profile (GameUserProfileComponent)
+│   │   ├── Template: game-user-profile.component.html
+│   │   ├── Zależności komponentu:
+│   │   │   ├── [PrimeNG] p-toast (key="game-avatar")
+│   │   │   ├── [PrimeNG] p-button
+│   │   │   ├── [PrimeNG] p-tooltip
+│   │   │   └── app-avatar-selector (AvatarSelectorComponent)
+│   │   │       ├── Template: avatar-selector.component.html
+│   │   │       └── Zależności komponentu:
+│   │   │           ├── [PrimeNG] p-button
+│   │   │           └── [PrimeNG] p-dialog
+│   │   └── Serwisy:
+│   │       ├── TranslateService
+│   │       ├── UserService
+│   │       ├── AuthService
+│   │       └── MessageService
+│   │
+│   ├── app-game-bot-info (GameBotInfoComponent)
+│   │   ├── Template: game-bot-info.component.html
+│   │   └── Serwisy:
+│   │       └── TranslateService
+│   │
+│   ├── app-game-board (GameBoardComponent)
+│   │   ├── Template: game-board.component.html
+│   │   └── Serwisy:
+│   │       └── LoggerService
+│   │
+│   └── app-game-result-dialog (GameResultDialogComponent)
+│       ├── Template: game-result-dialog.component.html
+│       └── Serwisy:
+│           └── TranslateService
+│
+└── Serwisy używane przez GameComponent:
+    ├── GameService
+    ├── TranslateService
+    ├── AuthService
+    ├── WebSocketService
+    ├── LoggerService
+    ├── UserService
+    ├── RankingService
+    ├── BackgroundMusicService
+    ├── GameResultSoundService
+    ├── AudioSettingsService
+    └── MessageService (PrimeNG)
+
+====================================
+MODUŁY PRIMENG UŻYWANE:
+====================================
+- ToastModule (p-toast)
+- ProgressSpinnerModule (p-progressSpinner)
+- ButtonModule (p-button)
+- TooltipModule (p-tooltip)
+- DialogModule (p-dialog)
+
+====================================
+MODUŁY ANGULAR UŻYWANE:
+====================================
+- CommonModule
+- AsyncPipe
+- RouterModule (w game-user-profile)
+
+====================================
+MODEL DANYCH:
+====================================
+- Game (game.model.ts)
+- User (user.model.ts)
+- Ranking (ranking.model.ts)
+- PlayerSymbol (game.model.ts)
+- WebSocketDTOs (websocket.model.ts)
+
+====================================
+UTILS:
+====================================
+- normalizeBoardState (board-state.util.ts)
+- getAvatarPath (avatar.util.ts)
+- AVAILABLE_AVATARS (avatar.util.ts)
+
+====================================
+ZALEŻNOŚCI PRZEPŁYWU DANYCH:
+====================================
+
+GameComponent
+  │
+  ├─→ GameService ──→ Backend API (REST)
+  │
+  ├─→ WebSocketService ──→ Backend WebSocket
+  │
+  ├─→ AuthService ──→ Current User State
+  │
+  ├─→ UserService ──→ User Profile API
+  │
+  ├─→ RankingService ──→ Ranking API
+  │
+  └─→ BackgroundMusicService / GameResultSoundService ──→ Audio
+
+GameUserProfileComponent
+  │
+  ├─→ UserService ──→ Update Avatar API
+  │
+  └─→ AuthService ──→ Current User State
+
+====================================
+EVENTY I OUTPUTS:
+====================================
+
+GameBoardComponent
+  └─→ (move) EventEmitter ──→ GameComponent.onMove()
+
+GameResultDialogComponent
+  └─→ (close) EventEmitter ──→ GameComponent.onResultDialogClose()
+
+AvatarSelectorComponent
+  ├─→ (visibleChange) EventEmitter
+  ├─→ (close) EventEmitter
+  └─→ (save) EventEmitter ──→ GameUserProfileComponent.onSaveAvatar()
+
+====================================
+INPUTS I PROPS:
+====================================
+
+GameUserProfileComponent
+  ├─→ @Input() user: User | null
+  ├─→ @Input() game: Game | null
+  ├─→ @Input() remainingSeconds: number
+  ├─→ @Input() isActiveTurn: boolean
+  ├─→ @Input() gameId: number | null
+  ├─→ @Input() onSurrender: ((gameId: number) => void) | null
+  └─→ @Input() ranking: Ranking | null
+
+GameBotInfoComponent
+  └─→ @Input() game: Game | null
+
+GameBoardComponent
+  ├─→ @Input() boardSize: 3 | 4 | 5
+  ├─→ @Input() boardState: (PlayerSymbol | null)[][]
+  ├─→ @Input() currentPlayerSymbol: PlayerSymbol | null
+  ├─→ @Input() disabled: boolean
+  ├─→ @Input() gameStatus: GameStatus
+  ├─→ @Input() gameType: 'vs_bot' | 'pvp'
+  └─→ @Input() winningCells: Array<{ row: number; col: number }>
+
+GameResultDialogComponent
+  ├─→ @Input() visible: boolean
+  ├─→ @Input() game: Game | null
+  ├─→ @Input() currentUser: User | null
+  ├─→ @Input() pointsAtStake: number
+  └─→ @Input() drawPoints: number
+
+AvatarSelectorComponent
+  ├─→ @Input() visible: boolean
+  ├─→ @Input() currentAvatar: number | null
+  └─→ @Input() isLoading: boolean
+

@@ -47,6 +47,8 @@ class AuthServiceLogoutTest {
         Long userId = 1L;
         Date expirationTime = new Date(System.currentTimeMillis() + 3600000);
 
+        when(jwtTokenProvider.validateToken(token)).thenReturn(true);
+        when(jwtTokenProvider.getUserIdFromToken(token)).thenReturn(userId);
         when(authenticationService.getCurrentUserId()).thenReturn(userId);
         when(jwtTokenProvider.getTokenId(token)).thenReturn(tokenId);
         when(jwtTokenProvider.getExpirationDateFromToken(token)).thenReturn(expirationTime);
@@ -80,16 +82,16 @@ class AuthServiceLogoutTest {
         Long userId = 1L;
         Date expirationTime = new Date(System.currentTimeMillis() + 3600000);
 
+        when(jwtTokenProvider.validateToken(token)).thenReturn(true);
+        when(jwtTokenProvider.getUserIdFromToken(token)).thenReturn(userId);
         when(authenticationService.getCurrentUserId()).thenReturn(userId);
         when(jwtTokenProvider.getTokenId(token)).thenReturn(tokenId);
         when(jwtTokenProvider.getExpirationDateFromToken(token)).thenReturn(expirationTime);
         doThrow(new RuntimeException("Redis error")).when(tokenBlacklistService).addToBlacklist(anyString(), any(Date.class));
-        when(userRepository.updateLastSeenAt(anyLong(), any(Instant.class))).thenReturn(1);
 
-        var result = authService.logout(token);
-
-        assertThat(result.message()).isEqualTo("Wylogowano pomyślnie");
-        verify(userRepository, times(1)).updateLastSeenAt(eq(userId), any(Instant.class));
+        assertThatThrownBy(() -> authService.logout(token))
+                .isInstanceOf(com.tbs.exception.TokenBlacklistException.class)
+                .hasMessage("Failed to blacklist token");
     }
 
     @Test
@@ -99,6 +101,8 @@ class AuthServiceLogoutTest {
         Long userId = 1L;
         Date expirationTime = new Date(System.currentTimeMillis() + 3600000);
 
+        when(jwtTokenProvider.validateToken(token)).thenReturn(true);
+        when(jwtTokenProvider.getUserIdFromToken(token)).thenReturn(userId);
         when(authenticationService.getCurrentUserId()).thenReturn(userId);
         when(jwtTokenProvider.getTokenId(token)).thenReturn(tokenId);
         when(jwtTokenProvider.getExpirationDateFromToken(token)).thenReturn(expirationTime);

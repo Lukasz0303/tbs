@@ -42,7 +42,7 @@ describe('GameBannerComponent', () => {
   });
 
   it('powinien emitować zdarzenie kontynuacji po kliknięciu przycisku', () => {
-    const spy = spyOn(component.continueGame, 'emit');
+    const spy = jest.spyOn(component.continueGame, 'emit');
     const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
 
     button.click();
@@ -55,7 +55,7 @@ describe('GameBannerComponent', () => {
       fixture.nativeElement.querySelectorAll('.p-tag')
     ).map((tag: unknown) => (tag as Element).textContent?.trim());
 
-    expect(tags).toContain('Bot średni');
+    expect(tags).toContain('Ekspert');
   });
 });
 

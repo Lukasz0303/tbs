@@ -5,6 +5,7 @@
   role="button"
   [attr.tabindex]="isAvailable ? 0 : -1"
   [attr.aria-disabled]="!isAvailable"
+  data-cy="game-mode-card"
 >
   <div class="card-body" pRipple>
     <span class="mode-icon" [ngClass]="iconClass" aria-hidden="true"></span>

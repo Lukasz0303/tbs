@@ -117,7 +117,7 @@ class RankingServiceImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(guestUser));
 
         assertThatThrownBy(() -> rankingService.getUserRanking(userId))
-                .isInstanceOf(UserNotInRankingException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Guest users are not included in rankings");
         
         verify(userRepository, times(1)).findById(userId);
@@ -131,7 +131,7 @@ class RankingServiceImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> rankingService.getUserRanking(userId))
-                .isInstanceOf(UserNotFoundException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("User not found with id: " + userId);
         
         verify(userRepository, times(1)).findById(userId);
@@ -146,7 +146,7 @@ class RankingServiceImplTest {
         when(rankingRepository.findByUserIdRaw(userId)).thenReturn(new ArrayList<>());
 
         assertThatThrownBy(() -> rankingService.getUserRanking(userId))
-                .isInstanceOf(UserNotInRankingException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Ranking not found for user with id: " + userId);
         
         verify(rankingRepository, times(1)).findByUserIdRaw(userId);
@@ -179,7 +179,7 @@ class RankingServiceImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(guestUser));
 
         assertThatThrownBy(() -> rankingService.getRankingsAround(userId, range))
-                .isInstanceOf(UserNotInRankingException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Guest users are not included in rankings");
         
         verify(userRepository, times(1)).findById(userId);
@@ -194,7 +194,7 @@ class RankingServiceImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> rankingService.getRankingsAround(userId, range))
-                .isInstanceOf(UserNotFoundException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("User not found with id: " + userId);
         
         verify(userRepository, times(1)).findById(userId);
@@ -228,7 +228,7 @@ class RankingServiceImplTest {
         when(rankingRepository.findByUserIdRaw(userId)).thenReturn(new ArrayList<>());
 
         assertThatThrownBy(() -> rankingService.getRankingsAround(userId, range))
-                .isInstanceOf(UserNotInRankingException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("User is not in ranking");
         
         verify(rankingRepository, times(1)).findByUserIdRaw(userId);

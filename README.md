@@ -11,6 +11,7 @@
 - [Database schema](#database-schema)
 - [Getting started locally](#getting-started-locally)
 - [Available scripts](#available-scripts)
+- [Testing](#testing)
 - [Project scope](#project-scope)
 - [Project status](#project-status)
 - [License](#license)
@@ -140,6 +141,125 @@ From `frontend/package.json`:
 - **`.\run-backend.ps1 stop`** - zatrzymanie backendu
 - `gradlew bootRun` / `./gradlew bootRun`: run the Spring Boot application (ręcznie)
 - Additional Gradle references are listed in `backend/HELP.md`
+
+## Testing
+
+### Zakres testów
+- **Frontend (Angular + PrimeNG Verona):** logowanie/rejestracja, wybór trybu gry, przebieg ruchów (timery, surrender, reconnect), ranking, responsywność i WCAG w motywie Verona.
+- **Backend (Spring Boot + WebSocket):** auth i ranking REST, matchmaking PvE/PvP, walidacja ruchów, timer usługowy, obsługa reconnectów WebSocket, aktualizacja rankingu i blacklisty JWT w Redis.
+- **Baza danych i Supabase:** migracje Flyway na czystej/istniejącej bazie, dane referencyjne rankingu, rollbacki, RLS.
+- **Automatyzacja i infrastruktura:** skrypty PowerShell do smoke/E2E backendu, pipeline GitHub Actions (lint → unit → integracyjne → Cypress), monitoring Actuator + Prometheus.
+
+### Typy testów
+- **Statyczne:** ESLint + Prettier dla Angulara, Checkstyle + SonarCloud dla Javy.
+- **Jednostkowe frontend:** Jest + Angular Testing Library (komponenty, usługi WebSocket, guardy).
+- **Jednostkowe backend:** JUnit 5 + Mockito (logika gry, ranking, auth).
+- **Integracyjne backend:** Spring Boot Test + Testcontainers (PostgreSQL/Redis), RestAssured/Spring MockMvc.
+- **Testy kontraktowe:** OpenAPI oraz kontrakty komunikatów WebSocket.
+- **E2E frontend:** Cypress (logowanie → mecz PvE/PvP → ranking, reconnect, surrender).
+- **E2E backend:** PowerShell (`backend/test-pvp-match.ps1`, `test-bot-move.ps1`, `test-win-bot-and-check-ranking.ps1`) oraz `test-pvp-websocket.ps1`.
+- **Wydajnościowe i chaos:** k6/Gatling dla API/WebSocket, scenariusze restartów Redis/PostgreSQL.
+- **Bezpieczeństwa:** OWASP ZAP, snyk, dependency-check, audyt JWT/WebSocket.
+- **Smoke/regresja:** zestaw lint → unit → integracje → skrócone e2e odpalany cyklicznie, z raportowaniem w Allure.
+
+### Narzędzia testowe i raportowanie
+- **Frontend:** Jest, Angular Testing Library, Cypress, Storybook Visual Regression (opcjonalnie).
+- **Backend:** JUnit 5, Mockito, Testcontainers, WireMock, RestAssured, Spring MockMvc.
+- **Jakość/statyczne:** ESLint, Prettier, Checkstyle, SonarCloud.
+- **Wydajność/niezawodność:** k6, Gatling, docker-compose, GitHub Actions runners.
+- **Bezpieczeństwo:** OWASP ZAP, snyk, dependency-check.
+- **Raporty i obserwowalność:** Allure, Prometheus + Grafana, Spring Actuator health.
+
+### Komendy do uruchamiania testów
+
+#### Frontend - Testy jednostkowe (Jest + Angular Testing Library)
+
+```bash
+cd frontend
+
+# Wszystkie testy
+npm test
+
+# Tryb watch (automatyczne uruchamianie przy zmianach)
+npm run test:watch
+
+# Testy z raportem pokrycia
+npm run test:coverage
+
+# Testy w trybie CI
+npm run test:ci
+```
+
+#### Frontend - Testy E2E (Cypress)
+
+```bash
+cd frontend
+
+# Uruchomienie testów E2E (headless)
+npm run e2e
+
+# Interaktywny tryb Cypress
+npm run e2e:open
+
+# Uruchomienie w trybie headless
+npm run e2e:headless
+```
+
+**Uwaga:** Aplikacja frontendowa musi być uruchomiona na `http://localhost:4200` oraz backend musi być dostępny.
+
+#### Backend - Testy jednostkowe (JUnit 5 + Mockito)
+
+```bash
+cd backend
+
+# Wszystkie testy
+./gradlew test              # macOS/Linux
+gradlew.bat test            # Windows
+
+# Tylko testy jednostkowe (oznaczone tagiem @Tag("unit"))
+./gradlew testUnit          # macOS/Linux
+gradlew.bat testUnit        # Windows
+
+# Tylko testy integracyjne (oznaczone tagiem @Tag("integration"))
+./gradlew testIntegration   # macOS/Linux
+gradlew.bat testIntegration # Windows
+
+# Testy z raportem
+./gradlew test --info       # macOS/Linux
+gradlew.bat test --info     # Windows
+```
+
+**Uwaga:** Testy integracyjne wymagają uruchomionego Docker Desktop (Testcontainers).
+
+#### Backend - Testy E2E (PowerShell smoke PvP/PvE)
+
+```powershell
+cd backend
+
+# Test meczu PvP
+.\test-pvp-match.ps1
+
+# Test ruchu bota
+.\test-bot-move.ps1
+
+# Test wygranej z botem i sprawdzenie rankingu
+.\test-win-bot-and-check-ranking.ps1
+
+# Test WebSocket PvP
+.\test-pvp-websocket.ps1
+```
+
+#### Raporty testów
+
+- **Frontend coverage:** `frontend/coverage/index.html`
+- **Backend reports:** `backend/build/reports/tests/test/index.html`
+- **Cypress videos/screenshots:** `frontend/cypress/videos/` i `frontend/cypress/screenshots/`
+
+#### Pipeline CI/CD
+
+GitHub Actions uruchamia sekwencję: lint → unit → integracja → Cypress → publikacja raportu SonarCloud po każdym merge request. Wyniki testów dostępne w artefaktach i Allure.
+
+Pełny harmonogram i kryteria opisano w `.ai/test-plan.md`. Szczegółowa dokumentacja testów: [TESTING.md](TESTING.md).
 
 ## API Endpoints
 

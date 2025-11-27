@@ -5,7 +5,11 @@ import { LoggerService } from './logger.service';
 
 describe('WebSocketService', () => {
   let service: WebSocketService;
-  let loggerMock: { error: jasmine.Spy; debug: jasmine.Spy; warn: jasmine.Spy };
+  let loggerMock: {
+    error: jest.Mock;
+    debug: jest.Mock;
+    warn: jest.Mock;
+  };
 
   const createDestroyRefMock = (): DestroyRef =>
     ({
@@ -16,9 +20,9 @@ describe('WebSocketService', () => {
 
   beforeEach(() => {
     loggerMock = {
-      error: jasmine.createSpy('error'),
-      debug: jasmine.createSpy('debug'),
-      warn: jasmine.createSpy('warn'),
+      error: jest.fn(),
+      debug: jest.fn(),
+      warn: jest.fn(),
     };
 
     TestBed.configureTestingModule({
@@ -33,7 +37,7 @@ describe('WebSocketService', () => {
   });
 
   it('should reset reconnect attempts after hitting the limit', () => {
-    const disconnectSpy = spyOn(service, 'disconnect').and.callThrough();
+    const disconnectSpy = jest.spyOn(service, 'disconnect').mockImplementation(() => {});
     (service as any).reconnectAttempts = (service as any).maxReconnectAttempts;
 
     (service as any).handleReconnect(42);

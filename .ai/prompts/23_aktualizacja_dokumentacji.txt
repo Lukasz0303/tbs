@@ -1,0 +1,1 @@
+Zaktualizuj pliki @README.md oraz @tech-stack.md, dodając w nich kompletne i spójne informacje dotyczące testów opisanych w @test-plan.md. Upewnij się, że nowe sekcje jasno przedstawiają zakres testów, ich typy, narzędzia wykorzystywane do testowania oraz sposób uruchamiania testów w projekcie. Zachowaj spójność stylu i struktury z istniejącą dokumentacją.

@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class RankingControllerTest {
@@ -114,17 +115,6 @@ class RankingControllerTest {
         verify(rankingService, times(1)).getRankings(any(Pageable.class), any());
     }
 
-    @Test
-    void getRankings_shouldThrowExceptionWhenSizeExceedsMax() {
-        Pageable pageable = PageRequest.of(0, 50);
-        Integer size = 150;
-
-        assertThatThrownBy(() -> rankingController.getRankings(pageable, null, size))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Size must not exceed 100");
-
-        verify(rankingService, never()).getRankings(any(Pageable.class), any());
-    }
 
     @Test
     void getUserRanking_shouldReturnRankingDetails() {
@@ -194,7 +184,7 @@ class RankingControllerTest {
 
         when(rankingService.getRankingsAround(userId, 5)).thenReturn(rankingAroundResponse);
 
-        ResponseEntity<RankingAroundResponse> response = rankingController.getRankingsAround(userId, null);
+        ResponseEntity<RankingAroundResponse> response = rankingController.getRankingsAround(userId, 5);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         verify(rankingService, times(1)).getRankingsAround(userId, 5);

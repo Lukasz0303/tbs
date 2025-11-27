@@ -14,7 +14,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -27,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class UserControllerTest {
@@ -46,18 +46,26 @@ class UserControllerTest {
     @Mock
     private HttpServletRequest httpServletRequest;
 
-    @InjectMocks
     private UserController userController;
 
     @BeforeEach
     void setUp() {
+        userController = new UserController(
+                userService,
+                authenticationService,
+                rateLimitingService,
+                ipAddressService,
+                100,
+                30,
+                10
+        );
         when(rateLimitingService.isAllowed(anyString(), anyInt(), any(Duration.class)))
                 .thenReturn(true);
-        when(rateLimitingService.getRemainingRequests(anyString(), anyInt()))
+        lenient().when(rateLimitingService.getRemainingRequests(anyString(), anyInt()))
                 .thenReturn(100L);
-        when(rateLimitingService.getTimeToReset(anyString()))
+        lenient().when(rateLimitingService.getTimeToReset(anyString()))
                 .thenReturn(Duration.ofMinutes(1));
-        when(ipAddressService.getClientIpAddress(any(HttpServletRequest.class)))
+        lenient().when(ipAddressService.getClientIpAddress(any(HttpServletRequest.class)))
                 .thenReturn("127.0.0.1");
     }
 

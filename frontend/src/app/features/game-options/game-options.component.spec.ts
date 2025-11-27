@@ -13,7 +13,7 @@ import { Game } from '../../models/game.model';
 describe('GameOptionsComponent', () => {
   let fixture: ComponentFixture<GameOptionsComponent>;
   let component: GameOptionsComponent;
-  let createGameSpy: jasmine.Spy;
+  let createGameSpy: jest.SpyInstance;
 
   const authServiceStub = {
     getCurrentUser: () => of(null),
@@ -85,7 +85,7 @@ describe('GameOptionsComponent', () => {
     fixture = TestBed.createComponent(GameOptionsComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
-    createGameSpy = spyOn(component as any, 'createGame').and.returnValue(of(mockGame));
+    createGameSpy = jest.spyOn(component as any, 'createGame').mockReturnValue(of(mockGame));
   });
 
   it('should retry creating a new game when 404 occurs', (done) => {
@@ -109,8 +109,8 @@ describe('GameOptionsComponent', () => {
     const isNotFoundConnection = (component as any).isConnectionError(notFoundError);
     const isDisconnectConnection = (component as any).isConnectionError(disconnectError);
 
-    expect(isNotFoundConnection).toBeFalse();
-    expect(isDisconnectConnection).toBeTrue();
+    expect(isNotFoundConnection).toBe(false);
+    expect(isDisconnectConnection).toBe(true);
   });
 });
 

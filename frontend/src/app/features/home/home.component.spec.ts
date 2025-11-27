@@ -13,8 +13,8 @@ import { MessageService } from 'primeng/api';
 describe('HomeComponent', () => {
   let fixture: ComponentFixture<HomeComponent>;
   let component: HomeComponent;
-  let authService: jasmine.SpyObj<AuthService>;
-  let gameService: jasmine.SpyObj<GameService>;
+  let authService: jest.Mocked<AuthService>;
+  let gameService: jest.Mocked<GameService>;
   let router: Router;
   let messageService: MessageService;
 
@@ -25,6 +25,16 @@ describe('HomeComponent', () => {
     totalPoints: 0,
     gamesPlayed: 0,
     gamesWon: 0,
+    createdAt: new Date().toISOString(),
+  };
+
+  const registeredUserResponse = {
+    userId: 1,
+    isGuest: false,
+    avatar: 1,
+    totalPoints: 100,
+    gamesPlayed: 5,
+    gamesWon: 3,
     createdAt: new Date().toISOString(),
   };
 
@@ -47,22 +57,23 @@ describe('HomeComponent', () => {
   };
 
   beforeEach(async () => {
-    authService = jasmine.createSpyObj<AuthService>(
-      'AuthService',
-      ['loadCurrentUser', 'getCurrentUser', 'isGuest', 'createGuestSession']
-    );
-    gameService = jasmine.createSpyObj<GameService>('GameService', ['getSavedGame']);
-
-    authService.loadCurrentUser.and.returnValue(of(null));
-    authService.getCurrentUser.and.returnValue(of(null));
-    authService.isGuest.and.returnValue(of(true));
-    authService.createGuestSession.and.returnValue(of(guestResponse));
-    gameService.getSavedGame.and.returnValue(of(savedGame));
+    authService = {
+      loadCurrentUser: jest.fn().mockReturnValue(of(null)),
+      getCurrentUser: jest.fn().mockReturnValue(of(null)),
+      isGuest: jest.fn().mockReturnValue(of(true)),
+      isAuthenticated: jest.fn().mockReturnValue(false),
+      createGuestSession: jest.fn().mockReturnValue(of(guestResponse)),
+    } as unknown as jest.Mocked<AuthService>;
+    
+    gameService = {
+      getSavedGame: jest.fn().mockReturnValue(of(savedGame)),
+    } as unknown as jest.Mocked<GameService>;
 
     await TestBed.configureTestingModule({
       imports: [HomeComponent, RouterTestingModule, NoopAnimationsModule],
       providers: [
         TranslateService,
+        MessageService,
         { provide: AuthService, useValue: authService },
         { provide: GameService, useValue: gameService },
       ],
@@ -83,18 +94,26 @@ describe('HomeComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('powinien wyświetlić banner zapisanej gry', fakeAsync(() => {
-    initializeComponent();
+  it('powinien wyświetlić przycisk kontynuacji dla zapisanej gry', fakeAsync(() => {
+    authService.getCurrentUser = jest.fn().mockReturnValue(of(registeredUserResponse));
+    authService.isAuthenticated = jest.fn().mockReturnValue(true);
+    
+    fixture = TestBed.createComponent(HomeComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick();
+    fixture.detectChanges();
     tick();
     fixture.detectChanges();
 
-    const banner = fixture.nativeElement.querySelector('[data-testid="game-banner"]');
-    expect(banner).toBeTruthy();
+    const continueButton = fixture.nativeElement.querySelector('button.home-action.primary');
+    expect(continueButton).toBeTruthy();
+    expect(continueButton?.textContent?.trim()).toContain('Kontynuuj grę');
   }));
 
   it('powinien nawigować do opcji gry przy wyborze gry jako gość', () => {
     initializeComponent();
-    const navigateSpy = spyOn(router, 'navigate').and.returnValue(Promise.resolve(true));
+    const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
 
     component.playAsGuest();
 
@@ -103,7 +122,7 @@ describe('HomeComponent', () => {
 
   it('powinien nawigować do opcji gry przy starcie nowej gry', () => {
     initializeComponent();
-    const navigateSpy = spyOn(router, 'navigate').and.returnValue(Promise.resolve(true));
+    const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
 
     component.startNewGame();
 

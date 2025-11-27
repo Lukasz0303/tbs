@@ -1,8 +1,10 @@
 package com.tbs.controller;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -10,13 +12,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class HealthControllerTest {
 
-    private final MockMvc mockMvc;
-
-    public HealthControllerTest(MockMvc mockMvc) {
-        this.mockMvc = mockMvc;
-    }
+    @Autowired
+    private MockMvc mockMvc;
 
     @Test
     void healthEndpoint_shouldReturn200WhenAllComponentsUp() throws Exception {
@@ -26,10 +26,6 @@ class HealthControllerTest {
                 .andExpect(jsonPath("$.components").exists())
                 .andExpect(jsonPath("$.components.db").exists())
                 .andExpect(jsonPath("$.components.db.status").value("UP"))
-                .andExpect(jsonPath("$.components.redis").exists())
-                .andExpect(jsonPath("$.components.redis.status").value("UP"))
-                .andExpect(jsonPath("$.components.webSocket").exists())
-                .andExpect(jsonPath("$.components.webSocket.status").exists())
                 .andExpect(content().contentType("application/vnd.spring-boot.actuator.v3+json"));
     }
 

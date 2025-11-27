@@ -3,6 +3,7 @@ package com.tbs.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -11,10 +12,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
+@Profile("!test")
 public class RankingRefreshScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(RankingRefreshScheduler.class);
-    private static final long DEFAULT_REFRESH_INTERVAL_MS = 300000L;
 
     private final RankingService rankingService;
     private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
