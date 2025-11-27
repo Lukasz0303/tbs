@@ -303,7 +303,7 @@ Pełna dokumentacja API dostępna w Swagger UI: `http://localhost:8080/swagger-u
 ## Project status
 - Status: Active development; MVP in progress
 - Target scale: 100–500 concurrent users
-- CI/CD: Planned via GitHub Actions (lint, tests, build, deploy)
+- CI/CD: GitHub Actions pipeline (`.github/workflows/ci.yml`) running Angular and Spring Boot builds/tests on every push/PR
 - Monitoring: Spring Actuator + Prometheus + Grafana (planned/ongoing)
 - API docs: Swagger/OpenAPI (planned/ongoing)
 

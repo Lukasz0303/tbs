@@ -11,6 +11,7 @@ This PR standardises testing across the stack by replacing Karma/Jasmine with Je
 - **Jest-based unit tests** – Added `jest.config.js`, `src/test-setup.ts`, and updated `package.json`, `angular.json`, and `tsconfig*.json` so Angular specs run on Jest with Testing Library matchers.
 - **Cypress E2E harness** – Introduced `cypress.config.ts`, support commands (`login`/`logout`), `auth` and `game-flow` journeys, a Cypress-specific README, and `data-cy` hooks on login/game/leaderboard templates.
 - **Testing documentation** – Added `TESTING.md`, `CYPRESS_README.md`, `.ai/test-plan.md`, new prompt files, and a `game-component-structure.txt` ASCII map; expanded the main `README.md` testing section and `.ai/tech-stack.md` strategy.
+- **CI workflow** – Added `.github/workflows/ci.yml` that runs `npm run test:ci`, builds the Angular bundle, and executes `./gradlew testUnit`/`testIntegration`, publishing coverage/test artifacts for both stacks.
 
 ### Core Components
 
@@ -78,5 +79,5 @@ This PR standardises testing across the stack by replacing Karma/Jasmine with Je
 
 ## ✅ Checklist
 
-- [ ] Update CI to call `npm test`, `npm run e2e`, `./gradlew testUnit`, and `./gradlew testIntegration`.
-- [ ] Confirm every environment terminates TLS so Secure cookies reach the browser (or set env overrides for dev).
+- [x] CI workflow runs Jest (`npm run test:ci`) and Gradle (`./gradlew testUnit`, `./gradlew testIntegration`) and uploads reports.
+- [x] Secure cookies default to HTTPS with `SameSite=Strict`; override only when absolutely necessary for local dev.
