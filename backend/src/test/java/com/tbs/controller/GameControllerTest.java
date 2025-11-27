@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -77,7 +78,7 @@ class GameControllerTest {
         when(authenticationService.getCurrentUserId()).thenReturn(1L);
         when(gameService.getGames(eq(1L), any(), any(), any(Pageable.class))).thenReturn(response);
 
-        ResponseEntity<GameListResponse> result = gameController.getGames(null, null, Pageable.unpaged());
+        ResponseEntity<GameListResponse> result = gameController.getGames(null, null, PageRequest.of(0, 20));
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody().content()).hasSize(1);

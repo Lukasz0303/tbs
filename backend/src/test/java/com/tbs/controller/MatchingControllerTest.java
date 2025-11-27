@@ -182,7 +182,7 @@ class MatchingControllerTest {
         assertThat(result.getBody().player1Id()).isEqualTo(1L);
         assertThat(result.getBody().player2Id()).isEqualTo(2L);
         assertThat(result.getHeaders().getLocation()).isNotNull();
-        assertThat(result.getHeaders().getLocation().getPath()).isEqualTo("/api/games/42");
+        assertThat(result.getHeaders().getLocation().getPath()).isEqualTo("/api/v1/games/42");
     }
 
     @Test

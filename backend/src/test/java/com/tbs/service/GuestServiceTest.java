@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class GuestServiceTest {
@@ -57,7 +58,7 @@ class GuestServiceTest {
         when(ipAddressService.isValidIpAddress(testIpAddress)).thenReturn(true);
         when(userRepository.findByIpAddressAndIsGuest(testIpAddress, true))
                 .thenReturn(Optional.of(guestUser));
-        when(jwtTokenProvider.generateToken(1L)).thenReturn(testToken);
+        lenient().when(jwtTokenProvider.generateToken(1L)).thenReturn(testToken);
 
         GuestResponse response = guestService.findOrCreateGuest(testIpAddress);
 
@@ -72,7 +73,7 @@ class GuestServiceTest {
         when(userRepository.findByIpAddressAndIsGuest(testIpAddress, true))
                 .thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenReturn(guestUser);
-        when(jwtTokenProvider.generateToken(1L)).thenReturn(testToken);
+        lenient().when(jwtTokenProvider.generateToken(1L)).thenReturn(testToken);
 
         GuestResponse response = guestService.findOrCreateGuest(testIpAddress);
 
@@ -89,7 +90,7 @@ class GuestServiceTest {
                 .thenReturn(Optional.of(guestUser));
         when(userRepository.save(any(User.class)))
                 .thenThrow(new DataIntegrityViolationException("Duplicate key"));
-        when(jwtTokenProvider.generateToken(1L)).thenReturn(testToken);
+        lenient().when(jwtTokenProvider.generateToken(1L)).thenReturn(testToken);
 
         GuestResponse response = guestService.findOrCreateGuest(testIpAddress);
 
@@ -138,7 +139,7 @@ class GuestServiceTest {
         when(ipAddressService.isValidIpAddress(testIpAddress)).thenReturn(true);
         when(userRepository.findByIpAddressAndIsGuest(testIpAddress, true))
                 .thenReturn(Optional.of(userWithNulls));
-        when(jwtTokenProvider.generateToken(2L)).thenReturn(testToken);
+        lenient().when(jwtTokenProvider.generateToken(2L)).thenReturn(testToken);
 
         GuestResponse response = guestService.findOrCreateGuest(testIpAddress);
 

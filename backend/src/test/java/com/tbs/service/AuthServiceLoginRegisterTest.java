@@ -68,14 +68,12 @@ class AuthServiceLoginRegisterTest {
                 .thenReturn(Optional.of(testUser));
         when(passwordEncoder.matches("password123", testUser.getPasswordHash()))
                 .thenReturn(true);
-        when(jwtTokenProvider.generateToken(1L))
-                .thenReturn(validToken);
 
         LoginResponse response = authService.login(
                 new LoginRequest("test@example.com", "password123")
         );
 
-        assertThat(response.userId()).isEqualTo("1");
+        assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.email()).isEqualTo("test@example.com");
         assertThat(response.username()).isEqualTo("testuser");
         assertThat(response.isGuest()).isFalse();
@@ -150,14 +148,12 @@ class AuthServiceLoginRegisterTest {
                 .thenReturn("$2a$10$encodedHash");
         when(userRepository.save(any(User.class)))
                 .thenReturn(savedUser);
-        when(jwtTokenProvider.generateToken(2L))
-                .thenReturn(validToken);
 
         RegisterResponse response = authService.register(
                 new RegisterRequest("newuser@example.com", "securePass123", "newuser", null)
         );
 
-        assertThat(response.userId()).isEqualTo("2");
+        assertThat(response.userId()).isEqualTo(2L);
         assertThat(response.email()).isEqualTo("newuser@example.com");
         assertThat(response.username()).isEqualTo("newuser");
         assertThat(response.isGuest()).isFalse();
@@ -177,7 +173,7 @@ class AuthServiceLoginRegisterTest {
         assertThatThrownBy(() -> authService.register(
                 new RegisterRequest("existing@example.com", "password123", "username", null)
         ))
-                .isInstanceOf(com.tbs.exception.BadRequestException.class)
+                .isInstanceOf(com.tbs.exception.ConflictException.class)
                 .hasMessage("Email already exists");
 
         verify(userRepository, never()).save(any());
@@ -193,7 +189,7 @@ class AuthServiceLoginRegisterTest {
         assertThatThrownBy(() -> authService.register(
                 new RegisterRequest("newemail@example.com", "password123", "existinguser", null)
         ))
-                .isInstanceOf(com.tbs.exception.BadRequestException.class)
+                .isInstanceOf(com.tbs.exception.ConflictException.class)
                 .hasMessage("Username already exists");
 
         verify(userRepository, never()).save(any());

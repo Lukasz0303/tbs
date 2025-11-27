@@ -15,16 +15,19 @@ import com.tbs.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,6 +37,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class GameServiceTest {
 
     @Mock
@@ -48,7 +52,13 @@ class GameServiceTest {
     @Mock
     private BoardStateService boardStateService;
 
-    @InjectMocks
+    @Mock
+    private GameValidationService gameValidationService;
+
+    @Mock
+    private RankingService rankingService;
+
+    private PointsService pointsService;
     private GameService gameService;
 
     private User testUser;
@@ -74,6 +84,24 @@ class GameServiceTest {
                 GameType.VS_BOT,
                 3,
                 BotDifficulty.EASY
+        );
+
+        pointsService = new PointsService(
+                userRepository,
+                rankingService,
+                100L,
+                500L,
+                1000L,
+                1000L
+        );
+
+        gameService = new GameService(
+                gameRepository,
+                moveRepository,
+                userRepository,
+                boardStateService,
+                gameValidationService,
+                pointsService
         );
     }
 
@@ -163,6 +191,8 @@ class GameServiceTest {
     void getBoardState_shouldThrowForbiddenForNonParticipant() {
         testGame.setPlayer2(null);
         when(gameRepository.findById(42L)).thenReturn(Optional.of(testGame));
+        doThrow(new ForbiddenException("You are not a participant of this game"))
+                .when(gameValidationService).validateParticipation(testGame, 999L);
 
         assertThatThrownBy(() -> gameService.getBoardState(42L, 999L))
                 .isInstanceOf(ForbiddenException.class)
@@ -197,9 +227,11 @@ class GameServiceTest {
         Page<Game> gamePage = new PageImpl<>(Arrays.asList(testGame));
         when(gameRepository.findByUserIdAndFilters(eq(1L), any(), any(), any(Pageable.class)))
                 .thenReturn(gamePage);
-        when(moveRepository.countByGameId(42L)).thenReturn(5L);
+        when(moveRepository.getMoveCountsByGameIds(Arrays.asList(42L)))
+                .thenReturn(Map.of(42L, 5L));
 
-        GameListResponse response = gameService.getGames(1L, null, null, Pageable.unpaged());
+        Pageable pageable = PageRequest.of(0, 20);
+        GameListResponse response = gameService.getGames(1L, null, null, pageable);
 
         assertThat(response.content()).hasSize(1);
         assertThat(response.totalElements()).isEqualTo(1);

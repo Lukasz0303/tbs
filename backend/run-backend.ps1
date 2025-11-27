@@ -122,386 +122,193 @@ function Wait-ForPort {
 }
 
 function Start-Supabase {
-    Write-Host "`[DEBUG`] ====== Start-Supabase WYWOŁANA =====" -ForegroundColor Magenta
     $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Sprawdzanie statusu Supabase..."
-    $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] ProjectRoot: $ProjectRoot"
-    $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] BackendDir: $BackendDir"
     
     if (-not (Test-Path $ProjectRoot)) {
         $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Katalog projektu nie istnieje: $ProjectRoot"
         return $false
     }
     
-    Write-Host "`[DEBUG`] ====== PRZED Push-Location =====" -ForegroundColor Magenta
     Push-Location $ProjectRoot
-    $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] Obecny katalog po Push-Location: $(Get-Location)"
-    Write-Host "`[DEBUG`] ====== W BLOKU TRY =====" -ForegroundColor Magenta
+    
     try {
-        Write-Host "`[DEBUG`] ====== PRZED sprawdzeniem npx =====" -ForegroundColor Magenta
-        $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] Sprawdzam czy npx jest dostepne..."
-        Write-Host "`[DEBUG`] ====== WYKONUJE Get-Command npx =====" -ForegroundColor Magenta
         $npxCheck = Get-Command npx -ErrorAction SilentlyContinue
-        Write-Host "`[DEBUG`] ====== PO Get-Command npx, npxCheck: $($npxCheck -ne $null) =====" -ForegroundColor Magenta
         if (-not $npxCheck) {
-            Write-Host "`[DEBUG`] ====== npx NIE ZNALEZIONY, zwracam false =====" -ForegroundColor Magenta
             $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] npx nie jest dostepne w PATH"
             $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Zainstaluj Node.js: https://nodejs.org/"
             Pop-Location
             return $false
         }
-        Write-Host "`[DEBUG`] ====== npx ZNALEZIONY =====" -ForegroundColor Magenta
-        $null = Write-ColorOutput -ForegroundColor Green "`[OK`] npx jest dostepne"
         
-        Write-Host "`[DEBUG`] ====== PRZED npx supabase status =====" -ForegroundColor Magenta
-        $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] Wykonuje: npx supabase status"
+        $postgresRunning = Test-Port -Port 54322
+        if ($postgresRunning) {
+            $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Supabase juz dziala (PostgreSQL na porcie 54322)"
+            
+            $redisRunning = Test-Port -Port 6379
+            if (-not $redisRunning) {
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Redis nie odpowiada na porcie 6379, uruchamiam..."
+                $redisStarted = Start-Redis
+                if (-not $redisStarted) {
+                    $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Nie udalo sie uruchomic Redis, ale kontynuuje..."
+                }
+            } else {
+                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Redis dziala na porcie 6379"
+            }
+            
+            Pop-Location
+            return $true
+        }
         
         $originalErrorAction = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
         
         try {
-            $statusOutput = & npx supabase status 2>&1 | Where-Object { 
-                $_ -notmatch "npm warn" -and 
-                $_ -notmatch "Unknown user config" -and
-                $_ -notmatch "System\.Management\.Automation" -and
-                $_ -notmatch "^$"
-            } | Where-Object { $_.ToString().Trim().Length -gt 0 }
+            $job = Start-Job -ScriptBlock {
+                param($ProjectRoot)
+                Set-Location $ProjectRoot
+                & npx --yes supabase status 2>&1
+            } -ArgumentList $ProjectRoot
             
-            $statusExitCode = $LASTEXITCODE
-            if ($statusExitCode -eq $null) {
-                $statusExitCode = 0
-            }
-            Write-Host "`[DEBUG`] ====== PO npx supabase status, exit code: $statusExitCode =====" -ForegroundColor Magenta
+            $timeout = 30
+            $job | Wait-Job -Timeout $timeout | Out-Null
             
-            if ($statusOutput) {
-                $status = ($statusOutput | Out-String).Trim()
-            } else {
-                $status = ""
-            }
-            Write-Host "`[DEBUG`] ====== Output length: $($status.Length) =====" -ForegroundColor Magenta
-        } catch {
-            Write-Host "`[DEBUG`] ====== BŁĄD podczas npx supabase status: $_ =====" -ForegroundColor Red
             $statusOutput = @()
-            $statusExitCode = -1
-            $status = ""
-        } finally {
+            if ($job.State -ne "Running") {
+                $statusOutput = Receive-Job -Job $job | Where-Object { 
+                    $_ -notmatch "npm warn" -and 
+                    $_ -notmatch "Unknown user config" -and
+                    $_ -notmatch "System\.Management\.Automation" -and
+                    $_ -notmatch "^$"
+                } | Where-Object { $_.ToString().Trim().Length -gt 0 }
+            }
+            
+            Remove-Job -Job $job -ErrorAction SilentlyContinue
+            $ErrorActionPreference = $originalErrorAction
+            
+            $status = ($statusOutput | Out-String).Trim()
+            
+            if ($status) {
+                $statusLower = $status.ToLower()
+                $patternMatch = (
+                    $statusLower -match "local development setup is running" -or
+                    $statusLower -match "database url" -or
+                    $statusLower -match "api url"
+                )
+                
+                if ($patternMatch) {
+                    $postgresRunning = Test-Port -Port 54322
+                    if ($postgresRunning) {
+                        $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Supabase juz dziala"
+                        
+                        $redisRunning = Test-Port -Port 6379
+                        if (-not $redisRunning) {
+                            $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Redis nie odpowiada na porcie 6379, uruchamiam..."
+                            $redisStarted = Start-Redis
+                            if (-not $redisStarted) {
+                                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Nie udalo sie uruchomic Redis, ale kontynuuje..."
+                            }
+                        }
+                        
+                        Pop-Location
+                        return $true
+                    }
+                }
+            }
+        } catch {
             $ErrorActionPreference = $originalErrorAction
         }
         
-        $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] Exit code: $statusExitCode"
-        Write-Host "[DEBUG] ====== ROZPOCZYNAM SPRAWDZANIE WZORCOW =====" -ForegroundColor Magenta
-        
-        if ($status -and $status.Length -gt 0) {
-            $previewLength = [Math]::Min(500, $status.Length)
-            $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] Output (pierwsze $previewLength znakow): $($status.Substring(0, $previewLength))"
-            $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] Pełny output statusu Supabase:"
-            $statusOutput | ForEach-Object { Write-Host "  $_" }
-        } else {
-            $null = Write-ColorOutput -ForegroundColor Yellow '[DEBUG] Output jest pusty'
-        }
-        
-        Write-Host "[DEBUG] ====== PRZED SPRAWDZANIEM WZORCOW =====" -ForegroundColor Magenta
-        Write-Host "[DEBUG] status jest null: $($null -eq $status)" -ForegroundColor Magenta
-        Write-Host "[DEBUG] status length: $($status.Length)" -ForegroundColor Magenta
-        
-        $isRunning = $false
-        $patternMatch = $false
-        $match1 = $false
-        $match2 = $false
-        $match3 = $false
-        $match4 = $false
-        $match5 = $false
-        $match6 = $false
-        $match7 = $false
-        $match8 = $false
-        
-        if ($status) {
-            Write-Host "[DEBUG] ====== WEWNATRZ IF STATUS =====" -ForegroundColor Magenta
-            try {
-                $statusLower = $status.ToLower()
-                Write-Host "[DEBUG] ====== PRZED MATCH1 =====" -ForegroundColor Magenta
-                $match1 = $statusLower -match "supabase.*running"
-                Write-Host "[DEBUG] ====== PO MATCH1, wynik: $match1 =====" -ForegroundColor Magenta
-                $match2 = $statusLower -match "is running"
-                Write-Host "[DEBUG] ====== PO MATCH2, wynik: $match2 =====" -ForegroundColor Magenta
-                $match3 = $statusLower -match "already running"
-                $match4 = $statusLower -match "api url"
-                $match5 = $statusLower -match "database url"
-                $match6 = $statusLower -match "local development setup is running"
-                $match7 = $statusLower -match "graphql url"
-                $match8 = $statusLower -match "studio url"
-                Write-Host "[DEBUG] ====== WSZYSTKIE MATCHY ZAKONCZONE =====" -ForegroundColor Magenta
-            } catch {
-                Write-Host "[DEBUG] ====== BLAD W SPRAWDZANIU WZORCOW: $_ =====" -ForegroundColor Red
-                Write-Host "[DEBUG] ====== StackTrace: $($_.ScriptStackTrace) =====" -ForegroundColor Red
-            }
-            
-            Write-Host "[DEBUG] ====== PO BLOKU TRY-CATCH =====" -ForegroundColor Magenta
-            Write-Host "[DEBUG] match1: $match1, match2: $match2, match6: $match6 =====" -ForegroundColor Magenta
-            Write-Host "[DEBUG] ====== PRZED WYŚWIETLENIEM WYNIKÓW =====" -ForegroundColor Magenta
-            Write-Host "[DEBUG] Wyniki sprawdzania wzorcow:" -ForegroundColor Cyan
-            Write-Host "[DEBUG]   - supabase.*running: $match1" -ForegroundColor Cyan
-            Write-Host "[DEBUG]   - is running: $match2" -ForegroundColor Cyan
-            Write-Host "[DEBUG]   - already running: $match3" -ForegroundColor Cyan
-            Write-Host "[DEBUG]   - api url: $match4" -ForegroundColor Cyan
-            Write-Host "[DEBUG]   - database url: $match5" -ForegroundColor Cyan
-            Write-Host "[DEBUG]   - local development setup is running: $match6" -ForegroundColor Cyan
-            Write-Host "[DEBUG]   - graphql url: $match7" -ForegroundColor Cyan
-            Write-Host "[DEBUG]   - studio url: $match8" -ForegroundColor Cyan
-            Write-Host "[DEBUG] Exit code jest 0: $($statusExitCode -eq 0)" -ForegroundColor Cyan
-            
-            $patternMatch = $match1 -or $match2 -or $match3 -or $match4 -or $match5 -or $match6 -or $match7 -or $match8
-            Write-Host "[DEBUG] Pattern match: $patternMatch" -ForegroundColor Cyan
-            Write-Host "[DEBUG] ====== PRZED SPRAWDZENIEM WARUNKÓW =====" -ForegroundColor Magenta
-            
-            if ($statusExitCode -eq 0 -and $patternMatch) {
-                Write-Host "[DEBUG] ====== WARUNKI PASUJĄ, USTAWIANIE isRunning =====" -ForegroundColor Magenta
-                $isRunning = $true
-                Write-Host "[OK] Wzorce pasuja, Supabase dziala" -ForegroundColor Green
-            } elseif ($statusExitCode -eq 0) {
-                Write-Host "[WARN] Exit code jest 0, ale wzorce nie pasuja" -ForegroundColor Yellow
-            }
-            Write-Host "[DEBUG] ====== PO SPRAWDZENIU WARUNKÓW, isRunning: $isRunning =====" -ForegroundColor Magenta
-        } else {
-            $null = Write-ColorOutput -ForegroundColor Yellow "`[DEBUG`] Status output jest pusty, sprawdzam porty jako backup"
-        }
-        
-        if (-not $isRunning -and $statusExitCode -eq 0) {
-            $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Nie znaleziono wzorcow w outputcie, sprawdzam porty jako backup..."
-            $postgresPortCheck = Test-Port -Port 54322
-            $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] PostgreSQL port 54322: $postgresPortCheck"
-            
-            if ($postgresPortCheck) {
-                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] PostgreSQL dziala na porcie 54322 (sprawdzenie portu)"
-                $isRunning = $true
-            }
-        }
-        
-        Write-Host "[DEBUG] ====== PRZED SPRAWDZENIEM isRunning =====" -ForegroundColor Magenta
-        Write-Host "[DEBUG] isRunning: $isRunning" -ForegroundColor Magenta
-        $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] isRunning: $isRunning"
-        
-        if ($isRunning) {
-            Write-Host "[DEBUG] ====== WEWNATRZ IF isRunning =====" -ForegroundColor Magenta
-            $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Supabase juz dziala"
-            
-            Write-Host "[DEBUG] ====== SPRAWDZANIE PORTOW =====" -ForegroundColor Magenta
-            $postgresRunning = Test-Port -Port 54322
-            Write-Host "[DEBUG] PostgreSQL port 54322: $postgresRunning" -ForegroundColor Magenta
-            if ($postgresRunning) {
-                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] PostgreSQL dziala na porcie 54322"
-            } else {
-                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] PostgreSQL nie odpowiada na porcie 54322"
-            }
+        $postgresRunning = Test-Port -Port 54322
+        if ($postgresRunning) {
+            $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Supabase juz dziala (PostgreSQL na porcie 54322)"
             
             $redisRunning = Test-Port -Port 6379
-            Write-Host "[DEBUG] Redis port 6379: $redisRunning" -ForegroundColor Magenta
-            if ($redisRunning) {
-                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Redis dziala na porcie 6379"
-            } else {
-                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Redis nie odpowiada na porcie 6379"
-            }
-            
-            Write-Host "[DEBUG] ====== PRZED Pop-Location =====" -ForegroundColor Magenta
-            Pop-Location
-            Write-Host "[DEBUG] ====== PO Pop-Location, ZWRACAM TRUE =====" -ForegroundColor Magenta
-            return $true
-        } else {
-            $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Supabase nie dziala lub status nieznany (isRunning: $isRunning)"
-            
-            if ($statusExitCode -eq 0) {
-                $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Exit code jest 0, ale nie znaleziono wzorcow, sprawdzam porty..."
-                $postgresPortCheck = Test-Port -Port 54322
-                $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] PostgreSQL port 54322: $postgresPortCheck"
-                
-                if ($postgresPortCheck) {
-                    $null = Write-ColorOutput -ForegroundColor Green "`[OK`] PostgreSQL dziala na porcie 54322, Supabase prawdopodobnie dziala"
-                    $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Zwracam true na podstawie sprawdzenia portu"
-                    
-                    $postgresRunning = Test-Port -Port 54322
-                    if ($postgresRunning) {
-                        $null = Write-ColorOutput -ForegroundColor Green "`[OK`] PostgreSQL dziala na porcie 54322"
-                    }
-                    
-                    $redisRunning = Test-Port -Port 6379
-                    if ($redisRunning) {
-                        $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Redis dziala na porcie 6379"
-                    } else {
-                        $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Redis nie odpowiada na porcie 6379"
-                    }
-                    
-                    Pop-Location
-                    return $true
+            if (-not $redisRunning) {
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Redis nie odpowiada na porcie 6379, uruchamiam..."
+                $redisStarted = Start-Redis
+                if (-not $redisStarted) {
+                    $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Nie udalo sie uruchomic Redis, ale kontynuuje..."
                 }
             }
             
-            if ($status) {
-                $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] Status output:"
-                $statusOutput | ForEach-Object { Write-Host "  $_" }
-            }
+            Pop-Location
+            return $true
         }
     } catch {
-        $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Blad podczas sprawdzania statusu Supabase: $_"
-        $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Sprawdzam porty przed uruchomieniem..."
-        
-        $postgresPortCheck = Test-Port -Port 54322
-        if ($postgresPortCheck) {
-            $null = Write-ColorOutput -ForegroundColor Green "`[OK`] PostgreSQL dziala na porcie 54322 mimo bledu sprawdzania statusu"
-            $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Zwracam true na podstawie sprawdzenia portu"
-            
-            $postgresRunning = Test-Port -Port 54322
-            if ($postgresRunning) {
-                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] PostgreSQL dziala na porcie 54322"
-            }
+        $postgresRunning = Test-Port -Port 54322
+        if ($postgresRunning) {
+            $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Supabase juz dziala (PostgreSQL na porcie 54322)"
             
             $redisRunning = Test-Port -Port 6379
-            if ($redisRunning) {
-                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Redis dziala na porcie 6379"
-            } else {
-                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Redis nie odpowiada na porcie 6379"
+            if (-not $redisRunning) {
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Redis nie odpowiada na porcie 6379, uruchamiam..."
+                $redisStarted = Start-Redis
+                if (-not $redisStarted) {
+                    $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Nie udalo sie uruchomic Redis, ale kontynuuje..."
+                }
             }
             
             Pop-Location
             return $true
         }
-        
-        $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Przechodze do uruchamiania..."
     }
+    
     
     $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Uruchamianie Supabase..."
     
     try {
-        $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] Sprawdzam czy jestem w katalogu projektu: $(Get-Location)"
-        $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] Wykonuje: npx supabase start"
-        
         $originalErrorActionStart = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
         
-        $output = & npx supabase start 2>&1 | Where-Object { $_ -notmatch "npm warn" -and $_ -notmatch "Unknown user config" }
-        $exitCode = $LASTEXITCODE
-        if ($exitCode -eq $null) {
-            $exitCode = 0
+        $job = Start-Job -ScriptBlock {
+            param($ProjectRoot)
+            Set-Location $ProjectRoot
+            & npx --yes supabase start 2>&1
+        } -ArgumentList $ProjectRoot
+        
+        $timeout = 180
+        $job | Wait-Job -Timeout $timeout | Out-Null
+        
+        if ($job.State -eq "Running") {
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Timeout podczas npx supabase start (180s)"
+            Stop-Job -Job $job -ErrorAction SilentlyContinue
+            Remove-Job -Job $job -ErrorAction SilentlyContinue
+        } else {
+            Remove-Job -Job $job -ErrorAction SilentlyContinue
         }
-        $outputString = $output | Out-String
         
         $ErrorActionPreference = $originalErrorActionStart
         
-        $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] Exit code: $exitCode"
-        $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] Output length: $($outputString.Length) znakow"
+        Start-Sleep -Seconds 5
         
-        if ($output) {
-            $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] Pełny output komendy supabase start:"
-            $output | ForEach-Object { Write-Host "  $_" }
-        }
-        
-        $isStarted = $false
-        $patternMatch = $false
-        
-        if ($outputString) {
-            $outputLower = $outputString.ToLower()
-            $patternMatch = (
-                $outputLower -match "supabase.*running" -or
-                $outputLower -match "is running" -or
-                $outputLower -match "already running" -or
-                $outputLower -match "supabase local development setup is running" -or
-                $outputLower -match "started supabase local development setup" -or
-                $outputLower -match "api url" -or
-                $outputLower -match "database url" -or
-                $outputLower -match "studio url"
-            )
-            $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] Pattern match w outputcie start: $patternMatch"
-            $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] Exit code start: $exitCode"
+        $postgresReady = Wait-ForPort -Port 54322 -ServiceName "PostgreSQL" -Timeout 60
+        if ($postgresReady) {
+            $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Supabase uruchomiony (PostgreSQL gotowy)"
             
-            if ($exitCode -eq 0 -and $patternMatch) {
-                $isStarted = $true
-            }
-        }
-        
-        if (-not $isStarted -and $exitCode -eq 0) {
-            $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Nie znaleziono wzorcow w outputcie start, sprawdzam porty jako backup..."
-            Start-Sleep -Seconds 3
-            $postgresPortCheck = Test-Port -Port 54322
-            $null = Write-ColorOutput -ForegroundColor Cyan "`[DEBUG`] PostgreSQL port 54322 po starcie: $postgresPortCheck"
-            
-            if ($postgresPortCheck) {
-                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] PostgreSQL dziala na porcie 54322 (sprawdzenie portu po starcie)"
-                $isStarted = $true
-            }
-        }
-        
-        if ($isStarted) {
-            $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Supabase uruchomiony lub juz dziala (exit code: $exitCode)"
-            
-            $postgresReady = Wait-ForPort -Port 54322 -ServiceName "PostgreSQL" -Timeout 45
-            if ($postgresReady) {
-                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] PostgreSQL gotowy"
+            $redisRunning = Test-Port -Port 6379
+            if (-not $redisRunning) {
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Redis nie odpowiada na porcie 6379, uruchamiam..."
+                $redisStarted = Start-Redis
+                if (-not $redisStarted) {
+                    $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Nie udalo sie uruchomic Redis, ale kontynuuje..."
+                }
             } else {
-                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] PostgreSQL nie odpowiada w oczekiwanym czasie"
-            }
-            
-            $redisReady = Wait-ForPort -Port 6379 -ServiceName "Redis" -Timeout 30
-            if ($redisReady) {
-                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Redis gotowy"
-            } else {
-                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Redis nie odpowiada w oczekiwanym czasie"
+                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Redis dziala na porcie 6379"
             }
             
             Pop-Location
             return $true
         } else {
             $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Nie udalo sie uruchomic Supabase"
-            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Exit code: $exitCode"
-            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Pattern match: $patternMatch"
-            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] isStarted: $isStarted"
-            
-            $postgresPortCheck = Test-Port -Port 54322
-            $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Ostatnie sprawdzenie portu PostgreSQL: $postgresPortCheck"
-            
-            if ($outputString) {
-                $null = Write-ColorOutput -ForegroundColor Yellow "================================================================"
-                $null = Write-ColorOutput -ForegroundColor Yellow "PEŁNY OUTPUT KOMENDY SUPABASE START:"
-                $null = Write-ColorOutput -ForegroundColor Yellow "================================================================"
-                $output | ForEach-Object { Write-Host $_ }
-                $null = Write-ColorOutput -ForegroundColor Yellow "================================================================"
-            } else {
-                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Output komendy jest pusty"
-            }
-            
-            $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Sprawdzam logi Supabase..."
-            try {
-                $originalErrorActionLogs = $ErrorActionPreference
-                $ErrorActionPreference = "Continue"
-                $logsOutput = & npx supabase logs 2>&1 | Where-Object { $_ -notmatch "npm warn" -and $_ -notmatch "Unknown user config" } | Select-Object -Last 20
-                $ErrorActionPreference = $originalErrorActionLogs
-                if ($logsOutput) {
-                    $null = Write-ColorOutput -ForegroundColor Yellow "================================================================"
-                    $null = Write-ColorOutput -ForegroundColor Yellow "OSTATNIE LOGI SUPABASE:"
-                    $null = Write-ColorOutput -ForegroundColor Yellow "================================================================"
-                    $logsOutput | ForEach-Object { Write-Host $_ }
-                    $null = Write-ColorOutput -ForegroundColor Yellow "================================================================"
-                }
-            } catch {
-                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Nie udalo sie pobrac logow Supabase: $_"
-            }
-            
-            $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi: npx supabase logs"
             $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy Docker Desktop jest uruchomiony"
-            $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy porty 54322 i 6379 sa wolne"
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi: npx supabase status"
             
             Pop-Location
             return $false
         }
     } catch {
-        $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Blad podczas uruchamiania Supabase"
-        $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Typ bledu: $($_.Exception.GetType().FullName)"
-        $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Komunikat: $($_.Exception.Message)"
-        $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] StackTrace: $($_.ScriptStackTrace)"
-        
-        if ($_.Exception.InnerException) {
-            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] InnerException: $($_.Exception.InnerException.Message)"
-        }
-        
+        $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Blad podczas uruchamiania Supabase: $($_.Exception.Message)"
         $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy npx jest dostepne: npx --version"
-        $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy Supabase CLI jest zainstalowane"
         $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy Docker Desktop jest uruchomiony"
         
         Pop-Location
@@ -520,18 +327,48 @@ function Start-Redis {
     $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Uruchamianie Redis (Docker)..."
     
     try {
-        docker run --name waw-redis -p 6379:6379 -d redis:7 2>&1 | Out-Null
-        Start-Sleep -Seconds 3
-        
-        if (Test-Port -Port 6379) {
-            $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Redis uruchomiony"
-            return $true
+        $container = docker ps -a --filter "name=waw-redis" --format "{{.Names}}" 2>&1
+        if ($container -and $container -eq "waw-redis") {
+            $containerStatus = docker ps -a --filter "name=waw-redis" --format "{{.Status}}" 2>&1
+            if ($containerStatus -match "Up") {
+                $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Kontener Redis istnieje i jest uruchomiony, sprawdzam port..."
+                Start-Sleep -Seconds 2
+                if (Test-Port -Port 6379) {
+                    $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Redis dziala"
+                    return $true
+                }
+            } else {
+                $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Kontener Redis istnieje ale nie jest uruchomiony, uruchamiam..."
+                docker start waw-redis 2>&1 | Out-Null
+                Start-Sleep -Seconds 3
+                if (Test-Port -Port 6379) {
+                    $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Redis uruchomiony"
+                    return $true
+                }
+            }
         } else {
-            $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Redis nie odpowiada, sprawdzam kontener..."
-            $container = docker ps -a --filter "name=waw-redis" --format "{{.Names}}"
-            if ($container -eq "waw-redis") {
-                $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Kontener istnieje, uruchamiam..."
-                docker start waw-redis | Out-Null
+            $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Tworzenie nowego kontenera Redis..."
+            $runOutput = docker run --name waw-redis -p 6379:6379 -d redis:7 2>&1
+            if ($LASTEXITCODE -eq 0 -or $runOutput -match "^[a-f0-9]+$") {
+                Start-Sleep -Seconds 3
+                if (Test-Port -Port 6379) {
+                    $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Redis uruchomiony"
+                    return $true
+                } else {
+                    $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Redis nie odpowiada, sprawdzam kontener..."
+                    $container = docker ps -a --filter "name=waw-redis" --format "{{.Names}}" 2>&1
+                    if ($container -eq "waw-redis") {
+                        docker start waw-redis 2>&1 | Out-Null
+                        Start-Sleep -Seconds 3
+                        if (Test-Port -Port 6379) {
+                            $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Redis uruchomiony"
+                            return $true
+                        }
+                    }
+                }
+            } elseif ($runOutput -match "already in use") {
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Kontener o nazwie waw-redis juz istnieje, uruchamiam..."
+                docker start waw-redis 2>&1 | Out-Null
                 Start-Sleep -Seconds 3
                 if (Test-Port -Port 6379) {
                     $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Redis uruchomiony"
@@ -544,6 +381,7 @@ function Start-Redis {
         $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Upewnij sie ze Docker Desktop jest uruchomiony"
     }
     
+    $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Nie udalo sie uruchomic Redis"
     return $false
 }
 
@@ -555,11 +393,11 @@ function Stop-Backend {
     try {
         $connection = Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue
         if ($connection) {
-            $pid = $connection.OwningProcess
-            $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+            $processId = $connection.OwningProcess
+            $proc = Get-Process -Id $processId -ErrorAction SilentlyContinue
             if ($proc -and $proc.ProcessName -eq "java") {
-                Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Znaleziono proces Java na porcie 8080 (PID: $pid)"
-                Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+                Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Znaleziono proces Java na porcie 8080 (PID: $processId)"
+                Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
                 Start-Sleep -Seconds 2
                 $stopped = $true
                 Write-ColorOutput -ForegroundColor Green "`[OK`] Backend zatrzymany"
@@ -1358,25 +1196,66 @@ function Get-Logs {
 }
 
 function Apply-Migrations {
+    Write-Host "[DEBUG] ====== Apply-Migrations ROZPOCZYNA =====" -ForegroundColor Magenta
     $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Stosowanie migracji bazy danych..."
     
+    Write-Host "[DEBUG] ====== PRZED Push-Location w Apply-Migrations =====" -ForegroundColor Magenta
     Push-Location $ProjectRoot
+    Write-Host "[DEBUG] ====== PO Push-Location, katalog: $(Get-Location) =====" -ForegroundColor Magenta
+    
     try {
         $originalErrorActionMigrations = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
-        $output = npx supabase db reset 2>&1 | Where-Object { $_ -notmatch "npm warn" -and $_ -notmatch "Unknown user config" } | Out-String
+        
+        Write-Host "[DEBUG] ====== PRZED Start-Job w Apply-Migrations =====" -ForegroundColor Magenta
+        $job = Start-Job -ScriptBlock {
+            param($ProjectRoot)
+            Set-Location $ProjectRoot
+            & npx --yes supabase db reset 2>&1
+        } -ArgumentList $ProjectRoot
+        Write-Host "[DEBUG] ====== PO Start-Job, Job ID: $($job.Id), State: $($job.State) =====" -ForegroundColor Magenta
+        
+        $timeout = 120
+        Write-Host "[DEBUG] ====== Czekam na Job z timeoutem $timeout sekund =====" -ForegroundColor Magenta
+        $job | Wait-Job -Timeout $timeout | Out-Null
+        Write-Host "[DEBUG] ====== PO Wait-Job, Job State: $($job.State) =====" -ForegroundColor Magenta
+        
+        if ($job.State -eq "Running") {
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Timeout podczas npx supabase db reset (120s)"
+            Stop-Job -Job $job -ErrorAction SilentlyContinue
+            Remove-Job -Job $job -ErrorAction SilentlyContinue
+            $output = ""
+        } else {
+            Write-Host "[DEBUG] ====== Odbieram output z Job =====" -ForegroundColor Magenta
+            $output = (Receive-Job -Job $job | Where-Object { $_ -notmatch "npm warn" -and $_ -notmatch "Unknown user config" } | Out-String)
+            Write-Host "[DEBUG] ====== Output length: $($output.Length) =====" -ForegroundColor Magenta
+            Remove-Job -Job $job -ErrorAction SilentlyContinue
+        }
+        
         $ErrorActionPreference = $originalErrorActionMigrations
+        
+        Write-Host "[DEBUG] ====== PRZED sprawdzeniem outputu migracji =====" -ForegroundColor Magenta
+        
+        if ($output -and $output.Length -gt 0) {
+            Write-Host "[DEBUG] ====== Output migracji (pierwsze 200 znaków): $($output.Substring(0, [Math]::Min(200, $output.Length))) =====" -ForegroundColor Magenta
+        } else {
+            Write-Host "[DEBUG] ====== Output migracji jest pusty =====" -ForegroundColor Yellow
+        }
         
         if ($output -match "Applying migration") {
             $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Migracje zastosowane pomyslnie"
+            Write-Host "[DEBUG] ====== Apply-Migrations zwraca TRUE (migracje zastosowane) =====" -ForegroundColor Magenta
             Pop-Location
             return $true
         } else {
             $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Nie znaleziono nowych migracji lub migracje juz zastosowane"
+            Write-Host "[DEBUG] ====== Apply-Migrations zwraca TRUE (brak nowych migracji) =====" -ForegroundColor Magenta
             Pop-Location
             return $true
         }
     } catch {
+        Write-Host "[DEBUG] ====== BŁĄD w Apply-Migrations: $_ =====" -ForegroundColor Red
+        Write-Host "[DEBUG] ====== StackTrace: $($_.ScriptStackTrace) =====" -ForegroundColor Red
         $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Blad podczas stosowania migracji: $_"
         Pop-Location
         return $false
@@ -1426,7 +1305,25 @@ function Show-Status {
         Push-Location $ProjectRoot
         $originalErrorActionStatus = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
-        $statusOutput = npx supabase status 2>&1 | Where-Object { $_ -notmatch "npm warn" -and $_ -notmatch "Unknown user config" }
+        
+        $job = Start-Job -ScriptBlock {
+            param($ProjectRoot)
+            Set-Location $ProjectRoot
+            & npx --yes supabase status 2>&1
+        } -ArgumentList $ProjectRoot
+        
+        $timeout = 30
+        $job | Wait-Job -Timeout $timeout | Out-Null
+        
+        if ($job.State -eq "Running") {
+            Stop-Job -Job $job -ErrorAction SilentlyContinue
+            Remove-Job -Job $job -ErrorAction SilentlyContinue
+            $statusOutput = @()
+        } else {
+            $statusOutput = Receive-Job -Job $job | Where-Object { $_ -notmatch "npm warn" -and $_ -notmatch "Unknown user config" }
+            Remove-Job -Job $job -ErrorAction SilentlyContinue
+        }
+        
         $ErrorActionPreference = $originalErrorActionStatus
         Pop-Location
         
@@ -1551,12 +1448,18 @@ switch ($Action) {
         
         Write-Host "[DEBUG] ====== WYWOŁYWANIE Start-Supabase =====" -ForegroundColor Magenta
         $supabaseStarted = Start-Supabase
-        Write-Host "[DEBUG] ====== PO Start-Supabase, wynik: $supabaseStarted =====" -ForegroundColor Magenta
+        Write-Host "[DEBUG] ====== PO Start-Supabase, wynik: $supabaseStarted, typ: $($supabaseStarted.GetType().Name) =====" -ForegroundColor Magenta
+        
+        if ($supabaseStarted -eq $null) {
+            Write-Host "[DEBUG] ====== supabaseStarted jest NULL =====" -ForegroundColor Red
+        }
+        
         if (-not $supabaseStarted) {
             Write-ColorOutput -ForegroundColor Red "`[ERROR`] Nie udalo sie uruchomic Supabase"
             exit 1
         }
         
+        Write-Host "[DEBUG] ====== PRZED Apply-Migrations =====" -ForegroundColor Magenta
         Write-Host "[DEBUG] ====== WYWOŁYWANIE Apply-Migrations =====" -ForegroundColor Magenta
         $applyMigrations = Apply-Migrations
         Write-Host "[DEBUG] ====== PO Apply-Migrations, wynik: $applyMigrations =====" -ForegroundColor Magenta

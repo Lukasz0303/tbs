@@ -35,7 +35,7 @@ describe('GameModeCardComponent', () => {
   });
 
   it('powinien emitować zdarzenie wyboru trybu przy kliknięciu karty', () => {
-    const spy = spyOn(component.modeSelected, 'emit');
+    const spy = jest.spyOn(component.modeSelected, 'emit');
     const card: HTMLElement = fixture.nativeElement.querySelector('.game-mode-card');
 
     card.click();
@@ -46,7 +46,7 @@ describe('GameModeCardComponent', () => {
   it('nie powinien emitować zdarzenia, jeśli tryb niedostępny', () => {
     component.isGuest = false;
     fixture.detectChanges();
-    const spy = spyOn(component.modeSelected, 'emit');
+    const spy = jest.spyOn(component.modeSelected, 'emit');
     const card: HTMLElement = fixture.nativeElement.querySelector('.game-mode-card');
 
     card.click();

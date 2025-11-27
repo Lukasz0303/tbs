@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class MatchmakingServiceTest {
@@ -67,52 +68,54 @@ class MatchmakingServiceTest {
     void addToQueue_shouldAddUserToQueueSuccessfully() {
         MatchmakingQueueRequest request = new MatchmakingQueueRequest(BoardSize.THREE);
 
-        when(redisService.isUserInQueue(1L)).thenReturn(false);
-        when(gameRepository.hasActivePvpGame(1L)).thenReturn(false);
-        when(redisService.getQueueForBoardSize(BoardSize.THREE)).thenReturn(Collections.emptyList());
-        when(redisService.getQueueSize(BoardSize.THREE)).thenReturn(0);
+        when(redisService.acquireLock("1", 5)).thenReturn(true);
+        when(redisService.addToQueueIfNotActive(1L, BoardSize.THREE)).thenReturn(true);
+        when(redisService.acquireLock("matchmaking:THREE", 10)).thenReturn(false);
 
         MatchmakingQueueResponse response = matchmakingService.addToQueue(1L, request);
 
         assertThat(response.message()).isEqualTo("Successfully added to queue");
         assertThat(response.estimatedWaitTime()).isEqualTo(30);
-        verify(redisService).addToQueue(1L, BoardSize.THREE);
+        verify(redisService).releaseLock("1");
     }
 
     @Test
     void addToQueue_shouldThrowExceptionWhenUserAlreadyInQueue() {
         MatchmakingQueueRequest request = new MatchmakingQueueRequest(BoardSize.THREE);
 
-        when(redisService.isUserInQueue(1L)).thenReturn(true);
+        when(redisService.acquireLock("1", 5)).thenReturn(false);
 
         assertThatThrownBy(() -> matchmakingService.addToQueue(1L, request))
                 .isInstanceOf(UserAlreadyInQueueException.class)
-                .hasMessageContaining("User is already in the matchmaking queue");
+                .hasMessageContaining("User is already in the matchmaking queue or operation in progress");
 
-        verify(redisService, never()).addToQueue(any(), any());
+        verify(redisService, never()).addToQueueIfNotActive(any(), any());
     }
 
     @Test
     void addToQueue_shouldThrowExceptionWhenUserHasActiveGame() {
         MatchmakingQueueRequest request = new MatchmakingQueueRequest(BoardSize.THREE);
 
-        when(redisService.isUserInQueue(1L)).thenReturn(false);
+        when(redisService.acquireLock("1", 5)).thenReturn(true);
+        when(redisService.addToQueueIfNotActive(1L, BoardSize.THREE)).thenReturn(false);
         when(gameRepository.hasActivePvpGame(1L)).thenReturn(true);
 
         assertThatThrownBy(() -> matchmakingService.addToQueue(1L, request))
                 .isInstanceOf(UserHasActiveGameException.class)
                 .hasMessageContaining("User already has an active PvP game");
 
-        verify(redisService, never()).addToQueue(any(), any());
+        verify(redisService).releaseLock("1");
     }
 
     @Test
     void addToQueue_shouldCreateGameWhenMatchFound() {
         MatchmakingQueueRequest request = new MatchmakingQueueRequest(BoardSize.THREE);
 
-        when(redisService.isUserInQueue(1L)).thenReturn(false);
-        when(gameRepository.hasActivePvpGame(1L)).thenReturn(false);
+        when(redisService.acquireLock("1", 5)).thenReturn(true);
+        when(redisService.addToQueueIfNotActive(1L, BoardSize.THREE)).thenReturn(true);
+        when(redisService.acquireLock("matchmaking:THREE", 10)).thenReturn(true);
         when(redisService.getQueueForBoardSize(BoardSize.THREE)).thenReturn(List.of(2L));
+        when(gameRepository.hasActivePvpGame(2L)).thenReturn(false);
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser1));
         when(userRepository.findById(2L)).thenReturn(Optional.of(testUser2));
         when(redisService.removeFromQueue(1L)).thenReturn(true);
@@ -123,7 +126,8 @@ class MatchmakingServiceTest {
 
         assertThat(response.message()).isEqualTo("Match found! Game created");
         assertThat(response.estimatedWaitTime()).isEqualTo(0);
-        verify(redisService).addToQueue(1L, BoardSize.THREE);
+        verify(redisService).releaseLock("matchmaking:THREE");
+        verify(redisService).releaseLock("1");
         verify(gameRepository).save(any(Game.class));
     }
 
@@ -150,10 +154,10 @@ class MatchmakingServiceTest {
     void createDirectChallenge_shouldCreateChallengeSuccessfully() {
         ChallengeRequest request = new ChallengeRequest(BoardSize.THREE);
 
+        when(gameRepository.hasActivePvpGame(1L)).thenReturn(false);
+        when(gameRepository.hasActivePvpGame(2L)).thenReturn(false);
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser1));
         when(userRepository.findById(2L)).thenReturn(Optional.of(testUser2));
-        when(gameRepository.hasActivePvpGame(2L)).thenReturn(false);
-        when(redisService.isUserInQueue(2L)).thenReturn(false);
         when(gameRepository.save(any(Game.class))).thenReturn(testGame);
 
         ChallengeResponse response = matchmakingService.createDirectChallenge(1L, 2L, request);
@@ -194,6 +198,7 @@ class MatchmakingServiceTest {
     void createDirectChallenge_shouldThrowExceptionWhenChallengedUserUnavailable() {
         ChallengeRequest request = new ChallengeRequest(BoardSize.THREE);
 
+        when(gameRepository.hasActivePvpGame(1L)).thenReturn(false);
         when(userRepository.findById(2L)).thenReturn(Optional.of(testUser2));
         when(gameRepository.hasActivePvpGame(2L)).thenReturn(true);
 
@@ -204,15 +209,6 @@ class MatchmakingServiceTest {
         verify(gameRepository, never()).save(any());
     }
 
-    @Test
-    void isUserAvailable_shouldReturnTrueWhenUserIsAvailable() {
-        when(gameRepository.hasActivePvpGame(1L)).thenReturn(false);
-        when(redisService.isUserInQueue(1L)).thenReturn(false);
-
-        boolean result = matchmakingService.isUserAvailable(1L);
-
-        assertThat(result).isTrue();
-    }
 
     @Test
     void isUserAvailable_shouldReturnFalseWhenUserHasActiveGame() {
@@ -225,13 +221,13 @@ class MatchmakingServiceTest {
     }
 
     @Test
-    void isUserAvailable_shouldReturnFalseWhenUserInQueue() {
+    void isUserAvailable_shouldReturnTrueWhenUserIsAvailable() {
         when(gameRepository.hasActivePvpGame(1L)).thenReturn(false);
-        when(redisService.isUserInQueue(1L)).thenReturn(true);
 
         boolean result = matchmakingService.isUserAvailable(1L);
 
-        assertThat(result).isFalse();
+        assertThat(result).isTrue();
+        verify(redisService, never()).isUserInQueue(any());
     }
 
     @Test

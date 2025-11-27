@@ -128,7 +128,7 @@ public class GuestController {
         ResponseCookie cookie = ResponseCookie.from("authToken", token)
                 .httpOnly(true)
                 .secure(cookieSecure)
-                .sameSite("Lax")
+                .sameSite("Strict")
                 .path("/")
                 .maxAge(3600)
                 .build();

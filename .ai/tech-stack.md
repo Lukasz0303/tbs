@@ -47,3 +47,38 @@
 ### Uzasadnienia doboru narzędzi:
 - Stack umożliwia szybki (jak na poważny projekt) rozwój MVP oraz późniejsze przejście do dużej produkcji, zachowując bezpieczeństwo, wsparcie społeczności oraz łatwość wdrażania na prod.
 - Wybór popularnych narzędzi i frameworków gwarantuje dostępność pomocy i rozszerzalność rozwiązania, przy jednoczesnym zachowaniu wysokiego poziomu bezpieczeństwa oraz stabilności.
+
+## Strategia testowa
+
+### Zakres i cele
+- **Frontend:** scenariusze logowania, wybór trybu gry, przebieg tury (ruchy, timery, surrender, reconnect), ranking, dostępność i responsywność motywu PrimeNG Verona.
+- **Backend:** REST auth/ranking, boty i walidacja ruchów, obsługa WebSocket (MOVE/TIMER/SURRENDER), timer usługowy, aktualizacja rankingów oraz blacklisty JWT w Redis.
+- **Baza danych i Supabase:** migracje Flyway na czystej/istniejącej bazie, integralność schematu, rollbacki, dane referencyjne rankingu.
+- **Automatyzacja i infrastruktura:** skrypty PowerShell do smoke/E2E backendu, pipeline GitHub Actions, monitoring Actuator + Prometheus + Grafana.
+
+### Typy testów (wg `.ai/test-plan.md`)
+- **Statyczne:** ESLint + Prettier (Angular), Checkstyle + SonarCloud (Java).
+- **Jednostkowe frontend:** Jest + Angular Testing Library.
+- **Jednostkowe backend:** JUnit 5 + Mockito.
+- **Integracyjne backend:** Spring Boot Test + Testcontainers (PostgreSQL/Redis), RestAssured/Spring MockMvc, WireMock.
+- **Kontraktowe:** OpenAPI, serializacja/typy wiadomości WebSocket.
+- **E2E frontend:** Cypress dla głównych user journeys (logowanie → PvE/PvP → ranking, reconnect, surrender).
+- **E2E backend:** PowerShell (`backend/test-pvp-match.ps1`, `test-bot-move.ps1`, `test-win-bot-and-check-ranking.ps1`, `test-pvp-websocket.ps1`).
+- **Wydajnościowe/chaos:** k6/Gatling, scenariusze restartów usług (Redis/PostgreSQL).
+- **Bezpieczeństwa:** OWASP ZAP, snyk, dependency-check (JWT, WebSocket, rate limiting).
+- **Smoke/regresja:** cykliczny zestaw lint → unit → integracja → skrócone e2e uruchamiany na każdym merge.
+
+### Narzędzia i raportowanie
+- **Frontend:** Jest, Angular Testing Library, Cypress, Storybook Visual Regression (opcjonalnie).
+- **Backend:** JUnit 5, Mockito, Testcontainers, WireMock, RestAssured, Spring MockMvc.
+- **Jakość/statyczne:** ESLint, Prettier, Checkstyle, SonarCloud.
+- **Wydajność/niezawodność:** k6, Gatling, docker-compose, GitHub Actions runners.
+- **Bezpieczeństwo:** OWASP ZAP, snyk, dependency-check.
+- **Raporty/obserwowalność:** Allure, GitHub Actions artifacts, Prometheus + Grafana, Spring Actuator.
+
+### Uruchamianie testów
+- **Frontend unit:** `cd frontend && npm test`.
+- **Backend unit/integracyjne:** `cd backend && ./gradlew test` (Windows: `gradlew.bat test`), z możliwością startu usług pomocniczych przez `npx supabase start` lub `.\run-backend.ps1 start`.
+- **Backend e2e (PowerShell):** `cd backend && .\test-pvp-match.ps1` (analogicznie dla pozostałych skryptów).
+- **Frontend e2e:** `cd frontend && npx cypress run` (konfiguracja opisana w `.ai/test-plan.md`).
+- **Pipeline CI/CD:** GitHub Actions wykonuje sekwencję lint → unit → integracyjne → Cypress → publikacja raportów SonarCloud/Allure przy każdym merge.

@@ -15,6 +15,7 @@
           fluid
           aria-describedby="email-error"
           aria-required="true"
+          data-cy="username-input"
         />
         @if (isFieldInvalid('email')) {
           <p-message
@@ -23,6 +24,7 @@
             size="small"
             variant="simple"
             [text]="getFieldError('email')"
+            data-cy="error-message"
           ></p-message>
         }
       </div>
@@ -48,6 +50,7 @@
           fluid
           aria-describedby="password-error"
           aria-required="true"
+          data-cy="password-input"
         />
         @if (isFieldInvalid('password')) {
           <p-message
@@ -56,6 +59,7 @@
             size="small"
             variant="simple"
             [text]="getFieldError('password')"
+            data-cy="error-message"
           ></p-message>
         }
       </div>
@@ -65,13 +69,14 @@
         [label]="translateService.translate('auth.login.submit')"
         [disabled]="loginForm.invalid || isLoading()"
         [loading]="isLoading()"
+        data-cy="login-button"
       ></p-button>
     </form>
 
     <div class="auth-links">
       <p>
         {{ translateService.translate('auth.login.noAccount') }}
-        <a routerLink="/auth/register">{{ translateService.translate('auth.login.registerLink') }}</a>
+        <a routerLink="/auth/register" data-cy="register-link">{{ translateService.translate('auth.login.registerLink') }}</a>
       </p>
       <p>
         {{ translateService.translate('auth.login.or') }}

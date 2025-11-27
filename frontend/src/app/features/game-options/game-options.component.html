@@ -1,5 +1,5 @@
 <p-toast key="game-options" position="top-right"></p-toast>
-<section class="game-options">
+<section class="game-options" data-cy="game-options">
   <div class="game-options-card">
     <h1>{{ translateService.translate('home.gameOptions.title') }}</h1>
     
@@ -14,6 +14,7 @@
             [attr.aria-label]="translateService.translate('home.gameMode.easy')"
             [attr.aria-pressed]="isGameModeSelected('easy')"
             (click)="selectGameMode('easy')"
+            data-cy="game-mode-card"
           >
             {{ translateService.translate('home.gameMode.easy') }}
           </button>

@@ -1,0 +1,16 @@
+Na podstawie informacji zawartych w @tech-stack.md przygotuj kompletną konfigurację projektu umożliwiającą uruchamianie testów jednostkowych oraz testów end-to-end (E2E).
+Uwzględnij:
+
+wybór i uzasadnienie narzędzi testowych zgodnych ze stosowanym stackiem technologicznym,
+
+strukturę katalogów dla testów,
+
+konfigurację środowiska testowego,
+
+wymagane skrypty w plikach konfiguracyjnych (np. package.json, ustawienia frameworków),
+
+minimalne przykładowe testy demonstrujące sposób wykorzystania przygotowanej konfiguracji,
+
+opis uruchamiania testów (komendy, zależności, wymagane kroki).
+
+Zadbaj, aby przygotowany projekt był zgodny ze standardami i dobrymi praktykami wynikającymi z technologii opisanych w @tech-stack.md.

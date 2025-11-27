@@ -19,6 +19,7 @@ import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,7 +37,6 @@ class GuestControllerTest {
     @Mock
     private HttpServletResponse httpServletResponse;
 
-    @InjectMocks
     private GuestController guestController;
 
     private GuestResponse guestResponse;
@@ -45,6 +45,13 @@ class GuestControllerTest {
 
     @BeforeEach
     void setUp() {
+        guestController = new GuestController(
+                guestService,
+                ipAddressService,
+                httpServletRequest,
+                2,
+                false
+        );
         guestResponse = new GuestResponse(
                 1L,
                 true,
@@ -68,7 +75,7 @@ class GuestControllerTest {
                 Instant.now()
         );
 
-        when(ipAddressService.extractIpAddress(any(HttpServletRequest.class), anyString()))
+        when(ipAddressService.extractIpAddress(any(HttpServletRequest.class), isNull()))
                 .thenReturn(testIpAddress);
         when(guestService.findOrCreateGuest(testIpAddress)).thenReturn(newGuestResponse);
         when(guestService.generateTokenForGuest(1L)).thenReturn(testToken);
@@ -93,7 +100,7 @@ class GuestControllerTest {
                 Instant.now().minusSeconds(10)
         );
 
-        when(ipAddressService.extractIpAddress(any(HttpServletRequest.class), anyString()))
+        when(ipAddressService.extractIpAddress(any(HttpServletRequest.class), isNull()))
                 .thenReturn(testIpAddress);
         when(guestService.findOrCreateGuest(testIpAddress)).thenReturn(existingGuestResponse);
         when(guestService.generateTokenForGuest(1L)).thenReturn(testToken);
