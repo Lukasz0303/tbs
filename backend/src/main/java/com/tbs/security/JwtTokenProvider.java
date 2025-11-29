@@ -26,10 +26,24 @@ public class JwtTokenProvider {
     private final long validityInMilliseconds;
     private final Map<String, Claims> claimsCache = new ConcurrentHashMap<>();
 
+    private static final String DEFAULT_SECRET = "V2FyOiBUaGlzIGlzIGEgdG9wIHNlY3JldCBmb3IgSldUIGVuY29kaW5nLiBJbiBwcm9kdWN0aW9uIHVzZSBhIHN0cm9uZyByYW5kb20gc2VjcmV0IQ==";
+
     public JwtTokenProvider(
             @Value("${app.jwt.secret}") String secret,
             @Value("${app.jwt.expiration:3600000}") long validityInMilliseconds
     ) {
+        if (secret == null || secret.trim().isEmpty()) {
+            String errorMessage = "JWT_SECRET environment variable must be set!";
+            log.error(errorMessage);
+            throw new IllegalStateException(errorMessage);
+        }
+        
+        if (secret.equals(DEFAULT_SECRET)) {
+            String errorMessage = "Default JWT secret cannot be used in production! Please set JWT_SECRET environment variable with a strong random secret.";
+            log.error(errorMessage);
+            throw new IllegalStateException(errorMessage);
+        }
+        
         byte[] keyBytes = Base64.getDecoder().decode(secret);
         int keyLengthBits = keyBytes.length * 8;
         

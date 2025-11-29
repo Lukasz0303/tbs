@@ -18,6 +18,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Configuration
 @EnableWebSecurity
@@ -41,24 +42,25 @@ public class SecurityConfig {
     ) {
         this.jwtAuthenticationFilter = Objects.requireNonNull(jwtAuthenticationFilter);
         
-        if (allowedOrigins == null || allowedOrigins.isEmpty()) {
-            throw new IllegalArgumentException("app.cors.allowed-origins cannot be empty");
-        }
-        if (allowedMethods == null || allowedMethods.isEmpty()) {
-            throw new IllegalArgumentException("app.cors.allowed-methods cannot be empty");
-        }
-        if (allowedHeaders == null || allowedHeaders.isEmpty()) {
-            throw new IllegalArgumentException("app.cors.allowed-headers cannot be empty");
-        }
-        if (exposedHeaders == null || exposedHeaders.isEmpty()) {
-            throw new IllegalArgumentException("app.cors.exposed-headers cannot be empty");
-        }
-        
-        this.allowedOrigins = allowedOrigins;
-        this.allowedMethods = allowedMethods;
-        this.allowedHeaders = allowedHeaders;
-        this.exposedHeaders = exposedHeaders;
+        this.allowedOrigins = validateAndCleanList(allowedOrigins, "app.cors.allowed-origins");
+        this.allowedMethods = validateAndCleanList(allowedMethods, "app.cors.allowed-methods");
+        this.allowedHeaders = validateAndCleanList(allowedHeaders, "app.cors.allowed-headers");
+        this.exposedHeaders = validateAndCleanList(exposedHeaders, "app.cors.exposed-headers");
         this.maxAge = maxAge;
+    }
+
+    private List<String> validateAndCleanList(List<String> list, String propertyName) {
+        if (list == null || list.isEmpty()) {
+            throw new IllegalArgumentException(propertyName + " cannot be empty");
+        }
+        List<String> cleaned = list.stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
+        if (cleaned.isEmpty()) {
+            throw new IllegalArgumentException(propertyName + " cannot contain only empty values");
+        }
+        return cleaned;
     }
 
     @Bean
@@ -94,6 +96,7 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/guests").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/rankings/**").permitAll()
                         .requestMatchers("/api/websocket/**").permitAll()
+                        .requestMatchers("/api/test/**").permitAll()
                         .requestMatchers("/api/ws/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-resources/**", "/webjars/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()

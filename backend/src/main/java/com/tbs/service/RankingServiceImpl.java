@@ -69,7 +69,7 @@ public class RankingServiceImpl implements RankingService {
         }
 
         List<RankingItem> items;
-        long totalCount = rankingRepository.countAll();
+        long totalCount = rankingRepository.countAllExcludingBot();
         int totalPages = totalCount > 0 ? (int) Math.ceil((double) totalCount / pageable.getPageSize()) : 0;
 
         if (totalCount == 0) {
@@ -91,6 +91,7 @@ public class RankingServiceImpl implements RankingService {
             items = rankingRepository.findRankingsFromPositionRaw(startRank, pageable.getPageSize())
                     .stream()
                     .map(this::mapToRankingItem)
+                    .filter(item -> !"Bot".equals(item.username()))
                     .collect(Collectors.toUnmodifiableList());
             return new RankingListResponse(
                     items,
@@ -107,6 +108,7 @@ public class RankingServiceImpl implements RankingService {
         items = rankingRepository.findRankingsRaw(offset, pageable.getPageSize())
                 .stream()
                 .map(this::mapToRankingItem)
+                .filter(item -> !"Bot".equals(item.username()))
                 .collect(Collectors.toUnmodifiableList());
 
         return new RankingListResponse(
@@ -180,10 +182,13 @@ public class RankingServiceImpl implements RankingService {
     private RankingAroundResponse getRankingsAroundInternal(Long userId, Integer range) {
 
         if (range == null) {
+            log.debug("Range parameter is null, using default value: 5");
             range = 5;
         }
         if (range < 1 || range > 10) {
-            throw new IllegalArgumentException("Range must be between 1 and 10");
+            throw new IllegalArgumentException(
+                String.format("Range must be between 1 and 10, got: %d", range)
+            );
         }
 
         if (userId == null) {
@@ -206,6 +211,7 @@ public class RankingServiceImpl implements RankingService {
         
         List<RankingAroundItem> items = results.stream()
                 .map(this::mapToRankingAroundItem)
+                .filter(item -> !"Bot".equals(item.username()))
                 .collect(Collectors.toUnmodifiableList());
 
         if (items.isEmpty()) {

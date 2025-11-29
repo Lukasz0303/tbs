@@ -52,7 +52,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (player of queueStatus()!.players; track player.userId) {
+                @for (player of queueStatus()!.players; track trackByUserId($index, player)) {
                   <tr>
                     <td class="username-cell">{{ player.username }}</td>
                     <td class="status-cell">

@@ -26,7 +26,7 @@ export type QueuePlayerStatusEnum = 'WAITING' | 'MATCHED' | 'PLAYING';
 export interface PlayerQueueStatus {
   userId: number;
   username: string;
-  boardSize: BoardSizeEnum;
+  boardSize: BoardSizeEnum | number;
   status: QueuePlayerStatusEnum;
   joinedAt: string;
   matchedWith?: number | null;
@@ -125,6 +125,29 @@ export class MatchmakingService {
     
     const normalized = normalizeBoardState(boardState);
     
+    let boardSize: 3 | 4 | 5 = 3;
+    if (typeof response.boardSize === 'number' && [3, 4, 5].includes(response.boardSize)) {
+      boardSize = response.boardSize as 3 | 4 | 5;
+    } else if (typeof response.boardSize === 'string') {
+      const sizeMap: Record<string, 3 | 4 | 5> = {
+        'THREE': 3,
+        'FOUR': 4,
+        'FIVE': 5,
+        '3': 3,
+        '4': 4,
+        '5': 5,
+      };
+      const normalizedSize = String(response.boardSize).toUpperCase();
+      if (normalizedSize in sizeMap) {
+        boardSize = sizeMap[normalizedSize];
+      } else {
+        const numValue = Number(response.boardSize);
+        if (!Number.isNaN(numValue) && [3, 4, 5].includes(numValue)) {
+          boardSize = numValue as 3 | 4 | 5;
+        }
+      }
+    }
+    
     const player1Id = response.player1?.userId || response.player1Id || 0;
     const player2Id = response.player2?.userId || response.player2Id || null;
     const winnerId = response.winner?.userId || response.winnerId || null;
@@ -132,7 +155,7 @@ export class MatchmakingService {
     return {
       gameId: response.gameId,
       gameType: response.gameType,
-      boardSize: response.boardSize,
+      boardSize,
       status: response.status,
       boardState: normalized,
       player1Id,

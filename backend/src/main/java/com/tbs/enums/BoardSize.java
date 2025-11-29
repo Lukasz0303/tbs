@@ -29,20 +29,31 @@ public enum BoardSize {
     }
 
     @JsonCreator
-    public static BoardSize fromValue(String value) {
-        if (value == null || value.trim().isEmpty()) {
+    public static BoardSize fromValue(Object value) {
+        if (value == null) {
             return null;
         }
-        try {
-            int intValue = Integer.parseInt(value);
-            return fromValue(intValue);
-        } catch (NumberFormatException e) {
+        
+        int intValue;
+        if (value instanceof Number) {
+            intValue = ((Number) value).intValue();
+        } else {
+            String stringValue = value.toString().trim();
+            if (stringValue.isEmpty()) {
+                return null;
+            }
             try {
-                return BoardSize.valueOf(value.toUpperCase());
-            } catch (IllegalArgumentException ex) {
-                throw new IllegalArgumentException("Unknown board size: " + value);
+                intValue = Integer.parseInt(stringValue);
+            } catch (NumberFormatException e) {
+                try {
+                    return BoardSize.valueOf(stringValue.toUpperCase());
+                } catch (IllegalArgumentException ex) {
+                    throw new IllegalArgumentException("Unknown board size: " + value, ex);
+                }
             }
         }
+        
+        return fromValue(intValue);
     }
 }
 

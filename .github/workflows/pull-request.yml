@@ -1,0 +1,244 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pull-request-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 20
+  JAVA_VERSION: '21'
+  CI: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Use Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Run frontend lint (if configured)
+        run: npm run lint --if-present
+        working-directory: frontend
+
+      - name: Type check frontend sources
+        run: npx tsc -p tsconfig.app.json --noEmit
+        working-directory: frontend
+
+      - name: Set up Temurin ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
+
+      - name: Grant execute permission for Gradle
+        run: chmod +x gradlew
+        working-directory: backend
+
+      - name: Verify backend sources
+        run: ./gradlew --no-daemon compileJava
+        working-directory: backend
+
+  unit-test:
+    name: Unit Tests
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Use Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Run frontend unit suite
+        run: npm run test:ci
+        working-directory: frontend
+
+      - name: Upload frontend unit coverage
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: frontend-unit-coverage
+          path: frontend/coverage
+
+      - name: Set up Temurin ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
+
+      - name: Grant execute permission for Gradle
+        run: chmod +x gradlew
+        working-directory: backend
+
+      - name: Run backend unit suite
+        run: ./gradlew --no-daemon testUnit
+        working-directory: backend
+
+      - name: Upload backend unit reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: backend-unit-reports
+          path: |
+            backend/build/reports/tests/testUnit
+            backend/build/test-results/testUnit
+          if-no-files-found: ignore
+
+  e2e-test:
+    name: E2E Tests
+    needs: lint
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    environment:
+      name: integration
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Use Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Set Supabase env defaults
+        run: |
+          if [[ -z "${SUPABASE_URL:-}" ]]; then
+            echo "SUPABASE_URL is not set, using empty string for test build"
+            export SUPABASE_URL=""
+          fi
+          if [[ -z "${SUPABASE_ANON_KEY:-}" ]]; then
+            echo "SUPABASE_ANON_KEY is not set, using empty string for test build"
+            export SUPABASE_ANON_KEY=""
+          fi
+          echo "SUPABASE_URL=${SUPABASE_URL}" >> $GITHUB_ENV
+          echo "SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}" >> $GITHUB_ENV
+
+      - name: Build production bundle
+        id: build
+        run: npm run build -- --configuration=production
+        working-directory: frontend
+
+      - name: Run Cypress E2E
+        if: ${{ steps.build.outcome == 'success' }}
+        uses: cypress-io/github-action@v6
+        env:
+          CYPRESS_baseUrl: https://tbswars.win
+        with:
+          working-directory: frontend
+          install: false
+          wait-on: https://tbswars.win
+          wait-on-timeout: 120
+          command: npx cypress run --config baseUrl=https://tbswars.win
+          browser: chrome
+          install-browsers: true
+
+      - name: Upload Cypress artifacts
+        if: ${{ steps.build.outcome == 'success' && always() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: frontend-e2e-artifacts
+          path: |
+            frontend/cypress/screenshots
+            frontend/cypress/videos
+          if-no-files-found: ignore
+
+      - name: Upload e2e coverage
+        if: ${{ steps.build.outcome == 'success' && always() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: frontend-e2e-coverage
+          path: frontend/coverage-e2e
+          if-no-files-found: ignore
+
+  status-comment:
+    name: Status Comment
+    needs:
+      - lint
+      - unit-test
+      - e2e-test
+    if: ${{ github.event_name == 'pull_request' && success() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish status summary
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const marker = '<!-- pull-request-status -->';
+            const lintResult = '${{ needs.lint.result }}';
+            const unitResult = '${{ needs.unit-test.result }}';
+            const e2eResult = '${{ needs.e2e-test.result }}';
+            const body = `${marker}
+            ### ✅ Status kontroli PR
+            - Lint: **${lintResult.toUpperCase()}**
+            - Unit tests: **${unitResult.toUpperCase()}**
+            - E2E tests: **${e2eResult.toUpperCase()}**`;
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number,
+              per_page: 100
+            });
+            const existing = comments.data.find((comment) =>
+              comment.body && comment.body.includes(marker)
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body
+              });
+            }
+

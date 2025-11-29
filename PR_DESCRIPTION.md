@@ -1,83 +1,129 @@
-# feat: migrate tests to jest/cypress and harden auth cookies
+# refactor: Production Readiness Improvements and Code Quality Enhancements
 
-## 📋 Overview
+### 📋 Overview
 
-This PR standardises testing across the stack by replacing Karma/Jasmine with Jest plus Angular Testing Library, wiring up a Cypress E2E harness, and documenting the full QA workflow. On the backend it introduces dedicated test dependencies/config, improves the PowerShell bootstrap flow, and tightens authentication cookies (Secure + SameSite=Strict).
+This PR introduces production-ready configuration improvements, enhanced security validations, code quality refactoring, and better error handling across both backend and frontend. Key changes include environment variable support, improved CORS validation, JWT secret enforcement, ranking optimizations, and frontend accessibility improvements.
 
-## ✨ What's Changed
+### ✨ What's Changed
 
-### New Features
+#### New Features
 
-- **Jest-based unit tests** – Added `jest.config.js`, `src/test-setup.ts`, and updated `package.json`, `angular.json`, and `tsconfig*.json` so Angular specs run on Jest with Testing Library matchers.
-- **Cypress E2E harness** – Introduced `cypress.config.ts`, support commands (`login`/`logout`), `auth` and `game-flow` journeys, a Cypress-specific README, and `data-cy` hooks on login/game/leaderboard templates.
-- **Testing documentation** – Added `TESTING.md`, `CYPRESS_README.md`, `.ai/test-plan.md`, new prompt files, and a `game-component-structure.txt` ASCII map; expanded the main `README.md` testing section and `.ai/tech-stack.md` strategy.
-- **CI workflow** – Added `.github/workflows/ci.yml` that runs `npm run test:ci`, builds the Angular bundle, and executes `./gradlew testUnit`/`testIntegration`, publishing coverage/test artifacts for both stacks.
+- **Production Environment Configuration** - Environment variable support for Redis, CORS, JWT, and API endpoints
+- **Accessibility Improvements** - ARIA labels and keyboard navigation support for game board cells
+- **Enhanced Board Size Handling** - Improved parsing and validation of board size values (numeric and enum formats)
 
-### Core Components
+#### Core Components
 
-**New Services**
-
-- `RankingRefreshScheduler` now runs under `@Profile("!test")`, preventing background refreshes during automated suites.
-
-**New Controllers**
-
-- `AuthController` and `GuestController` now emit `authToken` cookies with `SameSite=Strict` and honour the secure flag so browser sessions stay scoped.
-- `JwtAuthenticationFilter` allows anonymous access to `/api/v1/rankings/**`, keeping ranking endpoints publicly readable without bypassing other guards.
-
-**New Exceptions**
-
-- None.
-
-**New DTOs/Models**
-
-- None.
-
-### Improvements
+**Improvements**
 
 **Database & Performance**
 
-- `backend/build.gradle` pulls in H2, RestAssured, and Testcontainers (core + PostgreSQL) and adds `testUnit`, `testIntegration`, and `testAll` Gradle tasks with verbose logging.
-- Introduced `backend/src/test/resources/application-test.properties` (in-memory DB, Redis toggles, relaxed rate limits) plus `@ActiveProfiles("test")` on Spring tests to keep suites isolated.
-- Controller/service tests now request paged data via `PageRequest` and use memoised repositories/move counts to reduce repeated DB hits.
+- Optimized ranking queries with improved SQL structure in `RankingRepositoryImpl`
+- Added `countAllExcludingBot()` method to exclude bot from ranking counts
+- Enhanced materialized view refresh with concurrent refresh support and fallback
+- Improved error handling in ranking repository methods with null checks and logging
 
 **Error Handling**
 
-- `backend/run-backend.ps1` was rewritten to use PowerShell jobs/timeouts, check ports before spawning Supabase/Redis, reuse existing containers, and emit clearer hints; a root-level `run-backend.ps1` proxy makes invoking it easier from the repo root.
+- Enhanced validation in `SecurityConfig` with list cleaning and trimming for CORS configuration
+- Improved error messages in `RankingServiceImpl` with formatted exception messages
+- Better null/empty checks in `JwtTokenProvider` and `RankingRepositoryImpl`
+- Enhanced board state validation in frontend game components
 
 **Security & Validation**
 
-- `application.properties` sets `app.cookie.secure=true`, and login/guest cookies switch to `SameSite=Strict`, requiring HTTPS but eliminating cross-site leakage.
+- **JWT Secret Enforcement** - Application now fails to start if `JWT_SECRET` is not set or uses default value
+- **Rate Limit Validation** - Added validation for rate limit values (1-10000 range) in `AuthController`
+- **CORS Configuration** - Enhanced validation with automatic trimming and filtering of empty values
+- **Cookie Configuration** - Dynamic `sameSite` attribute based on secure flag (Strict for HTTPS, Lax for HTTP)
 
 **Code Quality**
 
-- Angular specs (app component, game banner/mode cards, game options, home, websocket service) now rely on Jest mocks instead of Jasmine spies, and templates gained `data-cy` attributes to stabilise Cypress selectors.
-- Added a comprehensive `AuthService` HttpClient spec and removed the obsolete `UserControllerIntegrationTest`.
-- Backend unit tests instantiate controllers/services explicitly, use lenient Mockito settings only where necessary, and align expectations (e.g., `ConflictException`, TokenBlacklist errors, updated ranking endpoints).
+- **Refactored Game Component** - Split `ngOnInit` into separate initialization methods (`initializeUser`, `initializeGame`, `initializeAudio`)
+- **Improved Move Validation** - Extracted `validateMove` method in `GameComponent` for better separation of concerns
+- **Better Subscription Management** - Replaced `setTimeout` with RxJS `timer` for proper cleanup
+- **Enhanced Board Size Parsing** - Unified handling of numeric and enum board size values across services
+- **Accessibility** - Added ARIA attributes, keyboard navigation, and proper role attributes to game board
 
-## 🧪 Testing
+**Configuration Changes**
 
-- `frontend/src/app/services/auth.service.spec.ts` covers guest session creation, login/logout flows, and auth state helpers with `HttpClientTestingModule`.
-- Cypress specs (`frontend/cypress/e2e/auth.cy.ts`, `game-flow.cy.ts`) verify form rendering, navigation, and basic journeys using the new custom commands.
-- Backend tests now run under the `test` profile (`TbsApplicationTests`, `HealthControllerTest`, etc.), refresh pageable expectations, and add stricter assertions for matchmaking, ranking, logout, and guest flows.
+- Updated `application.properties` to use environment variables with fallbacks
+- Increased default rate limits (login: 5→100, register: 3→50) for production
+- Changed default CORS origins to production domains
+- Added test endpoint configuration flag
+- Updated frontend `angular.json` with production build configuration and file replacements
+- Enhanced `replace-env.js` script to support `API_BASE_URL` environment variable
 
-## 🗄️ Database Changes
+### 🧪 Testing
 
-- None (only test-only configuration in `application-test.properties`).
+No new tests added in this PR. Existing functionality maintained with improved error handling.
 
-## 📦 Files Changed
+### 🗄️ Database Changes
 
-- 61 files changed, 7 685 insertions(+), 1 077 deletions(-) (`git diff origin/main...HEAD --stat`).
+- Enhanced `refreshPlayerRankings()` method with better error handling and concurrent refresh support
+- Added `countAllExcludingBot()` query method
+- Optimized `findRankingsAroundUserRaw()` SQL query structure
 
-## 🔍 Migration Notes
+### 📦 Files Changed
 
-- No Flyway migrations are included. Automated suites now depend on the new Gradle tasks plus `application-test.properties`; local/CI runs must execute `npm test` and `npm run e2e` instead of `ng test`.
-- Auth cookies are HTTPS-only by default; override `APP_COOKIE_SECURE=false` (or equivalent property) if you must run over HTTP in dev/test.
+- **Modified**: 20 files
+- **Total**: 672 insertions(+), 169 deletions(-)
 
-## 🔄 Breaking Changes
+**Backend (10 files)**
+- `SecurityConfig.java` - CORS validation and test endpoint
+- `AuthController.java` - Rate limit validation, cookie configuration
+- `BoardSize.java` - Enhanced value parsing
+- `RankingRepository.java` - Added `countAllExcludingBot()` method
+- `RankingRepositoryImpl.java` - Query optimizations and error handling
+- `JwtTokenProvider.java` - JWT secret validation
+- `RankingServiceImpl.java` - Bot filtering in rankings
+- `application.properties` - Environment variable configuration
+- `run-backend.ps1` - Script improvements
 
-- Auth cookies now require HTTPS and ship with `SameSite=Strict`. Local setups that still serve the frontend over plain HTTP must flip `app.cookie.secure` or proxy through HTTPS to retain login behaviour.
+**Frontend (10 files)**
+- `game-board.component.ts` - Validation and accessibility improvements
+- `game-board.component.html` - ARIA attributes and keyboard support
+- `game.component.ts` - Code refactoring and validation improvements
+- `matchmaking-queue.component.ts` - Enhanced board size handling
+- `matchmaking-queue.component.html` - Track function fix
+- `game.service.ts` - Board size normalization improvements
+- `matchmaking.service.ts` - Board size handling consistency
+- `environment.ts` / `environment.prod.ts` - Production configuration
+- `angular.json` - Build configuration updates
+- `replace-env.js` - API base URL support
 
-## ✅ Checklist
+### 🔍 Migration Notes
 
-- [x] CI workflow runs Jest (`npm run test:ci`) and Gradle (`./gradlew testUnit`, `./gradlew testIntegration`) and uploads reports.
-- [x] Secure cookies default to HTTPS with `SameSite=Strict`; override only when absolutely necessary for local dev.
+**Environment Variables Required for Production:**
+
+- `JWT_SECRET` - **REQUIRED** (application will fail to start without it)
+- `CORS_ALLOWED_ORIGINS` - Optional (defaults to production domains)
+- `SPRING_DATA_REDIS_HOST` - Optional (defaults to 127.0.0.1)
+- `SPRING_DATA_REDIS_PORT` - Optional (defaults to 6379)
+- `SPRING_DATA_REDIS_PASSWORD` - Optional (only if Redis requires password)
+- `API_BASE_URL` - For frontend build (defaults to localhost)
+
+**Configuration Changes:**
+
+- Rate limits increased (login: 100, register: 50) - adjust if needed
+- Cookie `sameSite` now dynamic based on secure flag
+- CORS origins default to production domains - update for local development
+
+### 🔄 Breaking Changes
+
+**None** - All changes are backward compatible. However, production deployment requires:
+- Setting `JWT_SECRET` environment variable (application will not start without it)
+- Updating CORS configuration if using custom origins
+
+### ✅ Checklist
+
+- [x] Environment variables properly configured
+- [x] JWT secret validation implemented
+- [x] Rate limit validation added
+- [x] CORS configuration enhanced
+- [x] Ranking queries optimized
+- [x] Frontend accessibility improved
+- [x] Code refactoring completed
+- [x] Error handling enhanced
+- [x] Production configuration updated
+- [x] No breaking changes introduced

@@ -112,7 +112,10 @@ export class MatchmakingQueueComponent implements OnInit {
     });
   }
 
-  getBoardSizeLabel(size: string | BoardSizeEnum): string {
+  getBoardSizeLabel(size: string | BoardSizeEnum | number): string {
+    if (typeof size === 'number' && [3, 4, 5].includes(size)) {
+      return `${size}x${size}`;
+    }
     const normalizedSize = String(size).toUpperCase();
     const sizeMap: Record<string, string> = {
       'THREE': '3x3',
@@ -223,13 +226,74 @@ export class MatchmakingQueueComponent implements OnInit {
       return;
     }
 
-    const boardSizeMap = {
-      'THREE': 3,
-      'FOUR': 4,
-      'FIVE': 5,
-    } as const;
+    const rawBoardSize = player.boardSize;
+    let boardSize: 3 | 4 | 5 | null = null;
+    
+    if (typeof rawBoardSize === 'number') {
+      if (rawBoardSize === 3 || rawBoardSize === 4 || rawBoardSize === 5) {
+        boardSize = rawBoardSize;
+      } else {
+        this.logger.warn('Invalid numeric board size', { rawBoardSize });
+        this.messageService.add({
+          severity: 'error',
+          summary: this.translateService.translate('queue.join.error.title'),
+          detail: this.translateService.translate('queue.join.error.invalidBoardSize'),
+          life: 5000,
+        });
+        return;
+      }
+    } else if (typeof rawBoardSize === 'string') {
+      const numValue = Number(rawBoardSize);
+      if (!Number.isNaN(numValue) && (numValue === 3 || numValue === 4 || numValue === 5)) {
+        boardSize = numValue as 3 | 4 | 5;
+      } else {
+        const boardSizeMap: Record<string, 3 | 4 | 5> = {
+          'THREE': 3,
+          'FOUR': 4,
+          'FIVE': 5,
+        };
+        const normalized = rawBoardSize.toUpperCase();
+        boardSize = boardSizeMap[normalized] || null;
+        if (!boardSize) {
+          this.logger.warn('Invalid string board size', { rawBoardSize, normalized });
+          this.messageService.add({
+            severity: 'error',
+            summary: this.translateService.translate('queue.join.error.title'),
+            detail: this.translateService.translate('queue.join.error.invalidBoardSize'),
+            life: 5000,
+          });
+          return;
+        }
+      }
+    } else {
+      this.logger.warn('Unknown board size type', { rawBoardSize, type: typeof rawBoardSize });
+      this.messageService.add({
+        severity: 'error',
+        summary: this.translateService.translate('queue.join.error.title'),
+        detail: this.translateService.translate('queue.join.error.invalidBoardSize'),
+        life: 5000,
+      });
+      return;
+    }
 
-    const boardSize = boardSizeMap[player.boardSize] || 3;
+    if (!boardSize) {
+      this.logger.error('Could not resolve board size', { rawBoardSize });
+      this.messageService.add({
+        severity: 'error',
+        summary: this.translateService.translate('queue.join.error.title'),
+        detail: this.translateService.translate('queue.join.error.invalidBoardSize'),
+        life: 5000,
+      });
+      return;
+    }
+    
+    this.logger.debug('Joining game with board size', { 
+      rawBoardSize, 
+      rawBoardSizeType: typeof rawBoardSize,
+      resolvedBoardSize: boardSize,
+      playerUserId: player.userId,
+      playerUsername: player.username
+    });
 
     this.isJoining.set(true);
     this.matchmakingService.challengePlayer(player.userId, boardSize).pipe(
