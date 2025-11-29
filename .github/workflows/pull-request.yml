@@ -162,13 +162,14 @@ jobs:
       - name: Run Cypress E2E
         if: ${{ steps.build.outcome == 'success' }}
         uses: cypress-io/github-action@v6
+        env:
+          CYPRESS_baseUrl: https://tbswars.win
         with:
           working-directory: frontend
           install: false
-          start: npx http-server dist/frontend -p 4200
-          wait-on: http://localhost:4200
+          wait-on: https://tbswars.win
           wait-on-timeout: 120
-          command: npm run e2e
+          command: npx cypress run --config baseUrl=https://tbswars.win
           browser: chrome
           install-browsers: true
 
