@@ -3,8 +3,6 @@ package com.tbs.service;
 import com.tbs.dto.ranking.RankingAroundResponse;
 import com.tbs.dto.ranking.RankingDetailResponse;
 import com.tbs.dto.ranking.RankingListResponse;
-import com.tbs.exception.UserNotFoundException;
-import com.tbs.exception.UserNotInRankingException;
 import com.tbs.model.User;
 import com.tbs.repository.RankingRepository;
 import com.tbs.repository.UserRepository;
@@ -63,7 +61,7 @@ class RankingServiceImplTest {
     void getRankings_shouldReturnRankingListWhenUsingStandardPagination() {
         List<Object[]> mockResults = createMockRankingResults(5);
         
-        when(rankingRepository.countAll()).thenReturn(100L);
+        when(rankingRepository.countAllExcludingBot()).thenReturn(100L);
         when(rankingRepository.findRankingsRaw(anyInt(), anyInt())).thenReturn(mockResults);
 
         RankingListResponse response = rankingService.getRankings(pageable, null);
@@ -74,7 +72,7 @@ class RankingServiceImplTest {
         assertThat(response.totalPages()).isEqualTo(2);
         assertThat(response.first()).isTrue();
         verify(rankingRepository, times(1)).findRankingsRaw(0, 50);
-        verify(rankingRepository, times(1)).countAll();
+        verify(rankingRepository, times(1)).countAllExcludingBot();
     }
 
     @Test
@@ -82,7 +80,7 @@ class RankingServiceImplTest {
         List<Object[]> mockResults = createMockRankingResults(10);
         Integer startRank = 10;
         
-        when(rankingRepository.countAll()).thenReturn(100L);
+        when(rankingRepository.countAllExcludingBot()).thenReturn(100L);
         when(rankingRepository.findRankingsFromPositionRaw(startRank, 50)).thenReturn(mockResults);
 
         RankingListResponse response = rankingService.getRankings(pageable, startRank);
