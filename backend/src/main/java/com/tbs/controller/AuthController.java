@@ -42,6 +42,7 @@ public class AuthController {
     private final RateLimitingService rateLimitingService;
     private final IpAddressService ipAddressService;
     private final boolean cookieSecure;
+    private final long jwtExpirationSeconds;
     private final int loginRateLimitPerIp;
     private final int loginRateLimitPerAccount;
     private final int registerRateLimitPerIp;
@@ -53,20 +54,36 @@ public class AuthController {
             RateLimitingService rateLimitingService,
             IpAddressService ipAddressService,
             @Value("${app.cookie.secure:false}") boolean cookieSecure,
-            @Value("${app.rate-limit.login-per-ip:5}") int loginRateLimitPerIp,
-            @Value("${app.rate-limit.login-per-account:5}") int loginRateLimitPerAccount,
-            @Value("${app.rate-limit.register-per-ip:3}") int registerRateLimitPerIp,
-            @Value("${app.rate-limit.register-per-account:3}") int registerRateLimitPerAccount
+            @Value("${app.jwt.expiration:3600000}") long jwtExpirationMs,
+            @Value("${app.rate-limit.login-per-ip:100}") int loginRateLimitPerIp,
+            @Value("${app.rate-limit.login-per-account:100}") int loginRateLimitPerAccount,
+            @Value("${app.rate-limit.register-per-ip:50}") int registerRateLimitPerIp,
+            @Value("${app.rate-limit.register-per-account:50}") int registerRateLimitPerAccount
     ) {
-        this.authService = authService;
-        this.userService = userService;
-        this.rateLimitingService = rateLimitingService;
-        this.ipAddressService = ipAddressService;
+        this.authService = Objects.requireNonNull(authService);
+        this.userService = Objects.requireNonNull(userService);
+        this.rateLimitingService = Objects.requireNonNull(rateLimitingService);
+        this.ipAddressService = Objects.requireNonNull(ipAddressService);
         this.cookieSecure = cookieSecure;
+        this.jwtExpirationSeconds = jwtExpirationMs / 1000;
+        
+        validateRateLimit("login-per-ip", loginRateLimitPerIp, 1, 10000);
+        validateRateLimit("login-per-account", loginRateLimitPerAccount, 1, 10000);
+        validateRateLimit("register-per-ip", registerRateLimitPerIp, 1, 10000);
+        validateRateLimit("register-per-account", registerRateLimitPerAccount, 1, 10000);
+        
         this.loginRateLimitPerIp = loginRateLimitPerIp;
         this.loginRateLimitPerAccount = loginRateLimitPerAccount;
         this.registerRateLimitPerIp = registerRateLimitPerIp;
         this.registerRateLimitPerAccount = registerRateLimitPerAccount;
+    }
+
+    private void validateRateLimit(String name, int value, int min, int max) {
+        if (value < min || value > max) {
+            throw new IllegalArgumentException(
+                String.format("Rate limit %s must be between %d and %d, got: %d", name, min, max, value)
+            );
+        }
     }
 
     @PostMapping("/login")
@@ -193,9 +210,9 @@ public class AuthController {
         ResponseCookie cookie = ResponseCookie.from("authToken", token)
                 .httpOnly(true)
                 .secure(cookieSecure)
-                .sameSite("Strict")
+                .sameSite(cookieSecure ? "Strict" : "Lax")
                 .path("/")
-                .maxAge(3600)
+                .maxAge(jwtExpirationSeconds)
                 .build();
         response.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, cookie.toString());
     }
@@ -204,7 +221,7 @@ public class AuthController {
         ResponseCookie cookie = ResponseCookie.from("authToken", "")
                 .httpOnly(true)
                 .secure(cookieSecure)
-                .sameSite("Strict")
+                .sameSite(cookieSecure ? "Strict" : "Lax")
                 .path("/")
                 .maxAge(0)
                 .build();

@@ -89,6 +89,12 @@ export class GameComponent implements OnInit, OnDestroy {
   readonly vm = toSignal(this.gameState$, { initialValue: { loading: true, game: null as Game | null } });
 
   ngOnInit(): void {
+    this.initializeUser();
+    this.initializeGame();
+    this.initializeAudio();
+  }
+
+  private initializeUser(): void {
     this.authService.loadCurrentUser().pipe(
       takeUntilDestroyed(this.destroyRef),
       catchError((error) => {
@@ -132,7 +138,9 @@ export class GameComponent implements OnInit, OnDestroy {
           this.currentUserRanking.set(ranking);
         }
       });
-    
+  }
+
+  private initializeGame(): void {
     this.route.paramMap
       .pipe(
         takeUntilDestroyed(this.destroyRef),
@@ -156,6 +164,9 @@ export class GameComponent implements OnInit, OnDestroy {
           this.logger.error('Error in route paramMap subscription:', error);
         }
       });
+  }
+
+  private initializeAudio(): void {
     this.audioSettingsService.settings$
       .pipe(
         takeUntilDestroyed(this.destroyRef),
@@ -199,6 +210,7 @@ export class GameComponent implements OnInit, OnDestroy {
         },
         error: (error) => {
           this.logger.error('Error in checkBotTurnAfterUserLoad:', error);
+          this.handleError(error);
         },
       });
   }
@@ -228,16 +240,9 @@ export class GameComponent implements OnInit, OnDestroy {
             totalMoves: game.totalMoves,
           });
           this.updateLocalGame(game);
-          this.updateTurnLock(game);
-          this.updateWinningCells(game);
 
           if (game.gameType === 'vs_bot' && game.status === 'waiting') {
-            this.updateTurnLock(game);
             return of(game);
-          }
-
-          if (game.gameType === 'vs_bot' && game.status === 'in_progress' && game.totalMoves === 0) {
-            this.updateTurnLock(game);
           }
 
           return of(game);
@@ -272,7 +277,7 @@ export class GameComponent implements OnInit, OnDestroy {
           if (!this.gameId) {
             return EMPTY;
           }
-          return this.gameService.getGame(this.gameId!).pipe(
+          return this.gameService.getGame(this.gameId).pipe(
             catchError((error) => {
               this.logger.error('Error polling game updates:', error);
               return EMPTY;
@@ -289,8 +294,6 @@ export class GameComponent implements OnInit, OnDestroy {
         filter((game): game is Game => game !== null),
         switchMap((game) => {
           this.updateLocalGame(game);
-          this.updateTurnLock(game);
-          this.updateWinningCells(game);
           this.handleGameStatusChange(game);
 
           if (game.gameType === 'vs_bot' && (game.status === 'in_progress' || game.status === 'waiting')) {
@@ -401,8 +404,6 @@ export class GameComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (game) => {
           this.updateLocalGame(game);
-          this.updateTurnLock(game);
-          this.updateWinningCells(game);
 
           if (game.gameType === 'pvp' && game.status === 'in_progress') {
             this.connectWebSocket();
@@ -440,9 +441,23 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   onMove(event: { row: number; col: number }, game: Game): void {
+    if (!this.validateMove(event, game)) {
+      return;
+    }
+
+    this.isMovePending.set(true);
+
+    if (game.gameType === 'pvp') {
+      this.sendMoveViaWebSocket(event, game);
+    } else {
+      this.sendMoveViaREST(event, game);
+    }
+  }
+
+  private validateMove(event: { row: number; col: number }, game: Game): boolean {
     if (!this.gameId) {
       this.logger.error('Cannot make move: gameId is missing');
-      return;
+      return false;
     }
 
     if (!game) {
@@ -452,7 +467,7 @@ export class GameComponent implements OnInit, OnDestroy {
         summary: this.translate.translate('game.error.title'),
         detail: this.translate.translate('game.error.load'),
       });
-      return;
+      return false;
     }
 
     if (event.row < 0 || event.col < 0 || event.row >= game.boardSize || event.col >= game.boardSize) {
@@ -466,7 +481,7 @@ export class GameComponent implements OnInit, OnDestroy {
         summary: this.translate.translate('game.error.title'),
         detail: this.translate.translate('game.error.move'),
       });
-      return;
+      return false;
     }
 
     this.logger.debug('GAME_ON_MOVE', {
@@ -490,7 +505,7 @@ export class GameComponent implements OnInit, OnDestroy {
         summary: this.translate.translate('game.error.title'),
         detail: this.translate.translate('game.error.waitingForResponse'),
       });
-      return;
+      return false;
     }
 
     if (this.isMoveDisabled(game)) {
@@ -506,7 +521,7 @@ export class GameComponent implements OnInit, OnDestroy {
         summary: this.translate.translate('game.error.title'),
         detail: this.translate.translate('game.error.moveNotAllowed'),
       });
-      return;
+      return false;
     }
 
     const cell = game.boardState[event.row]?.[event.col];
@@ -522,16 +537,10 @@ export class GameComponent implements OnInit, OnDestroy {
         summary: this.translate.translate('game.error.title'),
         detail: this.translate.translate('game.error.cellOccupied'),
       });
-      return;
+      return false;
     }
 
-    this.isMovePending.set(true);
-
-    if (game.gameType === 'pvp') {
-      this.sendMoveViaWebSocket(event, game);
-    } else {
-      this.sendMoveViaREST(event, game);
-    }
+    return true;
   }
 
   private sendMoveViaREST(move: { row: number; col: number }, game: Game): void {
@@ -545,6 +554,7 @@ export class GameComponent implements OnInit, OnDestroy {
       detail: this.translate.translate('game.info.makingMove'),
     });
 
+    const gameId = this.gameId;
     this.authService
       .getCurrentUser()
       .pipe(
@@ -561,12 +571,10 @@ export class GameComponent implements OnInit, OnDestroy {
             playerSymbol = game.player1Id === user.userId ? 'x' : 'o';
           }
 
-          return this.gameService.makeMove(this.gameId!, move.row, move.col, playerSymbol);
+          return this.gameService.makeMove(gameId, move.row, move.col, playerSymbol);
         }),
         switchMap((updated) => {
           this.updateLocalGame(updated);
-          this.updateTurnLock(updated);
-          this.updateWinningCells(updated);
           this.handleMoveResponse(updated);
 
           if (updated.gameType === 'vs_bot' && updated.status === 'in_progress') {
@@ -709,15 +717,14 @@ export class GameComponent implements OnInit, OnDestroy {
             this.isBotThinking.set(false);
             return EMPTY;
           }
-          return this.gameService.makeBotMove(this.gameId!);
+          const gameId = this.gameId;
+          return this.gameService.makeBotMove(gameId);
         }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (updated) => {
           this.updateLocalGame(updated);
-          this.updateTurnLock(updated);
-          this.updateWinningCells(updated);
           this.handleMoveResponse(updated);
           this.isBotThinking.set(false);
         },
@@ -730,9 +737,11 @@ export class GameComponent implements OnInit, OnDestroy {
 
   private handleMoveResponse(game: Game): void {
     if (game.status === 'finished' || game.status === 'draw') {
-      setTimeout(() => {
-        this.showResult.set(true);
-      }, 400);
+      timer(400)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe(() => {
+          this.showResult.set(true);
+        });
       
       let detail = '';
       let summary = '';
@@ -801,9 +810,11 @@ export class GameComponent implements OnInit, OnDestroy {
         if (this.isGameEndedPayload(message.payload)) {
           this.isMovePending.set(false);
           this.updateGameFromPayload(message.payload);
-          setTimeout(() => {
-            this.showResult.set(true);
-          }, 400);
+          timer(400)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe(() => {
+              this.showResult.set(true);
+            });
         }
         break;
     }
@@ -941,8 +952,6 @@ export class GameComponent implements OnInit, OnDestroy {
       });
       
       this.updateLocalGame(updated);
-      this.updateTurnLock(updated);
-      this.updateWinningCells(updated);
     }
   }
 
@@ -965,17 +974,17 @@ export class GameComponent implements OnInit, OnDestroy {
         boardState: updated.boardState,
       });
       this.updateLocalGame(updated);
-      this.updateTurnLock(updated);
-      this.updateWinningCells(updated);
     }
   }
 
   private handleGameStatusChange(game: Game): void {
     if (game.status === 'finished' || game.status === 'draw' || game.status === 'abandoned') {
       this.authService.loadCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
-      setTimeout(() => {
-        this.showResult.set(true);
-      }, 400);
+      timer(400)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe(() => {
+          this.showResult.set(true);
+        });
     }
   }
 
@@ -1040,6 +1049,8 @@ export class GameComponent implements OnInit, OnDestroy {
 
   private updateLocalGame(nextGame: Game): void {
     this.updateGameState(nextGame, false);
+    this.updateTurnLock(nextGame);
+    this.updateWinningCells(nextGame);
     this.loadOpponentProfile(nextGame);
     this.syncBackgroundMusic(nextGame);
     this.handleResultSound(nextGame);

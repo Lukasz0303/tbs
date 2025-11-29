@@ -51,11 +51,21 @@ export class GameBoardComponent {
   }
 
   getRowFromIndex(index: number): number {
-    return Math.floor(index / this.boardSize);
+    const size = this.boardSize || 3;
+    if (size <= 0 || !Number.isInteger(size)) {
+      this.logger.warn('Invalid boardSize in getRowFromIndex', { boardSize: this.boardSize, index });
+      return 0;
+    }
+    return Math.floor(index / size);
   }
 
   getColFromIndex(index: number): number {
-    return index % this.boardSize;
+    const size = this.boardSize || 3;
+    if (size <= 0 || !Number.isInteger(size)) {
+      this.logger.warn('Invalid boardSize in getColFromIndex', { boardSize: this.boardSize, index });
+      return 0;
+    }
+    return index % size;
   }
 
   onCellClick(index: number): void {
@@ -103,9 +113,40 @@ export class GameBoardComponent {
   }
 
   getCellValue(index: number): PlayerSymbol | null {
+    if (!this.boardState || !Array.isArray(this.boardState)) {
+      this.logger.warn('Invalid boardState in getCellValue', { boardState: this.boardState });
+      return null;
+    }
+    
     const row = this.getRowFromIndex(index);
     const col = this.getColFromIndex(index);
-    return this.boardState[row]?.[col] ?? null;
+    
+    if (row < 0 || col < 0 || row >= this.boardState.length) {
+      return null;
+    }
+    
+    const rowData = this.boardState[row];
+    if (!Array.isArray(rowData) || col >= rowData.length) {
+      return null;
+    }
+    
+    return rowData[col] ?? null;
+  }
+
+  getCellAriaLabel(index: number): string {
+    const value = this.getCellValue(index);
+    const row = this.getRowFromIndex(index);
+    const col = this.getColFromIndex(index);
+    const disabled = this.isCellDisabled(index);
+    const winning = this.isWinningCell(index);
+    
+    if (disabled) {
+      return `Cell ${row + 1}, ${col + 1} - disabled`;
+    }
+    if (winning) {
+      return `Cell ${row + 1}, ${col + 1} - ${value || 'empty'} - winning cell`;
+    }
+    return `Cell ${row + 1}, ${col + 1} - ${value || 'empty'}`;
   }
   
   isCellDisabled(index: number): boolean {

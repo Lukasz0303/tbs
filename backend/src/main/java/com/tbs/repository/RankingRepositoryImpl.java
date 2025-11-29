@@ -78,12 +78,16 @@ public class RankingRepositoryImpl implements RankingRepository {
         return result;
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<Object[]> findByUserIdRaw(Long userId) {
+    private void validateUserId(Long userId) {
         if (userId == null || userId <= 0) {
             throw new IllegalArgumentException("User ID must be positive, got: " + userId);
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Object[]> findByUserIdRaw(Long userId) {
+        validateUserId(userId);
         String sql = """
                 SELECT pr.rank_position, pr.id, pr.username, pr.total_points,
                        pr.games_played, pr.games_won, pr.created_at
@@ -100,9 +104,7 @@ public class RankingRepositoryImpl implements RankingRepository {
     @Override
     @Transactional(readOnly = true)
     public List<Object[]> findRankingsAroundUserRaw(Long userId, int range) {
-        if (userId == null || userId <= 0) {
-            throw new IllegalArgumentException("User ID must be positive, got: " + userId);
-        }
+        validateUserId(userId);
         if (range < 1) {
             throw new IllegalArgumentException("Range must be at least 1, got: " + range);
         }
@@ -111,24 +113,15 @@ public class RankingRepositoryImpl implements RankingRepository {
                     SELECT rank_position
                     FROM player_rankings
                     WHERE id = :userId
-                ),
-                max_rank AS (
-                    SELECT MAX(rank_position) as max_position
-                    FROM player_rankings
                 )
                 SELECT pr.rank_position, pr.id, pr.username, pr.total_points,
                        pr.games_played, pr.games_won
-                FROM player_rankings pr, user_rank ur, max_rank mr
+                FROM player_rankings pr
+                CROSS JOIN user_rank ur
                 WHERE pr.id != :userId
-                  AND (
-                    (ur.rank_position = 1 AND pr.rank_position BETWEEN 2 AND LEAST(1 + :range, mr.max_position))
-                    OR
-                    (ur.rank_position = mr.max_position AND pr.rank_position BETWEEN GREATEST(1, mr.max_position - :range) AND (mr.max_position - 1))
-                    OR
-                    (ur.rank_position > 1 AND ur.rank_position < mr.max_position 
-                     AND pr.rank_position BETWEEN GREATEST(1, ur.rank_position - :range) 
-                                            AND LEAST(ur.rank_position + :range, mr.max_position))
-                  )
+                  AND pr.rank_position BETWEEN 
+                      GREATEST(1, ur.rank_position - :range) 
+                      AND LEAST((SELECT MAX(rank_position) FROM player_rankings), ur.rank_position + :range)
                 ORDER BY pr.rank_position
                 """;
         Query query = entityManager.createNativeQuery(sql);
@@ -145,10 +138,14 @@ public class RankingRepositoryImpl implements RankingRepository {
         String sql = "SELECT MAX(rank_position) FROM player_rankings";
         Query query = entityManager.createNativeQuery(sql);
         Object result = query.getSingleResult();
+        if (result == null) {
+            log.warn("getMaxRankPosition() returned null - no rankings exist");
+            return 0L;
+        }
         if (result instanceof Number) {
             return ((Number) result).longValue();
         }
-        return 0L;
+        throw new IllegalStateException("getMaxRankPosition() returned unexpected type: " + result.getClass().getName());
     }
 
     @Override
@@ -183,10 +180,63 @@ public class RankingRepositoryImpl implements RankingRepository {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public long countAllExcludingBot() {
+        try {
+            String sql = "SELECT COUNT(*) FROM player_rankings WHERE username != 'Bot'";
+            Query query = entityManager.createNativeQuery(sql);
+            Object result = query.getSingleResult();
+            if (result == null) {
+                return 0L;
+            }
+            if (result instanceof Number) {
+                return ((Number) result).longValue();
+            }
+            throw new IllegalStateException("countAllExcludingBot() returned unexpected type: " + result.getClass().getName());
+        } catch (jakarta.persistence.PersistenceException e) {
+            log.error("Database error in countAllExcludingBot(): {}", e.getMessage(), e);
+            Throwable cause = e.getCause();
+            while (cause != null) {
+                if (cause instanceof org.postgresql.util.PSQLException) {
+                    org.postgresql.util.PSQLException psqlEx = (org.postgresql.util.PSQLException) cause;
+                    String errorMessage = psqlEx.getServerErrorMessage() != null 
+                            ? psqlEx.getServerErrorMessage().getMessage() 
+                            : psqlEx.getMessage();
+                    log.error("PostgreSQL error in countAllExcludingBot(): {}", errorMessage);
+                }
+                cause = cause.getCause();
+            }
+            throw new IllegalStateException("Failed to count rankings excluding bot: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
     @Transactional
     public void refreshPlayerRankings() {
-        String sql = "SELECT refresh_player_rankings()";
-        Query query = entityManager.createNativeQuery(sql);
-        query.getSingleResult();
+        try {
+            String checkSql = "SELECT COUNT(*) FROM pg_matviews WHERE schemaname = 'public' AND matviewname = 'player_rankings'";
+            Query checkQuery = entityManager.createNativeQuery(checkSql);
+            Object result = checkQuery.getSingleResult();
+            boolean viewExists = result instanceof Number && ((Number) result).intValue() > 0;
+            
+            if (!viewExists) {
+                log.debug("player_rankings materialized view does not exist, skipping refresh");
+                return;
+            }
+            
+            try {
+                String sql = "REFRESH MATERIALIZED VIEW CONCURRENTLY player_rankings";
+                Query query = entityManager.createNativeQuery(sql);
+                query.executeUpdate();
+                log.debug("Successfully refreshed player_rankings materialized view (concurrently)");
+            } catch (jakarta.persistence.PersistenceException e) {
+                log.warn("Concurrent refresh failed, trying non-concurrent refresh: {}", e.getMessage());
+                String sql = "REFRESH MATERIALIZED VIEW player_rankings";
+                entityManager.createNativeQuery(sql).executeUpdate();
+                log.debug("Successfully refreshed player_rankings materialized view (non-concurrent)");
+            }
+        } catch (Exception e) {
+            log.warn("Failed to refresh player_rankings materialized view: {}. This is not critical and will be retried later.", e.getMessage());
+        }
     }
 }

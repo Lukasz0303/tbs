@@ -163,6 +163,7 @@ function Start-Supabase {
         $ErrorActionPreference = "Continue"
         
         try {
+            $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Sprawdzam status Supabase (npx supabase status)..."
             $job = Start-Job -ScriptBlock {
                 param($ProjectRoot)
                 Set-Location $ProjectRoot
@@ -170,22 +171,49 @@ function Start-Supabase {
             } -ArgumentList $ProjectRoot
             
             $timeout = 30
+            $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Oczekiwanie na odpowiedz (timeout: $timeout sekund)..."
             $job | Wait-Job -Timeout $timeout | Out-Null
             
             $statusOutput = @()
+            $jobOutput = @()
+            if ($job.State -eq "Running") {
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Timeout podczas npx supabase status ($timeout sekund), przerywam..."
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Pobieram czesciowy output przed przerwaniem..."
+                $jobOutput = Receive-Job -Job $job -ErrorAction SilentlyContinue
+                if ($jobOutput) {
+                    $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Czesciowy output:"
+                    $jobOutput | Select-Object -First 20 | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+                }
+                Stop-Job -Job $job -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 1
+            }
+            
             if ($job.State -ne "Running") {
-                $statusOutput = Receive-Job -Job $job | Where-Object { 
+                $jobOutput = Receive-Job -Job $job -ErrorAction SilentlyContinue
+                $statusOutput = $jobOutput | Where-Object { 
                     $_ -notmatch "npm warn" -and 
                     $_ -notmatch "Unknown user config" -and
                     $_ -notmatch "System\.Management\.Automation" -and
                     $_ -notmatch "^$"
                 } | Where-Object { $_.ToString().Trim().Length -gt 0 }
+                
+                if ($jobOutput -and $statusOutput.Count -eq 0) {
+                    $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Otrzymano output, ale po filtracji nie zostalo nic:"
+                    $jobOutput | Select-Object -First 30 | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+                }
             }
             
             Remove-Job -Job $job -ErrorAction SilentlyContinue
             $ErrorActionPreference = $originalErrorAction
             
             $status = ($statusOutput | Out-String).Trim()
+            
+            if ($status) {
+                $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Output status Supabase (pierwsze 10 linii):"
+                ($statusOutput | Select-Object -First 10) | ForEach-Object { Write-Host "  $_" -ForegroundColor Cyan }
+            } else {
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Brak outputu z npx supabase status"
+            }
             
             if ($status) {
                 $statusLower = $status.ToLower()
@@ -215,6 +243,11 @@ function Start-Supabase {
                 }
             }
         } catch {
+            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Blad podczas sprawdzania statusu Supabase: $($_.Exception.Message)"
+            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Szczegoly: $($_.Exception.GetType().FullName)"
+            if ($_.Exception.InnerException) {
+                $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] InnerException: $($_.Exception.InnerException.Message)"
+            }
             $ErrorActionPreference = $originalErrorAction
         }
         
@@ -233,8 +266,14 @@ function Start-Supabase {
             
             Pop-Location
             return $true
+        } else {
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] PostgreSQL nie odpowiada na porcie 54322 po sprawdzeniu statusu"
         }
     } catch {
+        $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Nieoczekiwany blad w Start-Supabase: $($_.Exception.Message)"
+        $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Szczegoly: $($_.Exception.GetType().FullName)"
+        $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] StackTrace: $($_.ScriptStackTrace)"
+        
         $postgresRunning = Test-Port -Port 54322
         if ($postgresRunning) {
             $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Supabase juz dziala (PostgreSQL na porcie 54322)"
@@ -257,31 +296,110 @@ function Start-Supabase {
     $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Uruchamianie Supabase..."
     
     try {
+        $dockerCheck = Get-Command docker -ErrorAction SilentlyContinue
+        if (-not $dockerCheck) {
+            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Docker nie jest dostepny w PATH"
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Zainstaluj Docker Desktop: https://www.docker.com/products/docker-desktop"
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Upewnij sie ze Docker Desktop jest uruchomiony"
+            Pop-Location
+            return $false
+        }
+        
+        try {
+            $dockerInfo = docker info 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Docker nie odpowiada lub nie jest uruchomiony"
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Uruchom Docker Desktop i sprobuj ponownie"
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Output docker info:"
+                $dockerInfo | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+                Pop-Location
+                return $false
+            }
+        } catch {
+            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Nie udalo sie sprawdzic statusu Docker: $($_.Exception.Message)"
+            Pop-Location
+            return $false
+        }
+        
         $originalErrorActionStart = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
         
+        $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Uruchamiam npx supabase start..."
         $job = Start-Job -ScriptBlock {
             param($ProjectRoot)
             Set-Location $ProjectRoot
             & npx --yes supabase start 2>&1
         } -ArgumentList $ProjectRoot
         
-        $timeout = 180
+        $timeout = 30
+        $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Oczekiwanie na uruchomienie Supabase (timeout: $timeout sekund)..."
         $job | Wait-Job -Timeout $timeout | Out-Null
         
+        $startOutput = @()
         if ($job.State -eq "Running") {
-            $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Timeout podczas npx supabase start (180s)"
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Timeout podczas npx supabase start ($timeout sekund), przerywam..."
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Pobieram czesciowy output przed przerwaniem..."
+            $startOutput = Receive-Job -Job $job -ErrorAction SilentlyContinue
+            if ($startOutput) {
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Czesciowy output (ostatnie 30 linii):"
+                ($startOutput | Select-Object -Last 30) | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+            }
             Stop-Job -Job $job -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
             Remove-Job -Job $job -ErrorAction SilentlyContinue
+            $ErrorActionPreference = $originalErrorActionStart
+            
+            $postgresRunning = Test-Port -Port 54322
+            if ($postgresRunning) {
+                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Supabase uruchomiony mimo timeout (PostgreSQL dziala)"
+                $redisRunning = Test-Port -Port 6379
+                if (-not $redisRunning) {
+                    $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Redis nie odpowiada na porcie 6379, uruchamiam..."
+                    $redisStarted = Start-Redis
+                    if (-not $redisStarted) {
+                        $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Nie udalo sie uruchomic Redis, ale kontynuuje..."
+                    }
+                }
+                Pop-Location
+                return $true
+            } else {
+                $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Timeout podczas uruchamiania Supabase i PostgreSQL nie dziala"
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy Docker Desktop jest uruchomiony"
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi kontenerow: docker ps -a"
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi Supabase: npx supabase status"
+                Pop-Location
+                return $false
+            }
         } else {
+            $startOutput = Receive-Job -Job $job -ErrorAction SilentlyContinue
             Remove-Job -Job $job -ErrorAction SilentlyContinue
+            
+            if ($startOutput) {
+                $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Output npx supabase start (ostatnie 20 linii):"
+                ($startOutput | Select-Object -Last 20) | ForEach-Object { Write-Host "  $_" -ForegroundColor Cyan }
+                
+                $errorOutput = $startOutput | Where-Object { 
+                    $_ -match "error" -or 
+                    $_ -match "Error" -or 
+                    $_ -match "ERROR" -or 
+                    $_ -match "failed" -or 
+                    $_ -match "Failed" -or 
+                    $_ -match "FAILED" -or
+                    $_ -match "exception" -or
+                    $_ -match "Exception"
+                }
+                if ($errorOutput) {
+                    $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Wykryto bledy w outputcie:"
+                    ($errorOutput | Select-Object -First 10) | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+                }
+            }
         }
         
         $ErrorActionPreference = $originalErrorActionStart
         
         Start-Sleep -Seconds 5
         
-        $postgresReady = Wait-ForPort -Port 54322 -ServiceName "PostgreSQL" -Timeout 60
+        $postgresReady = Wait-ForPort -Port 54322 -ServiceName "PostgreSQL" -Timeout 30
         if ($postgresReady) {
             $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Supabase uruchomiony (PostgreSQL gotowy)"
             
@@ -299,21 +417,43 @@ function Start-Supabase {
             Pop-Location
             return $true
         } else {
-            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Nie udalo sie uruchomic Supabase"
+            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Nie udalo sie uruchomic Supabase - PostgreSQL nie odpowiada na porcie 54322"
             $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy Docker Desktop jest uruchomiony"
-            $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi: npx supabase status"
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi kontenerow: docker ps -a"
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi Supabase: npx supabase status"
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi kontenera: docker logs supabase_db_*"
+            
+            if ($startOutput) {
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Pelny output npx supabase start:"
+                $startOutput | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+            }
             
             Pop-Location
             return $false
         }
     } catch {
         $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Blad podczas uruchamiania Supabase: $($_.Exception.Message)"
+        $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Szczegoly: $($_.Exception.GetType().FullName)"
+        $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] StackTrace: $($_.ScriptStackTrace)"
+        if ($_.Exception.InnerException) {
+            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] InnerException: $($_.Exception.InnerException.Message)"
+        }
         $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy npx jest dostepne: npx --version"
         $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy Docker Desktop jest uruchomiony"
+        $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi: npx supabase status"
         
         Pop-Location
         return $false
     }
+    
+    $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Nie udalo sie uruchomic Supabase - wszystkie proby nieudane"
+    $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy Docker Desktop jest uruchomiony"
+    $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi kontenerow: docker ps -a"
+    $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi Supabase: npx supabase status"
+    $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy port 54322 nie jest zajety: netstat -ano | findstr :54322"
+    
+    Pop-Location
+    return $false
 }
 
 function Start-Redis {
@@ -459,12 +599,33 @@ function Build-Backend {
         $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Czyszczenie poprzednich buildow..."
         
         Write-Host "[DEBUG] ====== WYKONYWANIE gradlew clean =====" -ForegroundColor Magenta
-        $cleanOutput = & .\gradlew.bat clean 2>&1 | Out-String
-        Write-Host "[DEBUG] ====== PO gradlew clean, exit code: $LASTEXITCODE =====" -ForegroundColor Magenta
+
         
-        if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+        $cleanJob = Start-Job -ScriptBlock {
+            param($BackendDir)
+            Set-Location $BackendDir
+            & .\gradlew.bat clean 2>&1
+        } -ArgumentList $BackendDir
+        
+        $cleanTimeout = 30
+        $cleanJob | Wait-Job -Timeout $cleanTimeout | Out-Null
+        
+        if ($cleanJob.State -eq "Running") {
+            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Timeout podczas gradlew clean ($cleanTimeout sekund)"
+            Stop-Job -Job $cleanJob -ErrorAction SilentlyContinue
+            Remove-Job -Job $cleanJob -ErrorAction SilentlyContinue
+            Pop-Location
+            return $false
+        }
+        
+        $cleanOutput = (Receive-Job -Job $cleanJob | Out-String)
+        Remove-Job -Job $cleanJob -ErrorAction SilentlyContinue
+        
+        Write-Host "[DEBUG] ====== PO gradlew clean, output length: $($cleanOutput.Length) =====" -ForegroundColor Magenta
+        
+        if ($cleanOutput -match "BUILD FAILED" -or $cleanOutput -match "FAILURE") {
             Write-Host "[DEBUG] ====== gradlew clean NIE POWIODŁO SIĘ =====" -ForegroundColor Red
-            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Gradle clean nie powiodl sie (Exit code: $LASTEXITCODE)"
+            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Gradle clean nie powiodl sie"
             $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Output:"
             $cleanOutput | Write-Host
             Pop-Location
@@ -475,12 +636,32 @@ function Build-Backend {
         $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Kompilowanie backendu..."
         
         Write-Host "[DEBUG] ====== WYKONYWANIE gradlew build =====" -ForegroundColor Magenta
-        $buildOutput = & .\gradlew.bat build -x test 2>&1 | Out-String
-        Write-Host "[DEBUG] ====== PO gradlew build, exit code: $LASTEXITCODE =====" -ForegroundColor Magenta
         
-        if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+        $buildJob = Start-Job -ScriptBlock {
+            param($BackendDir)
+            Set-Location $BackendDir
+            & .\gradlew.bat build -x test 2>&1
+        } -ArgumentList $BackendDir
+        
+        $buildTimeout = 30
+        $buildJob | Wait-Job -Timeout $buildTimeout | Out-Null
+        
+        if ($buildJob.State -eq "Running") {
+            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Timeout podczas gradlew build ($buildTimeout sekund)"
+            Stop-Job -Job $buildJob -ErrorAction SilentlyContinue
+            Remove-Job -Job $buildJob -ErrorAction SilentlyContinue
+            Pop-Location
+            return $false
+        }
+        
+        $buildOutput = (Receive-Job -Job $buildJob | Out-String)
+        Remove-Job -Job $buildJob -ErrorAction SilentlyContinue
+        
+        Write-Host "[DEBUG] ====== PO gradlew build, output length: $($buildOutput.Length) =====" -ForegroundColor Magenta
+        
+        if ($buildOutput -match "BUILD FAILED" -or $buildOutput -match "FAILURE") {
             Write-Host "[DEBUG] ====== gradlew build NIE POWIODŁO SIĘ =====" -ForegroundColor Red
-            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Gradle build nie powiodl sie (Exit code: $LASTEXITCODE)"
+            $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Gradle build nie powiodl sie"
             $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Output:"
             $buildOutput | Write-Host
             Pop-Location
@@ -525,7 +706,7 @@ function Build-Backend {
 
 function Wait-ForApplicationStart {
     param(
-        [int]$Timeout = 90,
+        [int]$Timeout = 30,
         [string]$LogFile
     )
     
@@ -867,7 +1048,7 @@ function Start-Backend {
         }
         
         $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Oczekiwanie na otwarcie portu 8080..."
-        $portReady = Wait-ForPort -Port 8080 -Timeout 60 -ServiceName "Backend"
+        $portReady = Wait-ForPort -Port 8080 -Timeout 30 -ServiceName "Backend"
         
         if (-not $portReady) {
             $null = Write-ColorOutput -ForegroundColor Red "`[ERROR`] Port 8080 nie zostal otwarty w oczekiwanym czasie (60 sekund)"
@@ -1215,13 +1396,13 @@ function Apply-Migrations {
         } -ArgumentList $ProjectRoot
         Write-Host "[DEBUG] ====== PO Start-Job, Job ID: $($job.Id), State: $($job.State) =====" -ForegroundColor Magenta
         
-        $timeout = 120
+        $timeout = 30
         Write-Host "[DEBUG] ====== Czekam na Job z timeoutem $timeout sekund =====" -ForegroundColor Magenta
         $job | Wait-Job -Timeout $timeout | Out-Null
         Write-Host "[DEBUG] ====== PO Wait-Job, Job State: $($job.State) =====" -ForegroundColor Magenta
         
         if ($job.State -eq "Running") {
-            $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Timeout podczas npx supabase db reset (120s)"
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Timeout podczas npx supabase db reset (30s)"
             Stop-Job -Job $job -ErrorAction SilentlyContinue
             Remove-Job -Job $job -ErrorAction SilentlyContinue
             $output = ""

@@ -2,7 +2,14 @@
   @for (index of getCellsArray(); track trackByIndex(index)) {
     <div
       class="cell"
+      role="button"
+      [attr.aria-label]="getCellAriaLabel(index)"
+      [attr.aria-disabled]="isCellDisabled(index)"
+      [attr.aria-pressed]="isWinningCell(index)"
+      [attr.tabindex]="isCellDisabled(index) ? -1 : 0"
       (click)="onCellClick(index)"
+      (keydown.enter)="onCellClick(index)"
+      (keydown.space)="onCellClick(index)"
       [class.cell--win]="isWinningCell(index)"
       [class.cell--disabled]="isCellDisabled(index)">
       <span class="symbol"

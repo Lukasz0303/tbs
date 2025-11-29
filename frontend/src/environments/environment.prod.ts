@@ -2,6 +2,6 @@ export const environment = {
   production: true,
   supabaseUrl: '',
   supabaseAnonKey: '',
-  apiBaseUrl: '/api'
+  apiBaseUrl: 'https://api.tbswars.win/api'
 };
 

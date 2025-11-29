@@ -48,11 +48,17 @@ export class GameService {
       .get<SavedGameResponse>(`${this.apiUrl}/v1/games`, { params })
       .pipe(
         map((response) => {
-          const [game] = response.content ?? [];
-          if (!game) {
+          const [gameListItem] = response.content ?? [];
+          if (!gameListItem || !gameListItem.gameId) {
             return null;
           }
-          return this.mapToGame(game);
+          return gameListItem.gameId;
+        }),
+        switchMap((gameId) => {
+          if (!gameId) {
+            return of<Game | null>(null);
+          }
+          return this.getGame(gameId);
         }),
         catchError((error) => {
           if (error.status === 404) {
@@ -88,7 +94,50 @@ export class GameService {
       boardState = [];
     }
     
-    const normalized = normalizeBoardState(boardState);
+    let boardSize: 3 | 4 | 5 = 3;
+    if (typeof response.boardSize === 'number' && [3, 4, 5].includes(response.boardSize)) {
+      boardSize = response.boardSize as 3 | 4 | 5;
+    } else if (typeof response.boardSize === 'string') {
+      const sizeMap: Record<string, 3 | 4 | 5> = {
+        'THREE': 3,
+        'FOUR': 4,
+        'FIVE': 5,
+        '3': 3,
+        '4': 4,
+        '5': 5,
+      };
+      const normalized = String(response.boardSize).toUpperCase();
+      if (normalized in sizeMap) {
+        boardSize = sizeMap[normalized];
+      } else {
+        const numValue = Number(response.boardSize);
+        if (!Number.isNaN(numValue) && [3, 4, 5].includes(numValue)) {
+          boardSize = numValue as 3 | 4 | 5;
+        }
+      }
+    }
+    
+    let normalized = normalizeBoardState(boardState);
+    
+    if (normalized.length !== boardSize) {
+      const corrected: (PlayerSymbol | null)[][] = [];
+      for (let i = 0; i < boardSize; i++) {
+        if (i < normalized.length && normalized[i] && normalized[i].length === boardSize) {
+          corrected[i] = [...normalized[i]];
+        } else {
+          corrected[i] = Array(boardSize).fill(null);
+        }
+      }
+      normalized = corrected;
+    } else {
+      for (let i = 0; i < normalized.length; i++) {
+        if (!normalized[i] || normalized[i].length !== boardSize) {
+          normalized[i] = Array(boardSize).fill(null);
+        }
+      }
+    }
+    
+    boardState = normalized;
     
     const player1Id = response.player1?.userId || response.player1Id || 0;
     const player2Id = response.player2?.userId || response.player2Id || null;
@@ -105,9 +154,9 @@ export class GameService {
     return {
       gameId: response.gameId,
       gameType: response.gameType,
-      boardSize: response.boardSize,
+      boardSize,
       status: response.status,
-      boardState: normalized,
+      boardState: boardState as (PlayerSymbol | null)[][],
       player1Id,
       player2Id,
       botDifficulty: response.botDifficulty ?? null,
