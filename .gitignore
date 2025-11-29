@@ -116,6 +116,8 @@ supabase/config.toml
 # Pliki z tokenami
 *token*
 *tokens*
+# Wyjątek: klasa narzędziowa do ekstrakcji tokenów z cookie
+!backend/src/main/java/com/tbs/util/CookieTokenExtractor.java
 
 # Pliki z kluczami API
 *api-key*
