@@ -5,6 +5,7 @@ import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -25,24 +26,32 @@ public class JwtTokenProvider {
     private final SecretKey secretKey;
     private final long validityInMilliseconds;
     private final Map<String, Claims> claimsCache = new ConcurrentHashMap<>();
+    private final Environment environment;
 
     private static final String DEFAULT_SECRET_OLD = "V2FyOiBUaGlzIGlzIGEgdG9wIHNlY3JldCBmb3IgSldUIGVuY29kaW5nLiBJbiBwcm9kdWN0aW9uIHVzZSBhIHN0cm9uZyByYW5kb20gc2VjcmV0IQ==";
     private static final String DEFAULT_SECRET_NEW = "lo3Rp/t44UeFUOrB+qKxISaK/nyOsILpmDN06/yoUto=";
 
     public JwtTokenProvider(
             @Value("${app.jwt.secret}") String secret,
-            @Value("${app.jwt.expiration:3600000}") long validityInMilliseconds
+            @Value("${app.jwt.expiration:3600000}") long validityInMilliseconds,
+            Environment environment
     ) {
+        this.environment = environment;
+        
         if (secret == null || secret.trim().isEmpty()) {
             String errorMessage = "JWT_SECRET environment variable must be set!";
             log.error(errorMessage);
             throw new IllegalStateException(errorMessage);
         }
         
-        if (secret.equals(DEFAULT_SECRET_OLD) || secret.equals(DEFAULT_SECRET_NEW)) {
+        if (isProductionEnvironment() && (secret.equals(DEFAULT_SECRET_OLD) || secret.equals(DEFAULT_SECRET_NEW))) {
             String errorMessage = "Default JWT secret cannot be used in production! Please set JWT_SECRET environment variable with a strong random secret.";
             log.error(errorMessage);
             throw new IllegalStateException(errorMessage);
+        }
+        
+        if (!isProductionEnvironment() && (secret.equals(DEFAULT_SECRET_OLD) || secret.equals(DEFAULT_SECRET_NEW))) {
+            log.warn("Using default JWT secret for local development. This should never be used in production!");
         }
         
         byte[] keyBytes = Base64.getDecoder().decode(secret);
@@ -176,6 +185,23 @@ public class JwtTokenProvider {
 
     public void clearClaimsCache() {
         claimsCache.clear();
+    }
+    
+    private boolean isProductionEnvironment() {
+        if (environment == null) {
+            return false;
+        }
+        String[] activeProfiles = environment.getActiveProfiles();
+        if (activeProfiles == null || activeProfiles.length == 0) {
+            String defaultProfile = environment.getProperty("spring.profiles.default", "dev");
+            return "prod".equals(defaultProfile) || "production".equals(defaultProfile);
+        }
+        for (String profile : activeProfiles) {
+            if ("prod".equals(profile) || "production".equals(profile)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
