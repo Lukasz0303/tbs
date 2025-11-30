@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { AsyncPipe } from '@angular/common';
@@ -58,68 +58,101 @@ export class ProfileComponent implements OnInit {
   readonly currentUser$ = this.authService.getCurrentUser();
   readonly userRanking$ = new BehaviorSubject<Ranking | null>(null);
   readonly lastGame$ = new BehaviorSubject<Game | null>(null);
-  readonly showEditDialog$ = new BehaviorSubject<boolean>(false);
-  readonly showAvatarDialog$ = new BehaviorSubject<boolean>(false);
+  readonly showEditDialog = signal<boolean>(false);
+  readonly showAvatarDialog = signal<boolean>(false);
+  readonly isSavingAvatar = signal<boolean>(false);
+
+  @ViewChild(EditUsernameDialogComponent) editUsernameDialog?: EditUsernameDialogComponent;
 
   ngOnInit(): void {
     this.currentUser$
       .pipe(
         filter((user): user is User => user !== null),
+        take(1),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe((user) => {
-        if (user && !user.isGuest) {
-          this.loadUserRanking(user.userId);
+        if (user.isGuest) {
+          this.router.navigate(['/']).then().catch(() => {});
+          return;
         }
+        this.loadUserRanking(user.userId);
         this.loadLastGame();
       });
   }
 
   onEditUsername(): void {
-    this.showEditDialog$.next(true);
+    this.showEditDialog.set(true);
   }
 
   onCloseEditDialog(): void {
-    this.showEditDialog$.next(false);
+    this.showEditDialog.set(false);
   }
 
-  onEditAvatar(): void {
-    this.showAvatarDialog$.next(true);
+  onEditAvatar(event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.showAvatarDialog.set(true);
   }
 
   onAvatarDialogVisibleChange(visible: boolean): void {
-    this.showAvatarDialog$.next(visible);
+    this.showAvatarDialog.set(visible);
   }
 
   onCloseAvatarDialog(): void {
-    this.showAvatarDialog$.next(false);
+    this.showAvatarDialog.set(false);
+    this.isSavingAvatar.set(false);
   }
 
   onSaveAvatar(newAvatar: number): void {
-    this.updateUserAndShowSuccess(
+    if (this.isSavingAvatar()) {
+      return;
+    }
+
+    this.updateUserProfile(
       (user) => this.userService.updateAvatar(user.userId, newAvatar),
       'profile.avatar.updateSuccess',
-      () => this.showAvatarDialog$.next(false)
+      () => this.showAvatarDialog.set(false),
+      this.isSavingAvatar
     );
   }
 
   onSaveUsername(newUsername: string): void {
-    this.updateUserAndShowSuccess(
+    if (this.editUsernameDialog) {
+      this.editUsernameDialog.setLoading(true);
+    }
+
+    this.updateUserProfile(
       (user) => this.userService.updateUser(user.userId, { username: newUsername }),
       'profile.update.successDetail',
-      () => this.showEditDialog$.next(false)
+      () => {
+        if (this.editUsernameDialog) {
+          this.editUsernameDialog.setLoading(false);
+        }
+        this.showEditDialog.set(false);
+      }
     );
   }
 
-  private updateUserAndShowSuccess(
+  private updateUserProfile(
     updateFn: (user: User) => Observable<UpdateUserResponse>,
     successMessageKey: string,
-    onSuccess?: () => void
+    onSuccess?: () => void,
+    loadingSignal?: ReturnType<typeof signal<boolean>>
   ): void {
+    if (loadingSignal?.()) {
+      return;
+    }
+
     this.currentUser$
       .pipe(
         filter((user): user is User => user !== null && !user.isGuest),
+        take(1),
         switchMap((user) => {
+          if (loadingSignal) {
+            loadingSignal.set(true);
+          }
           return updateFn(user).pipe(
             switchMap((updatedUser) => {
               return this.currentUser$.pipe(
@@ -148,10 +181,14 @@ export class ProfileComponent implements OnInit {
               lastSeenAt: currentUser.lastSeenAt,
             };
             this.authService.updateCurrentUser(user);
+            if (loadingSignal) {
+              loadingSignal.set(false);
+            }
             if (onSuccess) {
               onSuccess();
             }
             this.messageService.add({
+              key: 'profile',
               severity: 'success',
               summary: this.translate.translate('profile.update.success'),
               detail: this.translate.translate(successMessageKey),
@@ -159,6 +196,12 @@ export class ProfileComponent implements OnInit {
           }
         },
         error: (error: HttpErrorResponse) => {
+          if (loadingSignal) {
+            loadingSignal.set(false);
+          }
+          if (this.editUsernameDialog) {
+            this.editUsernameDialog.setLoading(false);
+          }
           this.handleUpdateError(error);
         },
       });
@@ -172,8 +215,26 @@ export class ProfileComponent implements OnInit {
     this.router.navigate(['/auth/register']);
   }
 
+  onLogout(): void {
+    this.authService.logout().subscribe({
+      next: () => {
+        this.router.navigate(['/auth/login']).then().catch(() => {});
+      },
+      error: () => {
+        this.router.navigate(['/auth/login']).then().catch(() => {});
+      }
+    });
+  }
+
   getAvatarPath(avatar: number | null | undefined): string {
     return getAvatarPath(avatar);
+  }
+
+  getWinRate(user: User): number {
+    if (!user || !user.gamesPlayed || user.gamesPlayed === 0) {
+      return 0;
+    }
+    return Math.round((user.gamesWon / user.gamesPlayed) * 100);
   }
 
   private loadUserRanking(userId: number): void {
@@ -230,6 +291,7 @@ export class ProfileComponent implements OnInit {
     }
 
     this.messageService.add({
+      key: 'profile',
       severity: 'error',
       summary,
       detail: message,

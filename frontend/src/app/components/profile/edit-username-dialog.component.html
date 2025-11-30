@@ -1,7 +1,7 @@
 <p-dialog
   [visible]="visible"
   [modal]="true"
-  [closable]="true"
+  [closable]="false"
   [draggable]="false"
   [resizable]="false"
   [style]="{ width: '500px' }"
@@ -27,6 +27,7 @@
         pButton
         type="button"
         [label]="translate.translate('profile.edit.cancel')"
+        icon="pi pi-times"
         severity="secondary"
         (click)="onClose()">
       </button>
@@ -34,7 +35,9 @@
         pButton
         type="submit"
         [label]="translate.translate('profile.edit.save')"
-        [disabled]="editForm.invalid">
+        icon="pi pi-check"
+        [disabled]="editForm.invalid || isLoading"
+        [loading]="isLoading">
       </button>
     </div>
   </form>

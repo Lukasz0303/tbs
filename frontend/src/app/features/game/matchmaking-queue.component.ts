@@ -1,10 +1,12 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal, computed } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { interval, of } from 'rxjs';
-import { catchError, take } from 'rxjs/operators';
+import { catchError, take, filter, throttleTime } from 'rxjs/operators';
+import { asyncScheduler } from 'rxjs';
+import { trigger, transition, style, animate } from '@angular/animations';
 import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -30,6 +32,17 @@ import { GameService } from '../../services/game.service';
   templateUrl: './matchmaking-queue.component.html',
   styleUrls: ['./matchmaking-queue.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  animations: [
+    trigger('fadeInOut', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(-10px)' }),
+        animate('200ms ease-out', style({ opacity: 1, transform: 'translateY(0)' }))
+      ]),
+      transition(':leave', [
+        animate('150ms ease-in', style({ opacity: 0, transform: 'translateY(-5px)' }))
+      ])
+    ])
+  ],
 })
 export class MatchmakingQueueComponent implements OnInit {
   private readonly router = inject(Router);
@@ -44,10 +57,17 @@ export class MatchmakingQueueComponent implements OnInit {
 
   readonly queueStatus = signal<QueueStatusResponse | null>(null);
   readonly isLoading = signal<boolean>(false);
-  readonly selectedBoardSize = signal<3 | 4 | 5 | null>(null);
   readonly isJoining = signal<boolean>(false);
   readonly currentUserId = signal<number | null>(null);
   readonly hasActiveGame = signal<boolean>(false);
+  readonly isPageVisible = signal<boolean>(true);
+
+  readonly players = computed(() => this.queueStatus()?.players ?? []);
+  readonly totalCount = computed(() => this.queueStatus()?.totalCount ?? 0);
+  readonly hasPlayers = computed(() => this.totalCount() > 0);
+
+  private visibilityChangeHandler?: () => void;
+  private abortController = new AbortController();
 
   ngOnInit(): void {
     this.route.queryParams.pipe(take(1)).subscribe(params => {
@@ -70,18 +90,42 @@ export class MatchmakingQueueComponent implements OnInit {
         this.checkActiveGame();
       }
     });
+    
+    this.setupPageVisibilityListener();
     this.loadQueueStatus();
     this.startPolling();
   }
 
-  selectBoardSize(size: 3 | 4 | 5 | null): void {
-    this.selectedBoardSize.set(size);
-    this.loadQueueStatus();
+  private setupPageVisibilityListener(): void {
+    this.isPageVisible.set(!document.hidden);
+    
+    this.visibilityChangeHandler = () => {
+      this.isPageVisible.set(!document.hidden);
+      if (!document.hidden) {
+        this.loadQueueStatus();
+        this.checkActiveGame();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', this.visibilityChangeHandler, {
+      signal: this.abortController.signal
+    });
+    
+    this.destroyRef.onDestroy(() => {
+      this.abortController.abort();
+      if (this.visibilityChangeHandler) {
+        this.visibilityChangeHandler = undefined;
+      }
+    });
   }
 
   loadQueueStatus(): void {
+    if (this.isLoading()) {
+      return;
+    }
+
     this.isLoading.set(true);
-    this.matchmakingService.getQueueStatus(this.selectedBoardSize() || undefined).pipe(
+    this.matchmakingService.getQueueStatus(undefined).pipe(
       takeUntilDestroyed(this.destroyRef),
       catchError((error) => {
         this.logger.error('Error loading queue status:', error);
@@ -91,25 +135,89 @@ export class MatchmakingQueueComponent implements OnInit {
           detail: this.translateService.translate('queue.error.detail'),
           life: 5000,
         });
-        return of<QueueStatusResponse>({ players: [], totalCount: 0 });
+        this.isLoading.set(false);
+        if (!this.queueStatus()) {
+          this.queueStatus.set({ players: [], totalCount: 0 });
+        }
+        return of<QueueStatusResponse | null>(null);
       })
     ).subscribe({
       next: (response) => {
-        this.queueStatus.set(response);
+        if (response) {
+          const currentStatus = this.queueStatus();
+          
+          if (this.hasQueueStatusChanged(currentStatus, response)) {
+            this.logger.debug('Queue status changed, updating UI');
+            this.queueStatus.set(response);
+          } else {
+            this.logger.debug('Queue status unchanged, skipping UI update');
+          }
+        }
+        
         this.isLoading.set(false);
       }
     });
   }
 
+  private hasQueueStatusChanged(
+    oldStatus: QueueStatusResponse | null,
+    newStatus: QueueStatusResponse
+  ): boolean {
+    if (!oldStatus) {
+      return true;
+    }
+
+    if (oldStatus.totalCount !== newStatus.totalCount) {
+      return true;
+    }
+
+    if (oldStatus.players.length !== newStatus.players.length) {
+      return true;
+    }
+
+    const oldPlayersMap = new Map(
+      oldStatus.players.map(p => [p.userId, p])
+    );
+
+    for (const newPlayer of newStatus.players) {
+      const oldPlayer = oldPlayersMap.get(newPlayer.userId);
+      
+      if (!oldPlayer) {
+        return true;
+      }
+
+      if (
+        oldPlayer.status !== newPlayer.status ||
+        oldPlayer.boardSize !== newPlayer.boardSize ||
+        oldPlayer.username !== newPlayer.username ||
+        oldPlayer.score !== newPlayer.score
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   startPolling(): void {
     interval(5000).pipe(
-      takeUntilDestroyed(this.destroyRef)
+      takeUntilDestroyed(this.destroyRef),
+      filter(() => {
+        const isPageVisible = this.isPageVisible();
+        const isJoining = this.isJoining();
+        const isLoading = this.isLoading();
+        return isPageVisible && !isJoining && !isLoading;
+      }),
+      throttleTime(5000, asyncScheduler, { leading: true, trailing: false })
     ).subscribe(() => {
-      if (!this.isJoining()) {
-        this.loadQueueStatus();
-        this.checkActiveGame();
-      }
+      this.loadQueueStatus();
+      this.checkActiveGame();
     });
+  }
+
+  refreshQueue(): void {
+    this.loadQueueStatus();
+    this.checkActiveGame();
   }
 
   getBoardSizeLabel(size: string | BoardSizeEnum | number): string {
@@ -126,6 +234,17 @@ export class MatchmakingQueueComponent implements OnInit {
       '5': '5x5',
     };
     return sizeMap[normalizedSize] || sizeMap[String(size)] || String(size);
+  }
+
+  private isValidScore(score: unknown): score is number {
+    return typeof score === 'number' && !isNaN(score) && isFinite(score);
+  }
+
+  formatScore(score: number | null | undefined): string {
+    if (!this.isValidScore(score)) {
+      return '0';
+    }
+    return score.toLocaleString('pl-PL');
   }
 
   getStatusSeverity(status: string | QueuePlayerStatusEnum): 'success' | 'warning' | 'info' | 'danger' {
@@ -186,7 +305,7 @@ export class MatchmakingQueueComponent implements OnInit {
     });
   }
 
-  trackByUserId(index: number, player: PlayerQueueStatus): number {
+  trackByUserId(_index: number, player: PlayerQueueStatus): number {
     return player.userId;
   }
 

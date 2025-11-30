@@ -98,10 +98,13 @@ export class LeaderboardComponent implements OnInit {
   }
 
   onLazyLoad(event: TableLazyLoadEvent): void {
-    if (event.first === undefined || event.rows === undefined || event.rows === null) {
+    if (event.first === undefined || event.rows === undefined || event.rows === null || event.rows <= 0) {
       return;
     }
-    const page = event.first / event.rows;
+    if (event.first < 0) {
+      return;
+    }
+    const page = Math.floor(event.first / event.rows);
     this.loadRanking(page, event.rows);
   }
 
@@ -123,7 +126,13 @@ export class LeaderboardComponent implements OnInit {
             summary: this.translate('leaderboard.challenge.success.title'),
             detail: this.translate('leaderboard.challenge.success.detail'),
           });
-          this.router.navigate(['/game', game.gameId]).catch(() => {});
+          this.router.navigate(['/game', game.gameId]).then((success) => {
+            if (!success) {
+              this.logger.warn('Navigation to game failed', { gameId: game.gameId });
+            }
+          }).catch((error) => {
+            this.logger.error('Error navigating to game:', error);
+          });
         },
         error: (error) => {
           this.isChallenging.set(false);

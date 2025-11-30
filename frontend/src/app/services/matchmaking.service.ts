@@ -33,6 +33,7 @@ export interface PlayerQueueStatus {
   matchedWithUsername?: string | null;
   gameId?: number | null;
   isMatched: boolean;
+  score?: number | null;
 }
 
 export interface QueueStatusResponse {

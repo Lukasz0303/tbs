@@ -18,7 +18,10 @@
 
 .game-options {
   width: min(800px, 100%);
-  min-width: 400px;
+  max-width: 100vw;
+  min-width: 0;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .game-options-card {
@@ -31,6 +34,10 @@
   display: grid;
   gap: 2.5rem;
   color: #eaf2ff;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0 auto;
 }
 
 .game-options-card h1 {
@@ -68,15 +75,15 @@
 
 .game-mode-btn {
   border-radius: 10px;
-  padding: 0.75rem 1rem;
-  font-size: 0.9rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
   font-weight: 600;
   border: 1px solid rgba(120, 160, 255, 0.4);
   background: rgba(10, 18, 40, 0.5);
   color: rgba(230, 240, 255, 0.7);
   transition: all 160ms ease;
   cursor: pointer;
-  height: 44px;
+  height: 38px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
@@ -124,15 +131,15 @@
 
 .board-size-btn {
   border-radius: 10px;
-  padding: 0.75rem 1rem;
-  font-size: 0.9rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
   font-weight: 600;
   border: 1px solid rgba(120, 160, 255, 0.4);
   background: rgba(10, 18, 40, 0.5);
   color: rgba(230, 240, 255, 0.7);
   transition: all 160ms ease;
   cursor: pointer;
-  height: 44px;
+  height: 38px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
@@ -174,18 +181,113 @@
 
 .game-options-actions {
   display: flex;
+  flex-direction: column;
   gap: 0.75rem;
-  justify-content: flex-end;
   padding-top: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+::ng-deep {
+  .game-options-actions {
+    .p-button {
+      border-radius: 12px !important;
+      padding: 0 1.25rem !important;
+      font-size: 0.875rem !important;
+      font-weight: 600 !important;
+      height: 40px !important;
+      line-height: 1 !important;
+      box-sizing: border-box !important;
+      width: 100% !important;
+      transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease, outline-color 160ms ease, border-color 160ms ease !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0.5rem !important;
+
+      .p-button-icon {
+        margin-right: 0 !important;
+      }
+
+      .p-button-label {
+        margin-left: 0 !important;
+      }
+
+      &.p-button-secondary {
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        background: #4a5568 !important;
+        color: #ffffff !important;
+        box-shadow: none !important;
+
+        &:hover:not(:disabled) {
+          background: #5a6578 !important;
+          border-color: rgba(255, 255, 255, 0.15) !important;
+          transform: translateY(-1px) !important;
+        }
+
+        &:focus-visible {
+          outline: 3px solid rgba(255, 255, 255, 0.2) !important;
+          outline-offset: 2px !important;
+        }
+
+        &:active:not(:disabled) {
+          transform: translateY(0) !important;
+          background: #3a4458 !important;
+        }
+      }
+
+      &:not(.p-button-secondary) {
+        border: 1px solid rgba(120, 160, 255, 0.7) !important;
+        background: linear-gradient(180deg, #cfe3ff 0%, #a9c8ff 60%, #93b9ff 100%) !important;
+        color: #0d1325 !important;
+        box-shadow: 0 10px 28px -18px rgba(2, 8, 30, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+        backdrop-filter: blur(8px) !important;
+
+        &:hover:not(:disabled) {
+          background: linear-gradient(180deg, #e3efff 0%, #bed6ff 60%, #a7c6ff 100%) !important;
+          border-color: rgba(120, 160, 255, 0.85) !important;
+          transform: translateY(-1px) !important;
+          box-shadow: 0 16px 36px -18px rgba(2, 8, 30, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+        }
+
+        &:focus-visible {
+          outline: 3px solid rgba(120, 160, 255, 0.35) !important;
+          outline-offset: 2px !important;
+        }
+
+        &:active:not(:disabled) {
+          transform: translateY(0) !important;
+          background: linear-gradient(180deg, #d7e8ff 0%, #b5d1ff 60%, #9fc2ff 100%) !important;
+          box-shadow: 0 8px 22px -18px rgba(2, 8, 30, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+        }
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+  }
 }
 
 @media (max-width: 480px) {
   :host {
     padding: 2rem 1.25rem;
+    min-height: calc(100dvh - 150px);
+  }
+
+  .game-options {
+    width: 100%;
+    max-width: 100vw;
+    padding: 0;
   }
 
   .game-options-card {
+    gap: 2rem;
+    padding: clamp(1.5rem, 4vw, 2.5rem);
+    border-radius: 1.5rem;
+  }
+
+  .game-options-content {
     gap: 2rem;
   }
 
@@ -200,7 +302,73 @@
   }
 
   .game-options-actions {
-    flex-direction: column-reverse;
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+}
+
+@media (max-width: 400px) {
+  :host {
+    padding: 1.5rem 1rem;
+    min-height: calc(100dvh - 120px);
+  }
+
+  .game-options {
+    width: 100%;
+    max-width: 100vw;
+    padding: 0;
+  }
+
+  .game-options-card {
+    gap: 1.5rem;
+    padding: clamp(1.25rem, 3vw, 2rem);
+    border-radius: 1.25rem;
+  }
+
+  .game-options-card h1 {
+    font-size: clamp(1.5rem, 4vw, 2rem);
+  }
+
+  .game-options-content {
+    gap: 1.5rem;
+  }
+
+  .options-section {
+    gap: 0.75rem;
+  }
+
+  .options-section h3 {
+    font-size: 1rem;
+  }
+
+  .game-mode-btn,
+  .board-size-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    height: 36px;
+  }
+
+  .game-mode-selection {
+    gap: 0.5rem;
+  }
+
+  .board-size-selection {
+    gap: 0.5rem;
+  }
+
+  .game-options-actions {
+    gap: 0.5rem;
+    padding-top: 0.75rem;
+  }
+
+  ::ng-deep {
+    .game-options-actions {
+      .p-button {
+        padding: 0 1rem !important;
+        font-size: 0.8rem !important;
+        height: 36px !important;
+      }
+    }
   }
 }
 

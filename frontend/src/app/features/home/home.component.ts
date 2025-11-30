@@ -34,6 +34,7 @@ export class HomeComponent implements OnInit {
   readonly currentUser$ = this.authService.getCurrentUser();
   readonly savedGame = signal<Game | null>(null);
   readonly isLoadingSavedGame = signal<boolean>(false);
+  readonly currentLanguage = this.translateService.currentLanguage;
 
   ngOnInit(): void {
     this.checkForSavedGame();
@@ -70,35 +71,32 @@ export class HomeComponent implements OnInit {
       this.notifyError('home.error.savedGame');
       return;
     }
-    this.router.navigate(['/game', game.gameId]).catch((error) => {
-      this.notifyError('home.error.navigation');
-      this.handleError(error);
-    });
+    this.navigateSafely(['/game', game.gameId]);
   }
 
   startNewGame(): void {
-    this.router.navigate(['/game-options'], { queryParams: { new: true } }).catch((error) => {
-      this.notifyError('home.error.navigation');
-      this.handleError(error);
-    });
+    this.navigateSafely(['/game-options'], { queryParams: { new: true } });
   }
 
   playAsGuest(): void {
-    this.router.navigate(['/game-options']).catch((error) => {
-      this.notifyError('home.error.navigation');
-      this.handleError(error);
-    });
+    this.navigateSafely(['/game-options']);
   }
 
   goToLogin(): void {
-    this.router.navigate(['/auth/login']).catch((error) => {
-      this.notifyError('home.error.navigation');
-      this.handleError(error);
-    });
+    this.navigateSafely(['/auth/login']);
   }
 
   goToRegister(): void {
-    this.router.navigate(['/auth/register']).catch((error) => {
+    this.navigateSafely(['/auth/register']);
+  }
+
+  private navigateSafely(commands: unknown[], extras?: unknown): void {
+    this.router.navigate(commands as string[], extras as { queryParams?: { new: boolean } }).then((success) => {
+      if (!success) {
+        this.notifyError('home.error.navigation');
+        this.logger.warn('Navigation failed', { commands, extras });
+      }
+    }).catch((error) => {
       this.notifyError('home.error.navigation');
       this.handleError(error);
     });
@@ -107,23 +105,21 @@ export class HomeComponent implements OnInit {
   logout(): void {
     this.authService.logout().subscribe({
       next: () => {
-        this.router.navigate(['/']).catch((error) => {
-          this.notifyError('home.error.navigation');
-          this.handleError(error);
-        });
+        this.navigateSafely(['/']);
       },
       error: (error) => {
         this.handleError(error);
-        this.router.navigate(['/']).catch((navError) => {
-          this.notifyError('home.error.navigation');
-          this.handleError(navError);
-        });
+        this.navigateSafely(['/']);
       }
     });
   }
 
   private handleError(error: unknown): void {
     this.logger.error('Error in HomeComponent:', error);
+  }
+
+  changeLanguage(language: 'pl' | 'en'): void {
+    this.translateService.setLanguage(language);
   }
 
   private notifyError(messageKey: string): void {

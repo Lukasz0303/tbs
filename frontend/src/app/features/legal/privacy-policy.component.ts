@@ -1,72 +1,66 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router } from '@angular/router';
+import { TranslateService } from '../../services/translate.service';
 
 @Component({
   selector: 'app-privacy-policy',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule],
   template: `
     <div class="legal-page-container">
       <div class="legal-content">
         <div class="legal-header">
-          <h1>Polityka prywatności</h1>
-          <a routerLink="/" class="back-link">
+          <h1>{{ translate.translate('legal.privacy.title') }}</h1>
+          <button type="button" (click)="goBack()" class="back-link">
             <span class="pi pi-arrow-left"></span>
-            <span>Powrót</span>
-          </a>
+            <span>{{ translate.translate('legal.privacy.back') }}</span>
+          </button>
         </div>
         <div class="legal-body">
           <p>
-            Niniejsza polityka określa zasady przetwarzania danych w aplikacji
-            World at War: Turn‑Based Strategy. Korzystając z aplikacji, akceptujesz
-            poniższe zasady.
+            {{ translate.translate('legal.privacy.intro') }}
           </p>
 
-          <h2>Zakres przetwarzanych danych</h2>
+          <h2>{{ translate.translate('legal.privacy.scope.title') }}</h2>
           <ul>
-            <li>Identyfikator użytkownika (gość lub konto zarejestrowane)</li>
-            <li>Adres e‑mail dla kont zarejestrowanych</li>
-            <li>Adres IP w celach bezpieczeństwa i ograniczenia nadużyć</li>
-            <li>Dane rozgrywek i statystyki (ranking, wyniki, ruchy)</li>
+            <li>{{ translate.translate('legal.privacy.scope.userId') }}</li>
+            <li>{{ translate.translate('legal.privacy.scope.email') }}</li>
+            <li>{{ translate.translate('legal.privacy.scope.ip') }}</li>
+            <li>{{ translate.translate('legal.privacy.scope.gameData') }}</li>
           </ul>
 
-          <h2>Cel przetwarzania</h2>
+          <h2>{{ translate.translate('legal.privacy.purpose.title') }}</h2>
           <ul>
-            <li>Umożliwienie rozgrywki oraz utrzymanie rankingów</li>
-            <li>Zapewnienie bezpieczeństwa i stabilności działania</li>
-            <li>Poprawa jakości usług oraz diagnostyka błędów</li>
+            <li>{{ translate.translate('legal.privacy.purpose.gameplay') }}</li>
+            <li>{{ translate.translate('legal.privacy.purpose.security') }}</li>
+            <li>{{ translate.translate('legal.privacy.purpose.quality') }}</li>
           </ul>
 
-          <h2>Podstawy prawne</h2>
+          <h2>{{ translate.translate('legal.privacy.legal.title') }}</h2>
           <p>
-            Dane przetwarzamy na podstawie uzasadnionego interesu administratora
-            (art. 6 ust. 1 lit. f RODO) oraz – w przypadku kont – na podstawie
-            umowy o świadczenie usług (art. 6 ust. 1 lit. b RODO).
+            {{ translate.translate('legal.privacy.legal.basis') }}
           </p>
 
-          <h2>Okres przechowywania</h2>
+          <h2>{{ translate.translate('legal.privacy.retention.title') }}</h2>
           <p>
-            Dane przechowujemy przez okres korzystania z aplikacji, a następnie
-            przez czas niezbędny do realizacji celów statystycznych i
-            bezpieczeństwa.
+            {{ translate.translate('legal.privacy.retention.duration') }}
           </p>
 
-          <h2>Odbiorcy danych</h2>
+          <h2>{{ translate.translate('legal.privacy.recipients.title') }}</h2>
           <p>
-            Dane mogą być przetwarzane przez dostawców infrastruktury niezbędnej do
-            działania aplikacji (hosting, baza danych, analityka, dostawcy logowania).
+            {{ translate.translate('legal.privacy.recipients.info') }}
           </p>
 
-          <h2>Prawa użytkownika</h2>
+          <h2>{{ translate.translate('legal.privacy.rights.title') }}</h2>
           <ul>
-            <li>Dostęp do danych, ich sprostowanie, usunięcie, ograniczenie</li>
-            <li>Sprzeciw wobec przetwarzania</li>
-            <li>Przenoszenie danych</li>
+            <li>{{ translate.translate('legal.privacy.rights.access') }}</li>
+            <li>{{ translate.translate('legal.privacy.rights.objection') }}</li>
+            <li>{{ translate.translate('legal.privacy.rights.portability') }}</li>
           </ul>
 
-          <h2>Kontakt</h2>
-          <p>W sprawach prywatności skontaktuj się z administratorem projektu.</p>
+          <h2>{{ translate.translate('legal.privacy.contact.title') }}</h2>
+          <p>{{ translate.translate('legal.privacy.contact.info') }}</p>
         </div>
       </div>
     </div>
@@ -74,6 +68,13 @@ import { RouterModule } from '@angular/router';
   styleUrls: ['./legal.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PrivacyPolicyComponent {}
+export class PrivacyPolicyComponent {
+  private readonly router = inject(Router);
+  readonly translate = inject(TranslateService);
+
+  goBack(): void {
+    this.router.navigate(['/']);
+  }
+}
 
 

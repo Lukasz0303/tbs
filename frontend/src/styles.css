@@ -38,16 +38,21 @@
     background: rgba(20, 30, 50, 0.7) !important;
     border-radius: 0.75rem !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-    overflow: hidden;
+    overflow: visible !important;
     padding: 0 !important;
     backdrop-filter: blur(2px) !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
   }
-
+  
   .leaderboard-container .leaderboard-table.p-datatable > .p-datatable-wrapper,
   .leaderboard-container .leaderboard-table.p-datatable .p-datatable-header,
   .leaderboard-container .leaderboard-table.p-datatable .p-datatable-table {
     background: rgba(20, 30, 50, 0.7) !important;
+  }
+  
+  .leaderboard-container .leaderboard-table.p-datatable > .p-datatable-wrapper {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
   }
 
   .leaderboard-container .leaderboard-table.p-datatable .p-datatable-header {
@@ -146,12 +151,15 @@
     background: rgba(20, 30, 50, 0.7) !important;
     border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
     padding: 1.25rem 1rem !important;
+    overflow: visible !important;
   }
 
   .leaderboard-container .p-paginator {
     background: transparent !important;
     border: none !important;
     padding: 0 !important;
+    overflow: visible !important;
+    position: relative !important;
   }
 
   .leaderboard-container .p-paginator .p-paginator-element {
@@ -186,6 +194,8 @@
     background: rgba(20, 30, 50, 0.8) !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-radius: 0.375rem !important;
+    position: relative !important;
+    z-index: 1 !important;
   }
 
   .leaderboard-container .p-paginator .p-dropdown .p-inputwrapper,
@@ -227,34 +237,79 @@
 
   .leaderboard-container .p-paginator .p-dropdown-panel,
   .leaderboard-container .p-paginator .p-paginator-rpp-options-panel {
-    background: rgba(20, 30, 50, 0.95) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-    backdrop-filter: blur(8px) !important;
+    background: rgb(20, 30, 50) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6) !important;
+    z-index: 1100 !important;
+    position: absolute !important;
+    margin-top: 0.25rem !important;
+    border-radius: 0.5rem !important;
+  }
+  
+  .p-dropdown-panel.p-component-overlay,
+  .p-paginator-rpp-options-panel.p-component-overlay {
+    z-index: 1100 !important;
+    background: rgb(20, 30, 50) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6) !important;
+    border-radius: 0.5rem !important;
   }
 
   .leaderboard-container .p-paginator .p-dropdown-items-wrapper,
   .leaderboard-container .p-paginator .p-dropdown-list,
   .leaderboard-container .p-paginator .p-dropdown-items {
-    background: transparent !important;
+    background: rgb(20, 30, 50) !important;
+    background-color: rgb(20, 30, 50) !important;
   }
 
   .leaderboard-container .p-paginator .p-dropdown-items {
     padding: 0.25rem 0 !important;
+    background: rgb(20, 30, 50) !important;
+    background-color: rgb(20, 30, 50) !important;
   }
 
   .leaderboard-container .p-paginator .p-dropdown-item {
     color: #eaf2ff !important;
-    background: transparent !important;
+    background: rgb(20, 30, 50) !important;
+    background-color: rgb(20, 30, 50) !important;
     padding: 0.75rem 1rem !important;
     margin: 0 !important;
+    border-radius: 0 !important;
   }
 
   .leaderboard-container .p-paginator .p-dropdown-item:hover {
-    background: rgba(255, 255, 255, 0.1) !important;
+    background: rgba(255, 255, 255, 0.15) !important;
   }
 
   .leaderboard-container .p-paginator .p-dropdown-item.p-highlight {
+    background: var(--p-primary-color) !important;
+    color: #ffffff !important;
+  }
+  
+  .p-dropdown-panel .p-dropdown-item,
+  .p-paginator-rpp-options-panel .p-dropdown-item {
+    background: rgb(20, 30, 50) !important;
+    background-color: rgb(20, 30, 50) !important;
+    color: #eaf2ff !important;
+  }
+  
+  .p-dropdown-panel .p-dropdown-items-wrapper,
+  .p-dropdown-panel .p-dropdown-list,
+  .p-dropdown-panel .p-dropdown-items,
+  .p-paginator-rpp-options-panel .p-dropdown-items-wrapper,
+  .p-paginator-rpp-options-panel .p-dropdown-list,
+  .p-paginator-rpp-options-panel .p-dropdown-items {
+    background: rgb(20, 30, 50) !important;
+    background-color: rgb(20, 30, 50) !important;
+  }
+  
+  .p-dropdown-panel .p-dropdown-item:hover,
+  .p-paginator-rpp-options-panel .p-dropdown-item:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+  }
+  
+  .p-dropdown-panel .p-dropdown-item.p-highlight,
+  .p-paginator-rpp-options-panel .p-dropdown-item.p-highlight {
     background: var(--p-primary-color) !important;
     color: #ffffff !important;
   }
@@ -333,6 +388,15 @@ body {
   background: #020518 url('/assets/space.jpeg') center / cover no-repeat fixed;
   color: #f5f9ff;
   min-height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1200px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
 }
 
 body {
@@ -423,4 +487,40 @@ body::after {
 
 .p-toast .p-toast-message.p-toast-message-warn .p-toast-message-icon {
   color: #ffc107 !important;
+}
+
+::ng-deep {
+  .p-message.p-message-error,
+  .p-message.p-message-error.p-message-variant-simple {
+    color: #dc3545 !important;
+
+    * {
+      color: #dc3545 !important;
+    }
+
+    .p-message-text {
+      color: #dc3545 !important;
+    }
+
+    .p-message-icon {
+      color: #dc3545 !important;
+    }
+
+    span,
+    div,
+    p {
+      color: #dc3545 !important;
+    }
+  }
+
+  .p-error {
+    color: #dc3545 !important;
+  }
+
+  p-message.p-message-error,
+  p-message.p-message-error.p-message-variant-simple {
+    * {
+      color: #dc3545 !important;
+    }
+  }
 }

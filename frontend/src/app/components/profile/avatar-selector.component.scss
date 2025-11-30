@@ -81,21 +81,30 @@
   }
 
   .p-dialog {
+    border-radius: 1.75rem;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 40px 110px -70px rgba(2, 6, 18, 0.85);
+
     .p-dialog-header {
-      background: var(--p-surface-card);
-      border-bottom: 1px solid var(--p-surface-border);
-      padding: 1rem 1.25rem;
+      background: rgb(10, 18, 40);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      color: #eaf2ff;
+      border-radius: 1.75rem 1.75rem 0 0;
+      padding: 1.5rem;
     }
 
     .p-dialog-content {
-      background: var(--p-surface-card);
-      padding: 1rem;
+      background: rgb(10, 18, 40);
+      color: #eaf2ff;
+      padding: 2rem;
     }
 
     .p-dialog-footer {
-      background: var(--p-surface-card);
-      border-top: 1px solid var(--p-surface-border);
-      padding: 1rem 1.25rem;
+      background: rgb(10, 18, 40);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 1.5rem;
+      border-radius: 0 0 1.75rem 1.75rem;
     }
 
     .dialog-footer {
@@ -121,18 +130,25 @@
         }
 
         &.p-button-secondary {
-          border: 1px solid rgba(120, 160, 255, 0.5) !important;
-          background: rgba(207, 227, 255, 0.3) !important;
-          color: #cfe3ff !important;
+          border: 1px solid rgba(255, 255, 255, 0.1) !important;
+          background: #4a5568 !important;
+          color: #ffffff !important;
+          box-shadow: none !important;
 
           &:hover:not(:disabled) {
-            background: rgba(227, 239, 255, 0.4) !important;
-            border-color: rgba(120, 160, 255, 0.7) !important;
+            background: #5a6578 !important;
+            border-color: rgba(255, 255, 255, 0.15) !important;
             transform: translateY(-1px) !important;
+          }
+
+          &:focus-visible {
+            outline: 3px solid rgba(255, 255, 255, 0.2) !important;
+            outline-offset: 2px !important;
           }
 
           &:active:not(:disabled) {
             transform: translateY(0) !important;
+            background: #3a4458 !important;
           }
         }
 
@@ -140,8 +156,8 @@
           border: 1px solid rgba(120, 160, 255, 0.7) !important;
           background: linear-gradient(180deg, #cfe3ff 0%, #a9c8ff 60%, #93b9ff 100%) !important;
           color: #0d1325 !important;
-          backdrop-filter: blur(8px) !important;
           box-shadow: 0 10px 28px -18px rgba(2, 8, 30, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+          backdrop-filter: blur(8px) !important;
 
           &:hover:not(:disabled) {
             background: linear-gradient(180deg, #e3efff 0%, #bed6ff 60%, #a7c6ff 100%) !important;

@@ -65,6 +65,25 @@
       }
 
       ::ng-deep {
+        #email-error,
+        #password-error {
+          color: #dc3545 !important;
+
+          *, *::before, *::after {
+            color: #dc3545 !important;
+          }
+        }
+
+        p-message.p-message-error,
+        .p-message.p-message-error,
+        .p-message.p-message-error.p-message-variant-simple {
+          color: #dc3545 !important;
+
+          &, & * {
+            color: #dc3545 !important;
+          }
+        }
+
         input[pInputText],
         .p-inputtext {
           width: 100% !important;
@@ -135,6 +154,30 @@
           &:focus {
             border-color: #dc3545 !important;
             box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+          }
+        }
+
+        .p-message.p-message-error,
+        .p-message.p-message-error.p-message-variant-simple,
+        p-message.p-message-error {
+          color: #dc3545 !important;
+
+          * {
+            color: #dc3545 !important;
+          }
+
+          .p-message-text {
+            color: #dc3545 !important;
+          }
+
+          .p-message-icon {
+            color: #dc3545 !important;
+          }
+
+          span,
+          div,
+          p {
+            color: #dc3545 !important;
           }
         }
 

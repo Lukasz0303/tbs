@@ -12,6 +12,7 @@ import { TranslateService } from '../../services/translate.service';
 import { GameService } from '../../services/game.service';
 import { LoggerService } from '../../services/logger.service';
 import { BotDifficulty, Game } from '../../models/game.model';
+import { GameSettingsService } from '../../services/game-settings.service';
 
 type GameMode = BotDifficulty | 'pvp';
 type BoardSize = 3 | 4 | 5;
@@ -37,6 +38,7 @@ export class GameOptionsComponent implements OnInit {
   private readonly logger = inject(LoggerService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly gameService = inject(GameService);
+  private readonly gameSettingsService = inject(GameSettingsService);
 
   selectedGameMode = signal<GameMode>('easy');
   selectedBoardSize = signal<BoardSize>(3);
@@ -56,12 +58,19 @@ export class GameOptionsComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.loadSavedSettings();
     this.updateAuthStatus();
     this.authService.getCurrentUser()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         this.updateAuthStatus();
       });
+  }
+
+  private loadSavedSettings(): void {
+    const saved = this.gameSettingsService.getSettings();
+    this.selectedGameMode.set(saved.gameMode);
+    this.selectedBoardSize.set(saved.boardSize);
   }
 
   private updateAuthStatus(): void {
@@ -102,6 +111,7 @@ export class GameOptionsComponent implements OnInit {
       return;
     }
 
+    this.saveCurrentSettings();
     this.isStartingGame.set(true);
     this.authService
       .getCurrentUser()
@@ -118,6 +128,13 @@ export class GameOptionsComponent implements OnInit {
           this.createGuestSession();
         },
       });
+  }
+
+  private saveCurrentSettings(): void {
+    this.gameSettingsService.saveSettings({
+      gameMode: this.selectedGameMode(),
+      boardSize: this.selectedBoardSize(),
+    });
   }
 
   private createGuestSession(): void {

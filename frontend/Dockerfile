@@ -4,7 +4,7 @@ ARG NGINX_VERSION=1.27-alpine
 FROM node:${NODE_VERSION} AS builder
 
 LABEL maintainer="tbswars"
-LABEL description="Frontend build stage for World at War: Turn-Based Strategy"
+LABEL description="Frontend build stage for Kółko i krzyżyk"
 
 ARG SUPABASE_URL
 ARG SUPABASE_ANON_KEY
@@ -29,7 +29,7 @@ RUN npm run build
 FROM nginx:${NGINX_VERSION} AS runtime
 
 LABEL maintainer="tbswars"
-LABEL description="Frontend runtime stage for World at War: Turn-Based Strategy"
+LABEL description="Frontend runtime stage for Kółko i krzyżyk"
 
 RUN chown -R nginx:nginx /var/cache/nginx && \
     chown -R nginx:nginx /var/log/nginx && \

@@ -30,6 +30,15 @@ public class MatchmakingService {
     private final GameRepository gameRepository;
     private final UserRepository userRepository;
 
+    private Long getTotalPointsSafely(User user) {
+        Long points = user.getTotalPoints();
+        if (points == null) {
+            log.warn("User {} has null totalPoints despite NOT NULL constraint", user.getId());
+            return 0L;
+        }
+        return points;
+    }
+
     public MatchmakingService(RedisService redisService,
                              GameRepository gameRepository, UserRepository userRepository) {
         this.redisService = redisService;
@@ -285,7 +294,8 @@ public class MatchmakingService {
                     matchedUserId,
                     matchedUsername,
                     activeGame.getId(),
-                    true
+                    true,
+                    getTotalPointsSafely(user)
             );
         }
 
@@ -298,7 +308,8 @@ public class MatchmakingService {
                 null,
                 null,
                 null,
-                false
+                false,
+                getTotalPointsSafely(user)
         );
     }
 

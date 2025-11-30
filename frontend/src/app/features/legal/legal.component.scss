@@ -41,11 +41,18 @@
     text-decoration: none;
     transition: all 0.2s ease;
     font-size: 0.875rem;
+    cursor: pointer;
+    font-family: inherit;
 
     &:hover {
       background: rgba(255, 255, 255, 0.1);
       border-color: rgba(255, 255, 255, 0.2);
       color: #ffffff;
+    }
+
+    &:focus {
+      outline: 2px solid rgba(255, 255, 255, 0.3);
+      outline-offset: 2px;
     }
 
     .pi {

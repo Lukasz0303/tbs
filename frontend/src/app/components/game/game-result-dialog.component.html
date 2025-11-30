@@ -7,25 +7,25 @@
     (click)="$event.stopPropagation()">
     <div class="flex items-center justify-between gap-4 border-b border-white/10 px-6 py-4">
       <h1 class="text-xl sm:text-2xl font-semibold" *ngIf="game">
-        <span *ngIf="game.status === 'draw'">Remis</span>
-        <span *ngIf="game.status === 'finished'">Gra zakończona</span>
-        <span *ngIf="game.status === 'abandoned'">Gra porzucona</span>
+        <span *ngIf="game.status === 'draw'">{{ translate.translate('game.status.draw') }}</span>
+        <span *ngIf="game.status === 'finished'">{{ translate.translate('game.result.gameFinished') }}</span>
+        <span *ngIf="game.status === 'abandoned'">{{ translate.translate('game.result.gameAbandoned') }}</span>
       </h1>
       <button
         type="button"
         class="rounded-md border border-white/20 bg-white/10 px-3 py-1 text-sm text-slate-100 hover:bg-white/20"
         (click)="close.emit()">
-        Zamknij
+        {{ translate.translate('common.close') }}
       </button>
     </div>
     <div class="px-6 py-6 space-y-4 leading-relaxed" *ngIf="game">
       <p class="text-slate-200" *ngIf="game.status === 'finished'">
-        <span *ngIf="isPlayerWinner()" class="text-green-400 font-semibold">Wygrałeś!</span>
-        <span *ngIf="isPlayerLoser()" class="text-red-400 font-semibold">Przegrałeś</span>
-        <span *ngIf="!isPlayerWinner() && !isPlayerLoser()">Gra zakończona</span>
+        <span *ngIf="isPlayerWinner()" class="text-green-400 font-semibold">{{ translate.translate('game.result.youWon') }}</span>
+        <span *ngIf="isPlayerLoser()" class="text-red-400 font-semibold">{{ translate.translate('game.result.youLost') }}</span>
+        <span *ngIf="!isPlayerWinner() && !isPlayerLoser()">{{ translate.translate('game.result.gameFinished') }}</span>
       </p>
-      <p class="text-slate-200" *ngIf="game.status === 'draw'">Gra zakończona remisem</p>
-      <p class="text-slate-200" *ngIf="game.status === 'abandoned'">Gra została porzucona</p>
+      <p class="text-slate-200" *ngIf="game.status === 'draw'">{{ translate.translate('game.result.gameDraw') }}</p>
+      <p class="text-slate-200" *ngIf="game.status === 'abandoned'">{{ translate.translate('game.result.gameAbandoned') }}</p>
       
       <div class="points-info" *ngIf="pointsAtStake > 0">
         <p class="text-slate-200" *ngIf="game.status === 'finished' && isPlayerWinner()">
