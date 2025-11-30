@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Date;
 import java.util.Map;
@@ -22,39 +23,53 @@ public class JwtTokenProvider {
     private static final Logger log = LoggerFactory.getLogger(JwtTokenProvider.class);
     private static final int MIN_KEY_LENGTH_BITS = 256;
     private static final int MIN_TOKEN_LENGTH = 10;
+    private static final String DEFAULT_SECRET_FROM_PROPERTIES = "lo3Rp/t44UeFUOrB+qKxISaK/nyOsILpmDN06/yoUto=";
 
     private final SecretKey secretKey;
     private final long validityInMilliseconds;
     private final Map<String, Claims> claimsCache = new ConcurrentHashMap<>();
     private final Environment environment;
 
-    private static final String DEFAULT_SECRET_OLD = "V2FyOiBUaGlzIGlzIGEgdG9wIHNlY3JldCBmb3IgSldUIGVuY29kaW5nLiBJbiBwcm9kdWN0aW9uIHVzZSBhIHN0cm9uZyByYW5kb20gc2VjcmV0IQ==";
-    private static final String DEFAULT_SECRET_NEW = "lo3Rp/t44UeFUOrB+qKxISaK/nyOsILpmDN06/yoUto=";
-
     public JwtTokenProvider(
-            @Value("${app.jwt.secret}") String secret,
+            @Value("${app.jwt.secret:}") String secret,
             @Value("${app.jwt.expiration:3600000}") long validityInMilliseconds,
             Environment environment
     ) {
         this.environment = environment;
         
-        if (secret == null || secret.trim().isEmpty()) {
-            String errorMessage = "JWT_SECRET environment variable must be set!";
-            log.error(errorMessage);
-            throw new IllegalStateException(errorMessage);
+        String finalSecret = secret;
+        boolean isLocalEnvironment = isLocalEnvironment();
+        boolean isDefaultSecretFromProperties = DEFAULT_SECRET_FROM_PROPERTIES.equals(finalSecret);
+        boolean isEmptySecret = finalSecret == null || finalSecret.trim().isEmpty();
+        
+        if (isEmptySecret) {
+            if (isLocalEnvironment) {
+                finalSecret = generateRandomSecret();
+                log.warn("JWT_SECRET not set. Generated a random secret for local development only. This secret will change on each restart. For production, always set JWT_SECRET environment variable!");
+            } else {
+                String errorMessage = "JWT_SECRET environment variable must be set! This is required for all non-local environments.";
+                log.error(errorMessage);
+                throw new IllegalStateException(errorMessage);
+            }
+        } else if (isDefaultSecretFromProperties) {
+            if (isLocalEnvironment) {
+                log.warn("Using default JWT secret from application.properties for local development. This should never be used in production!");
+            } else {
+                String errorMessage = "Default JWT secret from application.properties cannot be used outside of local development! Please set JWT_SECRET environment variable with a strong random secret.";
+                log.error(errorMessage);
+                throw new IllegalStateException(errorMessage);
+            }
         }
         
-        if (isProductionEnvironment() && (secret.equals(DEFAULT_SECRET_OLD) || secret.equals(DEFAULT_SECRET_NEW))) {
-            String errorMessage = "Default JWT secret cannot be used in production! Please set JWT_SECRET environment variable with a strong random secret.";
-            log.error(errorMessage);
-            throw new IllegalStateException(errorMessage);
+        byte[] keyBytes;
+        try {
+            keyBytes = Base64.getDecoder().decode(finalSecret);
+        } catch (IllegalArgumentException e) {
+            String errorMessage = "JWT_SECRET must be a valid Base64-encoded string. Please provide a Base64-encoded secret key.";
+            log.error(errorMessage, e);
+            throw new IllegalArgumentException(errorMessage, e);
         }
         
-        if (!isProductionEnvironment() && (secret.equals(DEFAULT_SECRET_OLD) || secret.equals(DEFAULT_SECRET_NEW))) {
-            log.warn("Using default JWT secret for local development. This should never be used in production!");
-        }
-        
-        byte[] keyBytes = Base64.getDecoder().decode(secret);
         int keyLengthBits = keyBytes.length * 8;
         
         if (keyLengthBits < MIN_KEY_LENGTH_BITS) {
@@ -70,6 +85,13 @@ public class JwtTokenProvider {
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
         this.validityInMilliseconds = validityInMilliseconds;
         log.debug("JWT token provider initialized with key length: {} bits", keyLengthBits);
+    }
+    
+    private String generateRandomSecret() {
+        SecureRandom random = new SecureRandom();
+        byte[] keyBytes = new byte[MIN_KEY_LENGTH_BITS / 8];
+        random.nextBytes(keyBytes);
+        return Base64.getEncoder().encodeToString(keyBytes);
     }
 
     public String generateToken(Long userId) {
@@ -202,6 +224,52 @@ public class JwtTokenProvider {
             }
         }
         return false;
+    }
+    
+    private boolean isLocalEnvironment() {
+        if (environment == null) {
+            return false;
+        }
+        
+        String[] activeProfiles = environment.getActiveProfiles();
+        
+        if (activeProfiles != null && activeProfiles.length > 0) {
+            for (String profile : activeProfiles) {
+                if ("docker".equals(profile)) {
+                    return false;
+                }
+                if ("prod".equals(profile) || "production".equals(profile)) {
+                    return false;
+                }
+            }
+        }
+        
+        boolean hasTestProfile = false;
+        boolean hasDevProfile = false;
+        if (activeProfiles != null && activeProfiles.length > 0) {
+            for (String profile : activeProfiles) {
+                if ("test".equals(profile)) {
+                    hasTestProfile = true;
+                    break;
+                }
+                if ("dev".equals(profile) || "local".equals(profile) || "development".equals(profile)) {
+                    hasDevProfile = true;
+                    break;
+                }
+            }
+        }
+        
+        if (hasTestProfile) {
+            return true;
+        }
+        
+        String datasourceUrl = environment.getProperty("spring.datasource.url", "");
+        boolean isLocalhost = datasourceUrl.contains("127.0.0.1") || datasourceUrl.contains("localhost");
+        boolean isH2Database = datasourceUrl.contains("jdbc:h2:");
+        
+        boolean isProduction = isProductionEnvironment();
+        
+        return !isProduction && (isLocalhost || isH2Database) && (hasDevProfile || activeProfiles == null || activeProfiles.length == 0);
     }
 }
 
