@@ -91,16 +91,17 @@
 
     <div class="game-options-actions">
       <p-button
-        [label]="translateService.translate('home.gameOptions.cancel')"
-        [text]="true"
-        severity="secondary"
-        (onClick)="onCancel()"
+        [label]="translateService.translate('home.gameOptions.start')"
+        icon="pi pi-check"
+        (onClick)="onStartGame()"
+        [loading]="isStartingGame() || isCreatingGuestSession()"
         [disabled]="isStartingGame() || isCreatingGuestSession()"
       ></p-button>
       <p-button
-        [label]="translateService.translate('home.gameOptions.start')"
-        (onClick)="onStartGame()"
-        [loading]="isStartingGame() || isCreatingGuestSession()"
+        [label]="translateService.translate('home.gameOptions.cancel')"
+        icon="pi pi-times"
+        severity="secondary"
+        (onClick)="onCancel()"
         [disabled]="isStartingGame() || isCreatingGuestSession()"
       ></p-button>
     </div>

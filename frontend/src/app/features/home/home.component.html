@@ -2,6 +2,28 @@
 <section class="home">
   <div class="home-content">
     <div class="home-card">
+      <div class="language-selector">
+        <button
+          type="button"
+          class="language-btn"
+          [class.active]="currentLanguage() === 'pl'"
+          (click)="changeLanguage('pl')"
+          [attr.aria-label]="'Polski'"
+          title="Polski"
+        >
+          <img src="https://flagcdn.com/w40/pl.png" alt="Polski" class="flag-icon" />
+        </button>
+        <button
+          type="button"
+          class="language-btn"
+          [class.active]="currentLanguage() === 'en'"
+          (click)="changeLanguage('en')"
+          [attr.aria-label]="'English'"
+          title="English"
+        >
+          <img src="https://flagcdn.com/w40/gb.png" alt="English" class="flag-icon" />
+        </button>
+      </div>
       @if (currentUser$ | async; as user) {
         @if (user && !user.isGuest) {
           <h1>{{ translateService.translate('home.hero.title.loggedIn') }}</h1>

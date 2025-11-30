@@ -34,6 +34,15 @@ export class AudioSettingsService {
     this.updateSettings({ clickSoundEnabled: enabled });
   }
 
+  toggleMuteAll(): void {
+    const current = this.settingsSubject.value;
+    const isMuted = !current.musicEnabled && !current.clickSoundEnabled;
+    this.updateSettings({
+      musicEnabled: isMuted,
+      clickSoundEnabled: isMuted,
+    });
+  }
+
   private updateSettings(partial: Partial<AudioSettings>): void {
     const nextSettings = { ...this.settingsSubject.value, ...partial };
     this.settingsSubject.next(nextSettings);

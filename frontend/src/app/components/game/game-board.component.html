@@ -1,4 +1,4 @@
-<div class="board" [style.--size]="boardSize">
+<div class="board" [style.--size]="boardSize" [style.--board-width]="'min(80vw, 400px)'">
   @for (index of getCellsArray(); track trackByIndex(index)) {
     <div
       class="cell"

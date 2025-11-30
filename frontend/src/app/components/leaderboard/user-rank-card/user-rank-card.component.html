@@ -21,8 +21,10 @@
     </div>
 
     <p-button
-      [label]="'leaderboard.userRank.showPlayersAround' | translate"
-      (onClick)="onShowPlayersAround()">
+      (onClick)="onShowPlayersAround()"
+      [styleClass]="'custom-icon-button'">
+      <span class="button-label">{{ 'leaderboard.userRank.showPlayersAround' | translate }}</span>
+      <i [class]="showPlayersAround() ? 'pi pi-chevron-up button-icon' : 'pi pi-chevron-down button-icon'"></i>
     </p-button>
 
     @if (showPlayersAround()) {
@@ -37,7 +39,6 @@
           </div>
         } @else {
           <div class="players-list">
-            <h4 class="players-list-title">{{ 'leaderboard.playersAround.title' | translate }}</h4>
             @for (player of players(); track player.userId) {
               <div class="player-item">
                 <div class="player-info">

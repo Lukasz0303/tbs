@@ -6,71 +6,99 @@
       <h1>{{ translate.translate('profile.title') }}</h1>
     </div>
 
-    <div class="profile-content">
-      <div class="profile-info-card">
-        <h2>{{ translate.translate('profile.info.title') }}</h2>
-        @if (!user.isGuest) {
-          <div class="avatar-section">
-            <div class="avatar-display">
+    <div class="profile-content-wrapper">
+      <div class="profile-main-section">
+        <div class="profile-card">
+          <div class="profile-content">
+            <div class="avatar-section">
+              <div class="profile-name">{{ user.username || translate.translate('profile.guest') }}</div>
               <div class="avatar-wrapper">
-                <img 
-                  [src]="getAvatarPath(user.avatar)" 
-                  alt="Avatar" 
-                  class="avatar-image clickable"
-                  (click)="onEditAvatar()"
-                  [title]="translate.translate('profile.avatar.clickToEdit')" />
-                <button
-                  pButton
-                  type="button"
-                  class="avatar-edit-button"
-                  icon="pi pi-pencil"
-                  [pTooltip]="translate.translate('profile.avatar.edit')"
-                  tooltipPosition="top"
-                  size="small"
-                  (click)="onEditAvatar()"
-                  [title]="translate.translate('profile.avatar.edit')"
-                  aria-label="Edit avatar">
-                </button>
+                <div class="avatar-container">
+                  <img [src]="getAvatarPath(user.avatar)" alt="Avatar" class="avatar-image" />
+                </div>
+                @if (!user.isGuest) {
+                  <button
+                    pButton
+                    type="button"
+                    class="avatar-edit-button"
+                    icon="pi pi-pencil"
+                    size="small"
+                    (click)="onEditAvatar($event)"
+                    [title]="translate.translate('profile.avatar.edit')"
+                    aria-label="Edit avatar">
+                  </button>
+                }
               </div>
             </div>
-          </div>
-        }
-        <div class="info-row">
-          <span class="info-label">{{ translate.translate('profile.username') }}:</span>
-          <span class="info-value">
-            {{ user.username || translate.translate('profile.guest') }}
             @if (!user.isGuest) {
-              <button
-                pButton
-                type="button"
-                [label]="translate.translate('profile.edit')"
-                icon="pi pi-pencil"
-                severity="secondary"
-                size="small"
-                (click)="onEditUsername()">
-              </button>
+              <div class="stats-section">
+                <div class="stat-item">
+                  <span class="stat-label">{{ translate.translate('profile.stats.points') }}</span>
+                  <span class="stat-value">{{ user.totalPoints || 0 }}</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">{{ translate.translate('profile.stats.gamesPlayed') }}</span>
+                  <span class="stat-value">{{ user.gamesPlayed || 0 }}</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">{{ translate.translate('profile.stats.gamesWon') }}</span>
+                  <span class="stat-value">{{ user.gamesWon || 0 }}</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">{{ translate.translate('profile.stats.winRate') }}</span>
+                  <span class="stat-value">{{ getWinRate(user) }}%</span>
+                </div>
+              </div>
             }
-          </span>
-        </div>
-        @if (!user.isGuest && user.email) {
-          <div class="info-row">
-            <span class="info-label">{{ translate.translate('profile.email') }}:</span>
-            <span class="info-value">{{ user.email }}</span>
           </div>
-        }
-        <div class="info-row">
-          <span class="info-label">{{ translate.translate('profile.status') }}:</span>
-          <span class="info-value">
-            {{ user.isGuest ? translate.translate('profile.guest') : translate.translate('profile.registered') }}
-          </span>
         </div>
       </div>
 
-      <div class="profile-stats-card">
-        <app-user-stats
-          [user]="user"
-          [ranking]="userRanking$ | async">
-        </app-user-stats>
+      <div class="profile-info-section">
+        <div class="profile-info-card">
+          <h2>{{ translate.translate('profile.info.title') }}</h2>
+          <div class="info-row">
+            <span class="info-label">{{ translate.translate('profile.username') }}:</span>
+            <span class="info-value">
+              {{ user.username || translate.translate('profile.guest') }}
+              @if (!user.isGuest) {
+                <button
+                  pButton
+                  type="button"
+                  [label]="translate.translate('profile.edit')"
+                  icon="pi pi-pencil"
+                  severity="secondary"
+                  size="small"
+                  (click)="onEditUsername()">
+                </button>
+              }
+            </span>
+          </div>
+          @if (!user.isGuest && user.email) {
+            <div class="info-row">
+              <span class="info-label">{{ translate.translate('profile.email') }}:</span>
+              <span class="info-value">{{ user.email }}</span>
+            </div>
+          }
+          <div class="info-row">
+            <span class="info-label">{{ translate.translate('profile.status') }}:</span>
+            <span class="info-value">
+              {{ user.isGuest ? translate.translate('profile.guest') : translate.translate('profile.registered') }}
+            </span>
+          </div>
+          @if (!user.isGuest) {
+            <div class="logout-row">
+              <button
+                pButton
+                type="button"
+                [label]="translate.translate('home.hero.logoutButton')"
+                icon="pi pi-sign-out"
+                severity="danger"
+                (click)="onLogout()">
+              </button>
+            </div>
+          }
+        </div>
       </div>
 
       @if (lastGame$ | async; as lastGame) {
@@ -97,7 +125,7 @@
     </div>
   </div>
 
-  @if (showEditDialog$ | async) {
+  @if (showEditDialog()) {
     <app-edit-username-dialog
       [currentUsername]="user.username || ''"
       (close)="onCloseEditDialog()"
@@ -105,10 +133,11 @@
     </app-edit-username-dialog>
   }
 
-  @if (showAvatarDialog$ | async) {
+  @if (showAvatarDialog()) {
     <app-avatar-selector
-      [visible]="!!(showAvatarDialog$ | async)"
+      [visible]="showAvatarDialog()"
       [currentAvatar]="user.avatar"
+      [isLoading]="isSavingAvatar()"
       (visibleChange)="onAvatarDialogVisibleChange($event)"
       (close)="onCloseAvatarDialog()"
       (save)="onSaveAvatar($event)">
@@ -121,4 +150,3 @@
     </div>
   </div>
 }
-

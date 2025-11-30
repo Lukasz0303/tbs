@@ -4,7 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "prebuild": "node scripts/replace-env.js",
+    "prebuild": "node scripts/copy-flag-icons.js && node scripts/generate-flag-icons-css.js && node scripts/replace-env.js",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "jest",
@@ -31,6 +31,7 @@
     "@ngrx/store-devtools": "^17.2.0",
     "@primeng/themes": "^19.1.4",
     "@supabase/supabase-js": "^2.78.0",
+    "flag-icons": "^7.5.0",
     "primeicons": "^7.0.0",
     "primeng": "^17.18.4",
     "rxjs": "~7.8.0",

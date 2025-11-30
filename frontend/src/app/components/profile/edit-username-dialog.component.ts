@@ -1,10 +1,13 @@
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   EventEmitter,
   Input,
+  OnChanges,
   OnInit,
   Output,
+  SimpleChanges,
   inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -22,8 +25,9 @@ import { TranslateService } from '../../services/translate.service';
   styleUrls: ['./edit-username-dialog.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class EditUsernameDialogComponent implements OnInit {
+export class EditUsernameDialogComponent implements OnInit, OnChanges {
   private readonly fb = inject(FormBuilder);
+  private readonly cdr = inject(ChangeDetectorRef);
   readonly translate = inject(TranslateService);
 
   @Input() currentUsername: string = '';
@@ -32,6 +36,7 @@ export class EditUsernameDialogComponent implements OnInit {
 
   editForm!: FormGroup;
   visible = true;
+  isLoading = false;
 
   ngOnInit(): void {
     this.editForm = this.fb.group({
@@ -47,10 +52,22 @@ export class EditUsernameDialogComponent implements OnInit {
     });
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['currentUsername'] && this.editForm) {
+      this.editForm.patchValue({ username: this.currentUsername });
+      this.cdr.markForCheck();
+    }
+  }
+
   onSave(): void {
+    if (this.isLoading) {
+      return;
+    }
+
     if (this.editForm.valid) {
       const newUsername = this.editForm.get('username')?.value?.trim();
       if (newUsername) {
+        this.isLoading = true;
         this.save.emit(newUsername);
       }
     } else {
@@ -58,8 +75,14 @@ export class EditUsernameDialogComponent implements OnInit {
     }
   }
 
+  setLoading(loading: boolean): void {
+    this.isLoading = loading;
+    this.cdr.markForCheck();
+  }
+
   onClose(): void {
     this.visible = false;
+    this.isLoading = false;
     this.close.emit();
   }
 

@@ -26,6 +26,7 @@ import { Ranking } from '../../models/ranking.model';
 import { BackgroundMusicService } from '../../services/background-music.service';
 import { GameResultSoundService } from '../../services/game-result-sound.service';
 import { AudioSettingsService } from '../../services/audio-settings.service';
+import { GameSettingsService } from '../../services/game-settings.service';
 
 const MOVE_TIMEOUT_SECONDS = 20;
 const MOVE_TIMEOUT_MS = MOVE_TIMEOUT_SECONDS * 1000;
@@ -64,6 +65,7 @@ export class GameComponent implements OnInit, OnDestroy {
   private readonly backgroundMusicService = inject(BackgroundMusicService);
   private readonly gameResultSoundService = inject(GameResultSoundService);
   private readonly audioSettingsService = inject(AudioSettingsService);
+  private readonly gameSettingsService = inject(GameSettingsService);
 
   readonly isBotThinking = signal<boolean>(false);
   readonly showResult = signal<boolean>(false);
@@ -257,6 +259,7 @@ export class GameComponent implements OnInit, OnDestroy {
           }
 
           if (game.status === 'finished' || game.status === 'draw' || game.status === 'abandoned') {
+            this.saveGameSettings(game);
             this.showResult.set(true);
           }
         },
@@ -411,6 +414,7 @@ export class GameComponent implements OnInit, OnDestroy {
           }
 
           if (game.status === 'finished' || game.status === 'draw' || game.status === 'abandoned') {
+            this.saveGameSettings(game);
             this.showResult.set(true);
           }
         },
@@ -737,6 +741,7 @@ export class GameComponent implements OnInit, OnDestroy {
 
   private handleMoveResponse(game: Game): void {
     if (game.status === 'finished' || game.status === 'draw') {
+      this.saveGameSettings(game);
       timer(400)
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe(() => {
@@ -810,6 +815,11 @@ export class GameComponent implements OnInit, OnDestroy {
         if (this.isGameEndedPayload(message.payload)) {
           this.isMovePending.set(false);
           this.updateGameFromPayload(message.payload);
+          const state = this.vm();
+          const game = state?.game;
+          if (game) {
+            this.saveGameSettings(game);
+          }
           timer(400)
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe(() => {
@@ -979,6 +989,7 @@ export class GameComponent implements OnInit, OnDestroy {
 
   private handleGameStatusChange(game: Game): void {
     if (game.status === 'finished' || game.status === 'draw' || game.status === 'abandoned') {
+      this.saveGameSettings(game);
       this.authService.loadCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
       timer(400)
         .pipe(takeUntilDestroyed(this.destroyRef))
@@ -1413,6 +1424,20 @@ export class GameComponent implements OnInit, OnDestroy {
       return Number(game.winnerId) === Number(user.userId) ? 'victory' : 'defeat';
     }
     return null;
+  }
+
+  private saveGameSettings(game: Game): void {
+    if (game.status !== 'finished' && game.status !== 'draw' && game.status !== 'abandoned') {
+      return;
+    }
+
+    const gameMode = game.gameType === 'pvp' ? 'pvp' : (game.botDifficulty ?? 'easy');
+    const boardSize = game.boardSize as 3 | 4 | 5;
+
+    this.gameSettingsService.saveSettings({
+      gameMode,
+      boardSize,
+    });
   }
 }
 

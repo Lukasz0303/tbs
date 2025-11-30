@@ -6,7 +6,6 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  flex: 0 0 48%;
   min-width: 550px;
   max-width: 550px;
   width: 550px;
@@ -17,10 +16,132 @@
   box-sizing: border-box;
 
   :host-context(.guest-layout) & {
-    min-width: 0;
-    max-width: none;
-    width: auto;
-    flex: 0 0 48%;
+    min-width: 700px;
+    max-width: 700px;
+    width: 700px;
+  }
+}
+
+@media (max-width: 1300px) {
+  .game-bot-info {
+    min-width: 500px;
+    max-width: 500px;
+    width: 500px;
+    padding: 0.875rem 1rem;
+
+    :host-context(.guest-layout) & {
+      min-width: 600px;
+      max-width: 600px;
+      width: 600px;
+    }
+  }
+
+  .avatar-container {
+    width: 85px;
+    height: 85px;
+  }
+
+  .player-symbol {
+    width: 58px;
+    height: 58px;
+
+    .symbol-value {
+      font-size: 1.875rem;
+    }
+  }
+}
+
+@media (max-width: 1200px) {
+  .game-bot-info {
+    min-width: 450px;
+    max-width: 450px;
+    width: 450px;
+    padding: 0.75rem 0.875rem;
+
+    :host-context(.guest-layout) & {
+      min-width: 550px;
+      max-width: 550px;
+      width: 550px;
+    }
+  }
+
+  .avatar-container {
+    width: 80px;
+    height: 80px;
+  }
+
+  .bot-title {
+    font-size: 0.95rem;
+  }
+
+  .player-symbol {
+    width: 54px;
+    height: 54px;
+
+    .symbol-value {
+      font-size: 1.75rem;
+    }
+  }
+
+  .detail-label {
+    font-size: 0.75rem;
+  }
+
+  .detail-value {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 1100px) {
+  .game-bot-info {
+    min-width: 400px;
+    max-width: 400px;
+    width: 400px;
+    padding: 0.7rem 0.8rem;
+
+    :host-context(.guest-layout) & {
+      min-width: 500px;
+      max-width: 500px;
+      width: 500px;
+    }
+  }
+
+  .bot-content {
+    gap: 0.75rem;
+  }
+
+  .avatar-container {
+    width: 75px;
+    height: 75px;
+  }
+
+  .bot-title {
+    font-size: 0.9rem;
+  }
+
+  .player-symbol {
+    width: 50px;
+    height: 50px;
+
+    .symbol-value {
+      font-size: 1.625rem;
+    }
+  }
+
+  .bot-info-section {
+    gap: 0.75rem;
+  }
+
+  .detail-item {
+    padding: 0.3rem 0.45rem;
+  }
+
+  .detail-label {
+    font-size: 0.7rem;
+  }
+
+  .detail-value {
+    font-size: 0.95rem;
   }
 }
 
@@ -155,28 +276,415 @@
   }
 }
 
+@media (max-width: 900px) {
+  .game-bot-info {
+    min-width: 350px;
+    max-width: 350px;
+    width: 350px;
+    padding: 0.65rem 0.75rem;
+
+    :host-context(.guest-layout) & {
+      min-width: 450px;
+      max-width: 450px;
+      width: 450px;
+    }
+  }
+
+  .bot-content {
+    gap: 0.65rem;
+  }
+
+  .avatar-container {
+    width: 70px;
+    height: 70px;
+  }
+
+  .bot-title {
+    font-size: 0.85rem;
+  }
+
+  .player-symbol {
+    width: 48px;
+    height: 48px;
+
+    .symbol-value {
+      font-size: 1.5rem;
+    }
+  }
+
+  .bot-info-section {
+    gap: 0.65rem;
+  }
+
+  .detail-item {
+    padding: 0.25rem 0.4rem;
+  }
+
+  .detail-label {
+    font-size: 0.68rem;
+  }
+
+  .detail-value {
+    font-size: 0.9rem;
+  }
+}
+
+@media (min-width: 769px) {
+  .game-bot-info {
+    max-width: none !important;
+  }
+}
+
 @media (max-width: 768px) {
   .game-bot-info {
-    padding: 1rem;
+    padding: 0.6rem;
+    min-width: 0 !important;
+    max-width: min(450px, 100vw) !important;
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    margin: 0 auto;
+    box-sizing: border-box;
+
+    :host-context(.guest-layout) & {
+      min-width: 0 !important;
+      max-width: min(450px, 100vw) !important;
+      width: 100% !important;
+      flex: 1 1 100% !important;
+    }
   }
 
   .bot-content {
     flex-direction: column;
     align-items: center;
-    gap: 1rem;
+    gap: 0.6rem;
   }
 
   .avatar-section {
     min-width: auto;
     width: 100%;
+    gap: 0.4rem;
+  }
+
+  .avatar-container {
+    width: 65px !important;
+    height: 65px !important;
+  }
+
+  .bot-title {
+    font-size: 0.85rem;
+  }
+
+  .symbol-section {
+    min-width: 55px;
+  }
+
+  .player-symbol {
+    width: 48px;
+    height: 48px;
+
+    .symbol-value {
+      font-size: 1.4rem;
+    }
   }
 
   .bot-info-section {
     width: 100%;
+    gap: 0.6rem;
   }
 
   .bot-details {
     grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+
+  .detail-item {
+    padding: 0.2rem 0.35rem;
+    gap: 0.08rem;
+  }
+
+  .detail-label {
+    font-size: 0.68rem;
+  }
+
+  .detail-value {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .game-bot-info {
+    padding: 0.45rem;
+  }
+
+  .bot-content {
+    gap: 0.45rem;
+  }
+
+  .avatar-section {
+    gap: 0.35rem;
+  }
+
+  .avatar-container {
+    width: 58px !important;
+    height: 58px !important;
+  }
+
+  .bot-title {
+    font-size: 0.78rem;
+  }
+
+  .symbol-section {
+    min-width: 48px;
+  }
+
+  .player-symbol {
+    width: 42px;
+    height: 42px;
+
+    .symbol-value {
+      font-size: 1.2rem;
+    }
+  }
+
+  .bot-info-section {
+    gap: 0.45rem;
+  }
+
+  .detail-item {
+    padding: 0.18rem 0.32rem;
+    gap: 0.06rem;
+  }
+
+  .detail-label {
+    font-size: 0.63rem;
+  }
+
+  .detail-value {
+    font-size: 0.82rem;
+  }
+}
+
+@media (max-width: 450px) {
+  .game-bot-info {
+    padding: 0.5rem;
+  }
+
+  .bot-content {
+    gap: 0.5rem;
+  }
+
+  .avatar-section {
+    gap: 0.4rem;
+  }
+
+  .avatar-container {
+    width: 60px !important;
+    height: 60px !important;
+  }
+
+  .bot-title {
+    font-size: 0.8rem;
+  }
+
+  .symbol-section {
+    min-width: 50px;
+  }
+
+  .player-symbol {
+    width: 44px;
+    height: 44px;
+
+    .symbol-value {
+      font-size: 1.25rem;
+    }
+  }
+
+  .bot-info-section {
+    gap: 0.5rem;
+  }
+
+  .detail-item {
+    padding: 0.2rem 0.35rem;
+    gap: 0.06rem;
+  }
+
+  .detail-label {
+    font-size: 0.65rem;
+  }
+
+  .detail-value {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .game-bot-info {
+    padding: 0.5rem !important;
+    max-width: calc(100vw - 0.4rem) !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+  }
+
+  :host-context(.guest-layout) .game-bot-info {
+    max-width: calc(100vw - 0.4rem) !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+  }
+
+  .bot-content {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .avatar-section {
+    gap: 0.4rem;
+    min-width: auto;
+    width: auto;
+    flex: 0 0 auto;
+  }
+
+  .avatar-container {
+    width: 55px !important;
+    height: 55px !important;
+  }
+
+  .bot-title {
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .symbol-section {
+    min-width: 45px;
+    flex: 0 0 auto;
+  }
+
+  .player-symbol {
+    width: 42px;
+    height: 42px;
+
+    .symbol-value {
+      font-size: 1.1rem;
+    }
+  }
+
+  .bot-info-section {
+    gap: 0.5rem;
+    width: 100%;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .bot-details {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.3rem;
+  }
+
+  .detail-item {
+    padding: 0.25rem 0.3rem;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+
+  .detail-label {
+    font-size: 0.6rem;
+    line-height: 1.2;
+  }
+
+  .detail-value {
+    font-size: 0.8rem;
+    line-height: 1.2;
+  }
+}
+
+@media (max-width: 300px) {
+  .game-bot-info {
+    padding: 0.4rem !important;
+    max-width: calc(100vw - 0.2rem) !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+  }
+
+  :host-context(.guest-layout) .game-bot-info {
+    max-width: calc(100vw - 0.2rem) !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+  }
+
+  .bot-content {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: nowrap;
+  }
+
+  .avatar-section {
+    gap: 0.3rem;
+    min-width: auto;
+    width: 100%;
+    flex: 0 0 auto;
+  }
+
+  .avatar-container {
+    width: 45px !important;
+    height: 45px !important;
+  }
+
+  .bot-title {
+    font-size: 0.65rem;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .symbol-section {
+    min-width: 38px;
+    flex: 0 0 auto;
+  }
+
+  .player-symbol {
+    width: 36px;
+    height: 36px;
+
+    .symbol-value {
+      font-size: 0.95rem;
+    }
+  }
+
+  .bot-info-section {
+    gap: 0.35rem;
+    width: 100%;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .bot-details {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.2rem;
+  }
+
+  .detail-item {
+    padding: 0.2rem 0.25rem;
+    gap: 0.05rem;
+    min-width: 0;
+  }
+
+  .detail-label {
+    font-size: 0.55rem;
+    line-height: 1.1;
+  }
+
+  .detail-value {
+    font-size: 0.7rem;
+    line-height: 1.1;
   }
 }
 

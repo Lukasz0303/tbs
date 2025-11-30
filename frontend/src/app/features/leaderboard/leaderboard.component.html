@@ -21,6 +21,7 @@
       (onLazyLoad)="onLazyLoad($event)"
       [loading]="isLoading()"
       [rowsPerPageOptions]="[25, 50, 100]"
+      [paginatorDropdownAppendTo]="'body'"
       styleClass="leaderboard-table">
       
       <ng-template pTemplate="header">

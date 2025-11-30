@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { interval, of, timer } from 'rxjs';
-import { take, catchError, debounceTime } from 'rxjs/operators';
+import { take, catchError, debounceTime, finalize } from 'rxjs/operators';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { ToastModule } from 'primeng/toast';
@@ -46,6 +46,7 @@ export class MatchmakingComponent implements OnInit {
   readonly isInQueue = signal<boolean>(false);
   readonly hasError = signal<boolean>(false);
   readonly errorMessage = signal<string>('');
+  readonly isNavigatingToGame = signal<boolean>(false);
 
   ngOnInit(): void {
     this.route.queryParams.pipe(
@@ -114,41 +115,30 @@ export class MatchmakingComponent implements OnInit {
         
         if (response.message?.includes('Match found')) {
           this.logger.debug('Match found in response, checking for game...');
-          timer(100).pipe(
-            takeUntilDestroyed(this.destroyRef),
-            take(1)
-          ).subscribe(() => {
-            this.checkForCreatedGame();
-          });
+          this.scheduleDelayedCheck(100, () => this.checkForCreatedGame());
           return;
         }
         
         this.logger.debug('No match found yet, starting polling...');
         this.checkForCreatedGame();
         
-        timer(300).pipe(
-          takeUntilDestroyed(this.destroyRef),
-          take(1)
-        ).subscribe(() => {
-          this.checkMatchmakingStatus();
-        });
-        
-        timer(800).pipe(
-          takeUntilDestroyed(this.destroyRef),
-          take(1)
-        ).subscribe(() => {
-          this.checkMatchmakingStatus();
-        });
-        
-        timer(1500).pipe(
-          takeUntilDestroyed(this.destroyRef),
-          take(1)
-        ).subscribe(() => {
-          this.checkMatchmakingStatus();
-        });
+        this.scheduleDelayedCheck(300, () => this.checkMatchmakingStatus());
+        this.scheduleDelayedCheck(800, () => this.checkMatchmakingStatus());
+        this.scheduleDelayedCheck(1500, () => this.checkMatchmakingStatus());
         
         this.startPolling();
         this.startWaitTimeCounter();
+      }
+    });
+  }
+
+  private scheduleDelayedCheck(delayMs: number, action: () => void): void {
+    timer(delayMs).pipe(
+      takeUntilDestroyed(this.destroyRef),
+      take(1)
+    ).subscribe(() => {
+      if (this.isInQueue() && !this.isNavigatingToGame()) {
+        action();
       }
     });
   }
@@ -166,6 +156,10 @@ export class MatchmakingComponent implements OnInit {
   }
 
   private checkForCreatedGame(): void {
+    if (this.isNavigatingToGame()) {
+      return;
+    }
+    
     this.gameService.getActivePvpGame().pipe(
       take(1),
       takeUntilDestroyed(this.destroyRef),
@@ -175,10 +169,20 @@ export class MatchmakingComponent implements OnInit {
       })
     ).subscribe({
       next: (game: Game | null) => {
+        if (this.isNavigatingToGame()) {
+          return;
+        }
         if (game && this.isActivePvpGame(game)) {
+          this.isNavigatingToGame.set(true);
           this.logger.debug('PvP game found! Navigating to game:', game.gameId);
-          this.router.navigate(['/game', game.gameId]).catch((error) => {
+          this.router.navigate(['/game', game.gameId]).then((success) => {
+            if (!success) {
+              this.logger.error('Navigation failed for game:', game.gameId);
+              this.isNavigatingToGame.set(false);
+            }
+          }).catch((error) => {
             this.logger.error('Error navigating to game:', error);
+            this.isNavigatingToGame.set(false);
           });
         } else {
           if (!this.isInQueue()) {
@@ -202,25 +206,36 @@ export class MatchmakingComponent implements OnInit {
   }
 
   private checkMatchmakingStatus(): void {
-    if (!this.isInQueue()) {
+    if (!this.isInQueue() || this.isNavigatingToGame()) {
       return;
     }
     
     this.logger.debug('Checking matchmaking status...');
     this.gameService.getActivePvpGame().pipe(
       take(1),
+      takeUntilDestroyed(this.destroyRef),
       catchError((error) => {
         this.logger.error('Error checking matchmaking status:', error);
         return of<Game | null>(null);
       })
     ).subscribe({
       next: (game: Game | null) => {
+        if (!this.isInQueue() || this.isNavigatingToGame()) {
+          return;
+        }
         this.logger.debug('Matchmaking status check result:', game ? `Game ${game.gameId} found` : 'No game found');
         if (game && this.isActivePvpGame(game)) {
+          this.isNavigatingToGame.set(true);
           this.logger.debug('Match found! Navigating to game:', game.gameId);
           this.isInQueue.set(false);
-          this.router.navigate(['/game', game.gameId]).catch((error) => {
+          this.router.navigate(['/game', game.gameId]).then((success) => {
+            if (!success) {
+              this.logger.error('Navigation failed for game:', game.gameId);
+              this.isNavigatingToGame.set(false);
+            }
+          }).catch((error) => {
             this.logger.error('Error navigating to game:', error);
+            this.isNavigatingToGame.set(false);
           });
         }
       }
@@ -250,22 +265,40 @@ export class MatchmakingComponent implements OnInit {
     this.matchmakingService.leaveQueue().pipe(
       takeUntilDestroyed(this.destroyRef),
       catchError((error) => {
+        this.logger.error('Error leaving queue:', error);
+        
+        this.messageService.add({
+          severity: 'warn',
+          summary: this.translateService.translate('matchmaking.leave.error.title'),
+          detail: this.translateService.translate('matchmaking.leave.error.detail'),
+          life: 5000,
+        });
+        
         this.isCancelling.set(false);
-        this.handleError(error);
-        throw error;
+        return of(null);
+      }),
+      finalize(() => {
+        if (this.isInQueue()) {
+          this.isInQueue.set(false);
+        }
       })
     ).subscribe({
-      next: () => {
-        this.messageService.add({
-          severity: 'info',
-          summary: this.translateService.translate('matchmaking.cancelled.title'),
-          detail: this.translateService.translate('matchmaking.cancelled.detail'),
-          life: 3000,
+      next: (result) => {
+        if (result !== null) {
+          this.messageService.add({
+            severity: 'info',
+            summary: this.translateService.translate('matchmaking.cancelled.title'),
+            detail: this.translateService.translate('matchmaking.cancelled.detail'),
+            life: 3000,
+          });
+        }
+        this.router.navigate(['/']).then((success) => {
+          if (!success) {
+            this.logger.warn('Navigation to home failed');
+          }
+        }).catch((error) => {
+          this.logger.error('Error navigating to home:', error);
         });
-        this.router.navigate(['/']);
-      },
-      error: () => {
-        this.isCancelling.set(false);
       }
     });
   }

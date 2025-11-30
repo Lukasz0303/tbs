@@ -47,7 +47,7 @@ public class UserController {
             IpAddressService ipAddressService,
             @Value("${app.rate-limit.profile:100}") int profileRateLimit,
             @Value("${app.rate-limit.last-seen:30}") int lastSeenRateLimit,
-            @Value("${app.rate-limit.update:10}") int updateRateLimit
+            @Value("${app.rate-limit.update:30}") int updateRateLimit
     ) {
         this.userService = userService;
         this.authenticationService = authenticationService;
@@ -145,7 +145,7 @@ public class UserController {
             @ApiResponse(responseCode = "403", description = "Forbidden - can only update own profile"),
             @ApiResponse(responseCode = "404", description = "User not found"),
             @ApiResponse(responseCode = "409", description = "Username already exists"),
-            @ApiResponse(responseCode = "429", description = "Rate limit exceeded - maximum 10 requests per minute")
+            @ApiResponse(responseCode = "429", description = "Rate limit exceeded - maximum 30 requests per minute")
     })
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<UpdateUserResponse> updateUserProfile(
@@ -182,7 +182,7 @@ public class UserController {
             @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required"),
             @ApiResponse(responseCode = "403", description = "Forbidden - can only update own avatar"),
             @ApiResponse(responseCode = "404", description = "User not found"),
-            @ApiResponse(responseCode = "429", description = "Rate limit exceeded - maximum 10 requests per minute")
+            @ApiResponse(responseCode = "429", description = "Rate limit exceeded - maximum 30 requests per minute")
     })
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<UpdateUserResponse> updateUserAvatar(

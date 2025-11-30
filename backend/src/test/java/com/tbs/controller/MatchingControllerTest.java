@@ -131,7 +131,7 @@ class MatchingControllerTest {
         BoardSize boardSize = BoardSize.THREE;
         PlayerQueueStatus playerStatus = new PlayerQueueStatus(
                 1L, "user1", BoardSize.THREE, QueuePlayerStatus.WAITING,
-                Instant.now(), null, null, null, false
+                Instant.now(), null, null, null, false, 1000L
         );
         QueueStatusResponse response = new QueueStatusResponse(List.of(playerStatus), 1);
 

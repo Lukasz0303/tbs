@@ -14,5 +14,6 @@ public record PlayerQueueStatus(
         Long matchedWith,
         String matchedWithUsername,
         Long gameId,
-        Boolean isMatched
+        Boolean isMatched,
+        Long score
 ) {}
