@@ -117,7 +117,7 @@ describe('HomeComponent', () => {
 
     component.playAsGuest();
 
-    expect(navigateSpy).toHaveBeenCalledWith(['/game-options']);
+    expect(navigateSpy).toHaveBeenCalledWith(['/game-options'], undefined);
   });
 
   it('powinien nawigować do opcji gry przy starcie nowej gry', () => {
