@@ -26,7 +26,8 @@ public class JwtTokenProvider {
     private final long validityInMilliseconds;
     private final Map<String, Claims> claimsCache = new ConcurrentHashMap<>();
 
-    private static final String DEFAULT_SECRET = "V2FyOiBUaGlzIGlzIGEgdG9wIHNlY3JldCBmb3IgSldUIGVuY29kaW5nLiBJbiBwcm9kdWN0aW9uIHVzZSBhIHN0cm9uZyByYW5kb20gc2VjcmV0IQ==";
+    private static final String DEFAULT_SECRET_OLD = "V2FyOiBUaGlzIGlzIGEgdG9wIHNlY3JldCBmb3IgSldUIGVuY29kaW5nLiBJbiBwcm9kdWN0aW9uIHVzZSBhIHN0cm9uZyByYW5kb20gc2VjcmV0IQ==";
+    private static final String DEFAULT_SECRET_NEW = "lo3Rp/t44UeFUOrB+qKxISaK/nyOsILpmDN06/yoUto=";
 
     public JwtTokenProvider(
             @Value("${app.jwt.secret}") String secret,
@@ -38,7 +39,7 @@ public class JwtTokenProvider {
             throw new IllegalStateException(errorMessage);
         }
         
-        if (secret.equals(DEFAULT_SECRET)) {
+        if (secret.equals(DEFAULT_SECRET_OLD) || secret.equals(DEFAULT_SECRET_NEW)) {
             String errorMessage = "Default JWT secret cannot be used in production! Please set JWT_SECRET environment variable with a strong random secret.";
             log.error(errorMessage);
             throw new IllegalStateException(errorMessage);
