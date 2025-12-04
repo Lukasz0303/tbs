@@ -4,6 +4,10 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.env.Environment;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -12,23 +16,31 @@ import java.util.Date;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class JwtTokenProviderTest {
 
     private JwtTokenProvider jwtTokenProvider;
     private String testSecret;
+    
+    @Mock
+    private Environment environment;
 
     @BeforeEach
     void setUp() throws Exception {
         byte[] keyBytes = new byte[64];
         SecureRandom.getInstanceStrong().nextBytes(keyBytes);
         testSecret = Base64.getEncoder().encodeToString(keyBytes);
-        jwtTokenProvider = new JwtTokenProvider(testSecret, 3600000L);
+        lenient().when(environment.getActiveProfiles()).thenReturn(new String[]{"test"});
+        lenient().when(environment.getProperty("spring.datasource.url", "")).thenReturn("jdbc:h2:mem:test");
+        jwtTokenProvider = new JwtTokenProvider(testSecret, 3600000L, environment);
     }
 
     @Test
     void validateToken_shouldReturnFalseForExpiredToken() throws InterruptedException {
-        JwtTokenProvider shortExpiryProvider = new JwtTokenProvider(testSecret, 1000L);
+        JwtTokenProvider shortExpiryProvider = new JwtTokenProvider(testSecret, 1000L, environment);
         String token = shortExpiryProvider.generateToken(123L);
         
         Thread.sleep(1100);
@@ -124,7 +136,7 @@ class JwtTokenProviderTest {
 
     @Test
     void getTokenId_shouldThrowExceptionIfNoJtiClaim() {
-        JwtTokenProvider provider = new JwtTokenProvider(testSecret, 3600000L);
+        JwtTokenProvider provider = new JwtTokenProvider(testSecret, 3600000L, environment);
         String tokenWithoutJti = Jwts.builder()
                 .subject("123")
                 .issuedAt(new Date())
@@ -143,7 +155,7 @@ class JwtTokenProviderTest {
         SecureRandom.getInstanceStrong().nextBytes(shortKeyBytes);
         String shortSecret = Base64.getEncoder().encodeToString(shortKeyBytes);
 
-        assertThatThrownBy(() -> new JwtTokenProvider(shortSecret, 3600000L))
+        assertThatThrownBy(() -> new JwtTokenProvider(shortSecret, 3600000L, environment))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("JWT secret key is too short");
     }
@@ -154,7 +166,7 @@ class JwtTokenProviderTest {
         SecureRandom.getInstanceStrong().nextBytes(validKeyBytes);
         String validSecret = Base64.getEncoder().encodeToString(validKeyBytes);
 
-        JwtTokenProvider provider = new JwtTokenProvider(validSecret, 3600000L);
+        JwtTokenProvider provider = new JwtTokenProvider(validSecret, 3600000L, environment);
 
         assertThat(provider).isNotNull();
         String token = provider.generateToken(123L);

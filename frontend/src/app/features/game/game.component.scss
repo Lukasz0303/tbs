@@ -173,7 +173,6 @@ app-game-bot-info {
   .players-section.guest-layout {
     --guest-card-width: 550px;
   }
-}
 
   .vs-text {
     font-size: 3.5rem;
@@ -191,6 +190,7 @@ app-game-bot-info {
       flex-shrink: 1;
     }
   }
+}
 
 @media (max-width: 1100px) {
   app-game-user-profile,
