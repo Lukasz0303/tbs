@@ -29,17 +29,20 @@ def build_request(path, host, port, key, origin, cookie_token=None):
 
 def send_frame(sock, opcode, payload=b""):
     length = len(payload)
+    mask_key = os.urandom(4)
+    masked_payload = bytes(b ^ mask_key[i % 4] for i, b in enumerate(payload))
     header = bytearray()
     header.append(0x80 | (opcode & 0x0F))
     if length < 126:
-        header.append(length)
+        header.append(0x80 | length)
     elif length < (1 << 16):
-        header.append(126)
+        header.append(0x80 | 126)
         header.extend(length.to_bytes(2, "big"))
     else:
-        header.append(127)
+        header.append(0x80 | 127)
         header.extend(length.to_bytes(8, "big"))
-    sock.sendall(header + payload)
+    header.extend(mask_key)
+    sock.sendall(header + masked_payload)
 
 
 def read_bytes(sock, buffer, count, timeout):

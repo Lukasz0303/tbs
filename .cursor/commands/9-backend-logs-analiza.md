@@ -10,7 +10,7 @@ Przeprowadź pełną diagnozę backendu: upewnij się, że aplikacja się buduje
 ### Wykonanie
 Uruchom w katalogu głównym:
 ```bash
-cd /Users/lzi/Desktop/PROJEKTY/tbs-main/backend && \
+cd backend && \
 ./gradlew clean checkstyleMain checkstyleTest test && \
 ./gradlew build && \
 ./run-backend.sh restart && \

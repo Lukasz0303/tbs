@@ -1,137 +1,114 @@
-# feat: UI/UX Improvements, Internationalization, and Matchmaking Enhancements
+# chore: Add Checkstyle Configuration, Improve Dev Tools, and Enhance JWT Security
 
 ### 📋 Overview
 
-This PR introduces comprehensive UI/UX improvements, full internationalization support (Polish/English), enhanced matchmaking queue functionality with player scores, and various frontend/backend refinements. The changes include language switching, improved styling across components, better state management, responsive design fixes for small screens, and configuration updates for development and production environments.
+This PR introduces code quality tooling with Checkstyle integration, improves development workflow with bash scripts, enhances JWT secret handling for better security, and adds comprehensive test scripts for various game scenarios.
 
 ### ✨ What's Changed
 
 #### New Features
 
-- **Language Selection** - Added language switcher (Polish/English) on home page with flag icons
-- **Player Scores in Matchmaking** - Display player scores/ranking in matchmaking queue
-- **Audio Settings Quick Toggle** - Simplified navbar with mute/unmute all sounds button
-- **Profile Navigation** - Added profile link in navbar replacing logout button
-- **Internationalized Legal Pages** - Privacy Policy and Terms of Service now fully translated
-- **Win Rate Display** - Added win rate calculation and display in profile component
+- **Checkstyle Integration** - Added Checkstyle plugin to Gradle build with custom configuration for code quality checks
+- **Bash Backend Runner** - New cross-platform bash script (`run-backend.sh`) for Unix/Linux/macOS environments with Java 21 detection and Supabase management
+- **Test Scripts Suite** - Comprehensive bash and Python test scripts for automated testing of game scenarios:
+  - Bot move testing (`test-bot-move.sh`)
+  - PvP match testing (`test-pvp-match.sh`)
+  - PvP WebSocket testing (`test-pvp-websocket.sh`)
+  - Bot win and ranking verification (`test-win-bot-and-check-ranking.sh`)
+  - WebSocket client utility (`ws_client.py`)
 
 #### Core Components
 
-**Improvements**
+**New Services**
+
+None
+
+**New Controllers**
+
+None
+
+**New Exceptions**
+
+None
+
+**New DTOs/Models**
+
+None
+
+#### Improvements
 
 **Database & Performance**
 
-- Added score field to `PlayerQueueStatus` DTO for displaying player rankings
-- Enhanced `MatchmakingService` to include player total points in queue status responses
-- Optimized matchmaking queue polling with page visibility detection to reduce unnecessary requests
+- Added Redis port mapping in Docker Compose for external access (default port 6380)
 
 **Error Handling**
 
-- Improved error handling in matchmaking queue component with better state management
-- Enhanced queue status change detection to prevent unnecessary UI updates
-- Added validation for score formatting and display
+None
 
 **Security & Validation**
 
-- Increased rate limit for profile updates from 10 to 30 requests per minute
-- Added default JWT secret for local development (with warning for production)
-- Updated CORS configuration to include localhost origins for development
+- **JWT Secret Security Enhancement** - Removed hardcoded default JWT secret from `application.properties` and `docker-compose.yml`
+  - JWT secret now must be explicitly set via `JWT_SECRET` environment variable
+  - For local development, if not set, a random secret will be generated (but changes on each restart)
+  - Updated JWT token provider tests to include Environment mock for proper test isolation
 
 **Code Quality**
 
-- **Refactored Navbar Component** - Removed complex audio settings dialog, simplified to mute/unmute toggle
-- **Enhanced Matchmaking Queue** - Added page visibility listener, optimized polling, improved change detection
-- **Improved Profile Component** - Migrated from BehaviorSubject to signals, better loading states, added win rate calculation
-- **Legal Pages Refactoring** - Converted hardcoded text to use translation service
-- **Translation Service Expansion** - Added 100+ new translation keys for legal pages, profile, queue, and UI elements
-- **Audio Settings Service** - Added `toggleMuteAll()` method for simplified audio control
+- Added Checkstyle plugin to Gradle build (version 10.12.5)
+- Configured Checkstyle with custom rules (120 char line length, proper formatting, etc.)
+- Checkstyle tasks disabled by default (can be enabled when needed)
+- Fixed SCSS syntax error in `game.component.scss` (missing closing brace)
 
-**UI/UX Improvements**
+**Development Tools**
 
-- Extensive SCSS updates across game components (board, bot info, user profile)
-- Enhanced styling for matchmaking queue, leaderboard, profile, and auth components
-- Improved visual feedback and animations in matchmaking queue
-- **Responsive Design Fixes** - Fixed layout issues on small screens (mobile devices) with media queries for max-width: 480px, 400px, and 768px breakpoints
-- Better responsive design and spacing throughout the application
-- Updated game result dialog with new translations
-- Enhanced avatar selector and edit username dialog styling
-
-**Configuration Changes**
-
-- Updated `docker-compose.yml` - Changed Redis port mapping from 6379 to 6380
-- Updated `frontend/Dockerfile` - Changed description labels to "Kółko i krzyżyk"
-- Updated `angular.json` - Increased bundle size budgets (initial: 500kb→1.5mb, component styles: 7kb→15kb)
-- Added `flag-icons` package (v7.5.0) for language selector flags
-- Updated `application.properties` - Added localhost to CORS origins, default JWT secret for dev, increased update rate limit
+- **Enhanced PowerShell Script** (`run-backend.ps1`):
+  - Increased Supabase startup timeout from 30 to 300 seconds
+  - Added progress monitoring with 10-second intervals
+  - Improved Docker image download detection and handling
+  - Better timeout handling when Docker images are being downloaded
+  - Extended PostgreSQL readiness check timeout from 30 to 60 seconds
+  - Added helpful hints for troubleshooting Supabase startup issues
 
 ### 🧪 Testing
 
-- Updated `MatchingControllerTest` to reflect changes in `PlayerQueueStatus` DTO structure
+- Updated `JwtTokenProviderTest` to include Environment mock dependency
+- Added Mockito extension for proper test setup
+- All test constructors now properly inject Environment mock
 
 ### 🗄️ Database Changes
 
-No database migrations required. Changes are limited to DTO structure and service logic.
+None - no schema changes or migrations
 
 ### 📦 Files Changed
 
-- **Modified**: 50 files
-- **Total**: 4,271 insertions(+), 603 deletions(-)
-
-**Backend (7 files)**
-- `UserController.java` - Rate limit documentation updates (10→30 requests/min)
-- `MatchmakingService.java` - Added score to queue status responses
-- `PlayerQueueStatus.java` - Added score field to DTO
-- `UpdateAvatarRequest.java` - Line ending normalization
-- `application.properties` - CORS, JWT secret, rate limit updates
-- `MatchingControllerTest.java` - Test updates for new DTO structure
-- `UserServiceTest.java` - Line ending normalization
-
-**Frontend (43 files)**
-- **Components**: game-board, game-bot-info, game-user-profile, game-result-dialog, user-rank-card, navbar, avatar-selector, edit-username-dialog (styling and functionality improvements)
-- **Features**: home (language selector), matchmaking-queue (score display, optimizations), matchmaking, profile (signals migration, win rate), leaderboard, legal pages (internationalization), game-options, auth components (styling)
-- **Services**: translate (100+ new keys), matchmaking, audio-settings
-- **Layouts**: main-layout
-- **Configuration**: angular.json, package.json, Dockerfile, index.html, styles.css
-
-**Docker (2 files)**
-- `docker-compose.yml` - Redis port mapping change
-- `frontend/Dockerfile` - Description label updates
+- Modified: 6 files (build.gradle, run-backend.ps1, application.properties, JwtTokenProviderTest.java, docker-compose.yml, game.component.scss)
+- Added: 10 files (checkstyle config, bash scripts, test scripts, Python WebSocket client, documentation)
+- Total: 1718 insertions, 20 deletions
 
 ### 🔍 Migration Notes
 
-**Configuration Updates:**
+**Important:** This PR changes JWT secret handling. Before deploying:
 
-- **Rate Limits**: Profile update rate limit increased from 10 to 30 requests/minute
-- **CORS**: Localhost origins (http://localhost:4200, http://127.0.0.1:4200) added to default allowed origins
-- **JWT Secret**: Default value added for local development (production should still use environment variable)
-- **Redis Port**: Default port mapping changed from 6379 to 6380 in docker-compose
-
-**Frontend Dependencies:**
-
-- New package: `flag-icons@^7.5.0` for language selector flags
-- Bundle size budgets increased to accommodate new styling and features
-
-**Translation Keys:**
-
-- 100+ new translation keys added for legal pages, profile features, queue enhancements, and UI elements
-- Application title changed from "World at War: Turn-Based Strategy" to "Tic-Tac-Toe" / "Kółko i krzyżyk"
+1. **For production/docker environments:** Ensure `JWT_SECRET` environment variable is explicitly set
+2. **For local development:** If `JWT_SECRET` is not set, a random secret will be generated on each restart (tokens will be invalidated)
+3. **For existing deployments:** Set `JWT_SECRET` environment variable before deploying this change to avoid token invalidation
 
 ### 🔄 Breaking Changes
 
-**None** - All changes are backward compatible. The new `score` field in `PlayerQueueStatus` is optional and handled gracefully in the frontend.
+**JWT Secret Configuration Change**
+
+- The default hardcoded JWT secret has been removed
+- All environments (except local dev with localhost datasource) must now explicitly set `JWT_SECRET` environment variable
+- Existing tokens will be invalidated if `JWT_SECRET` is not set or changed
 
 ### ✅ Checklist
 
-- [x] Language switcher implemented and tested
-- [x] Player scores displayed in matchmaking queue
-- [x] Translation service expanded with new keys
-- [x] Legal pages internationalized
-- [x] Navbar simplified with mute/unmute toggle
-- [x] Profile component migrated to signals
-- [x] Matchmaking queue optimizations implemented
-- [x] Styling improvements across components
-- [x] Responsive design fixes for small screens implemented
-- [x] Rate limits updated
-- [x] Configuration files updated
-- [x] Bundle size budgets adjusted
-- [x] No breaking changes introduced
+- [x] Checkstyle configuration added and tested
+- [x] JWT secret handling improved for security
+- [x] Test scripts added for various game scenarios
+- [x] Bash backend runner script created
+- [x] PowerShell script enhanced with better timeout handling
+- [x] Docker Compose updated with Redis port mapping
+- [x] Tests updated to work with new JWT provider signature
+- [x] SCSS syntax error fixed
+- [x] Documentation updated (migration notes)
