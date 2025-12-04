@@ -6,13 +6,13 @@ Write-Host ""
 $baseUrl = "http://localhost:8080"
 $wsBaseUrl = "ws://localhost:8080"
 
-$user1Email = "lukasz.zielinski0303@gmail.com"
-$user1Password = "u331ty!!"
-$user1Username = "lukasz.zielinski"
+$user1Email = if ($env:TEST_PVP_USER1_EMAIL) { $env:TEST_PVP_USER1_EMAIL } else { "test-pvp-user1@test.local" }
+$user1Password = if ($env:TEST_PVP_USER1_PASSWORD) { $env:TEST_PVP_USER1_PASSWORD } else { "test123!!" }
+$user1Username = if ($env:TEST_PVP_USER1_USERNAME) { $env:TEST_PVP_USER1_USERNAME } else { "testuser1" }
 
-$user2Email = "l.zzzielinski@gmail.com"
-$user2Password = "u331ty!!"
-$user2Username = "karol.zielinski"
+$user2Email = if ($env:TEST_PVP_USER2_EMAIL) { $env:TEST_PVP_USER2_EMAIL } else { "test-pvp-user2@test.local" }
+$user2Password = if ($env:TEST_PVP_USER2_PASSWORD) { $env:TEST_PVP_USER2_PASSWORD } else { "test123!!" }
+$user2Username = if ($env:TEST_PVP_USER2_USERNAME) { $env:TEST_PVP_USER2_USERNAME } else { "testuser2" }
 
 $user1Token = $null
 $user1Id = $null

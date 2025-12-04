@@ -325,33 +325,77 @@ function Start-Supabase {
         $ErrorActionPreference = "Continue"
         
         $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Uruchamiam npx supabase start..."
+        $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Uwaga: Pobieranie obrazow Docker moze zajac kilka minut przy pierwszym uruchomieniu..."
         $job = Start-Job -ScriptBlock {
             param($ProjectRoot)
             Set-Location $ProjectRoot
             & npx --yes supabase start 2>&1
         } -ArgumentList $ProjectRoot
         
-        $timeout = 30
+        $timeout = 300
         $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Oczekiwanie na uruchomienie Supabase (timeout: $timeout sekund)..."
-        $job | Wait-Job -Timeout $timeout | Out-Null
+        $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Monitorowanie postepu (sprawdzanie co 10 sekund)..."
         
-        $startOutput = @()
-        if ($job.State -eq "Running") {
-            $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Timeout podczas npx supabase start ($timeout sekund), przerywam..."
-            $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Pobieram czesciowy output przed przerwaniem..."
-            $startOutput = Receive-Job -Job $job -ErrorAction SilentlyContinue
-            if ($startOutput) {
-                $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Czesciowy output (ostatnie 30 linii):"
-                ($startOutput | Select-Object -Last 30) | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+        $elapsed = 0
+        $checkInterval = 10
+        while ($elapsed -lt $timeout -and $job.State -eq "Running") {
+            Start-Sleep -Seconds $checkInterval
+            $elapsed += $checkInterval
+            
+            $partialOutput = Receive-Job -Job $job -ErrorAction SilentlyContinue
+            if ($partialOutput) {
+                $downloadingLines = $partialOutput | Where-Object { $_ -match "Downloading" }
+                if ($downloadingLines) {
+                    $latestDownload = $downloadingLines | Select-Object -Last 1
+                    Write-Host "  $latestDownload" -ForegroundColor Cyan -NoNewline
+                    Write-Host "`r" -NoNewline
+                }
             }
-            Stop-Job -Job $job -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 2
-            Remove-Job -Job $job -ErrorAction SilentlyContinue
-            $ErrorActionPreference = $originalErrorActionStart
             
             $postgresRunning = Test-Port -Port 54322
             if ($postgresRunning) {
-                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Supabase uruchomiony mimo timeout (PostgreSQL dziala)"
+                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] PostgreSQL odpowiada, przerywam oczekiwanie..."
+                break
+            }
+        }
+        
+        if ($job.State -eq "Running") {
+            $job | Wait-Job -Timeout ($timeout - $elapsed) | Out-Null
+        }
+        
+        $startOutput = @()
+        if ($job.State -eq "Running") {
+            $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Timeout podczas npx supabase start ($timeout sekund), ale sprawdzam czy proces nadal dziala..."
+            $startOutput = Receive-Job -Job $job -ErrorAction SilentlyContinue
+            
+            $downloadingActive = $false
+            if ($startOutput) {
+                $downloadingLines = $startOutput | Where-Object { $_ -match "Downloading" }
+                if ($downloadingLines) {
+                    $downloadingActive = $true
+                    $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Wykryto aktywnosc pobierania obrazow Docker..."
+                    $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Pozwalam procesowi kontynuowac w tle..."
+                } else {
+                    $null = Write-ColorOutput -ForegroundColor Yellow "`[INFO`] Czesciowy output (ostatnie 30 linii):"
+                    ($startOutput | Select-Object -Last 30) | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+                }
+            }
+            
+            if (-not $downloadingActive) {
+                Stop-Job -Job $job -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 2
+            }
+            Remove-Job -Job $job -ErrorAction SilentlyContinue
+            $ErrorActionPreference = $originalErrorActionStart
+            
+            if ($downloadingActive) {
+                $null = Write-ColorOutput -ForegroundColor Cyan "`[INFO`] Oczekiwanie dodatkowe 60 sekund na zakonczenie pobierania..."
+                Start-Sleep -Seconds 60
+            }
+            
+            $postgresRunning = Test-Port -Port 54322
+            if ($postgresRunning) {
+                $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Supabase uruchomiony (PostgreSQL dziala)"
                 $redisRunning = Test-Port -Port 6379
                 if (-not $redisRunning) {
                     $null = Write-ColorOutput -ForegroundColor Yellow "`[WARN`] Redis nie odpowiada na porcie 6379, uruchamiam..."
@@ -367,6 +411,7 @@ function Start-Supabase {
                 $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz czy Docker Desktop jest uruchomiony"
                 $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi kontenerow: docker ps -a"
                 $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Sprawdz logi Supabase: npx supabase status"
+                $null = Write-ColorOutput -ForegroundColor Yellow "`[HINT`] Jesli obrazy sa pobierane, uruchom ponownie za kilka minut"
                 Pop-Location
                 return $false
             }
@@ -399,7 +444,7 @@ function Start-Supabase {
         
         Start-Sleep -Seconds 5
         
-        $postgresReady = Wait-ForPort -Port 54322 -ServiceName "PostgreSQL" -Timeout 30
+        $postgresReady = Wait-ForPort -Port 54322 -ServiceName "PostgreSQL" -Timeout 60
         if ($postgresReady) {
             $null = Write-ColorOutput -ForegroundColor Green "`[OK`] Supabase uruchomiony (PostgreSQL gotowy)"
             

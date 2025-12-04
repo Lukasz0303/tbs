@@ -1,0 +1,2 @@
+Przeanalizuj plik @.ai/prd.md  Chciałbym dodać nową funkcjonalność "Player Achievements" — stwórz nowy plan implementacji tego API zgodnie z komendą i założeniami innych API z pliku @.ai/prompts/7_tworzenie_planu_api.txt
+Wynik umieść w katalogu achievements w folderze @implementation-plans pod nazwą achievements

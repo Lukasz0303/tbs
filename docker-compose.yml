@@ -48,7 +48,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-validate}
       SPRING_DATA_REDIS_HOST: ${SPRING_DATA_REDIS_HOST:-redis}
       SPRING_DATA_REDIS_PORT: ${SPRING_DATA_REDIS_PORT:-6379}
-      JWT_SECRET: ${JWT_SECRET:-lo3Rp/t44UeFUOrB+qKxISaK/nyOsILpmDN06/yoUto=}
+      JWT_SECRET: ${JWT_SECRET:-}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-3600000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4222,https://tbswars.win,https://api.tbswars.win}
       APP_COOKIE_SECURE: ${APP_COOKIE_SECURE:-false}
@@ -94,6 +94,8 @@ services:
       - tbswars-network
     restart: unless-stopped
     command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
