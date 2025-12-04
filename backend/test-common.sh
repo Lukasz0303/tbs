@@ -185,10 +185,10 @@ print_board() {
       continue
     fi
     local cells=()
-    while IFS=$'\t' read -r cell; do
-      [[ -z "$cell" || "$cell" == "null" ]] && cell="."
-      cells+=("$cell")
-    done <<<"$row_data"
+    IFS=$'\t' read -r -a cells <<<"$row_data"
+    for i in "${!cells[@]}"; do
+      [[ -z "${cells[$i]}" || "${cells[$i]}" == "null" ]] && cells[$i]="."
+    done
     
     local row_str=""
     for ((col=0; col<size; col++)); do
